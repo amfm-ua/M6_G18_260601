@@ -11,13 +11,16 @@ Principais saídas:
   • Correlações de Pearson driver → VAL (ranking de importância dos riscos)
   • Dados de histograma prontos para renderização no frontend
 
-Distribuições por driver (simétricas → E[driver] = valor_cenário → E[VAL_MC] ≈ VAL_determinístico):
-  inventario   Triangular(75 %, 100 %, 125 % do cenário) — simétrica; mean = mode
-  pt2030_taxa  Triangular(30 %, 45 %, 60 %)              — simétrica; mean = mode = 45 %
-  b2c          Normal truncada N(1,0; σ=0,20) ∈ [0,3; 2,0] — incerteza de mercado
-  pessoal      Triangular(70 %, 100 %, 130 % do cenário) — simétrica; mean = mode
-  wacc         Triangular(WACC−2 p.p., WACC_cenário, WACC+2 p.p.) — simétrica; mean = wacc_cenário
-  capex        Triangular(−15 %, base, +15 %)            — simétrica; mean = capex_base
+Distribuições por driver (operacionais simétricas → E[driver] = valor_cenário → E[VAL_MC] ≈
+VAL_determinístico; preço/câmbio log-normais → assimétricas com cauda direita, E[X] > mediana):
+  inventario          Triangular(75 %, 100 %, 125 % do cenário) — simétrica; mean = mode
+  pt2030_taxa         Triangular(30 %, 45 %, 60 %)              — simétrica; mean = mode = 45 %
+  b2c                 Normal truncada N(1,0; σ=0,20) ∈ [0,3; 2,0] — incerteza de mercado
+  pessoal             Triangular(70 %, 100 %, 130 % do cenário) — simétrica; mean = mode
+  wacc                Triangular(WACC−2 p.p., WACC_cenário, WACC+2 p.p.) — simétrica; mean = wacc_cenário
+  capex               Triangular(−15 %, base, +15 %)            — simétrica; mean = capex_base
+  preco_eletricidade  Log-normal ln N(ln 0,12; σ=0,25) ∈ [0,06; 0,40] — inclui cenários crise OMIE 2021-22
+  eur_usd             Log-normal ln N(ln 1,08; σ=0,08) ∈ [0,85; 1,30] — GBM cambial histórico 2018-2024
 
 Dependências: apenas numpy + stdlib (sem scipy).
 """
@@ -79,12 +82,14 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
         "mode": None,
         "max": None,
     },
-    # Preço da eletricidade (€/kWh) — oscilação OMIE 2023-2024 em Portugal
+    # Preço da eletricidade (€/kWh) — log-normal centrada em 0,12 (OMIE base),
+    # cauda direita inclui cenários de crise OMIE 2021-22. mu = ln(0,12).
     "preco_eletricidade": {
-        "type": "triangular",
-        "min": 0.08,
-        "mode": 0.12,
-        "max": 0.20,
+        "type": "lognormal",
+        "mu": -2.12026,  # ln(0.12)
+        "sigma": 0.25,
+        "low": 0.06,
+        "high": 0.40,
     },
     # Taxa de câmbio EUR/USD (USD por 1 EUR) — oscilação histórica 2020-2024.
     # EUR/USD ↑ (EUR aprecia) → cada USD recebido vale MENOS em EUR → impacto negativo no VAL.
@@ -92,10 +97,11 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
     # Afeta apenas a fracção usd_fraction do vn_incremental (B2C internacional / exportações EUA).
     # Correlação de Pearson esperada com o VAL: negativa.
     "eur_usd": {
-        "type": "triangular",
-        "min": 0.90,   # EUR fraco (abr-2022: 0,97 mínimo pós-paridade)
-        "mode": 1.08,  # referência 2024
-        "max": 1.25,   # EUR forte (fev-2018: 1,25 máximo recente)
+        "type": "lognormal",
+        "mu": 0.07696,   # ln(1.08)
+        "sigma": 0.08,
+        "low": 0.85,
+        "high": 1.30,
     },
     # Taxa de crescimento nominal dos benefícios (substitui crescimento_anual fixo do YAML)
     "crescimento_logistico": {
@@ -180,6 +186,18 @@ def _sample_truncated_normal(
     return np.array(collected[:n])
 
 
+def _sample_lognormal(
+    rng: np.random.Generator,
+    mu: float,       # média do logaritmo natural
+    sigma: float,    # desvio-padrão do logaritmo natural
+    low: float,      # clip inferior
+    high: float,     # clip superior
+    n: int,
+) -> np.ndarray:
+    samples = rng.lognormal(mean=mu, sigma=sigma, size=n)
+    return np.clip(samples, low, high)
+
+
 def _draw_samples(
     rng: np.random.Generator,
     dist_cfg: dict,
@@ -200,6 +218,15 @@ def _draw_samples(
             rng,
             float(dist_cfg["mean"]),
             float(dist_cfg["std"]),
+            float(dist_cfg["low"]),
+            float(dist_cfg["high"]),
+            n,
+        )
+    if t == "lognormal":
+        return _sample_lognormal(
+            rng,
+            float(dist_cfg["mu"]),
+            float(dist_cfg["sigma"]),
             float(dist_cfg["low"]),
             float(dist_cfg["high"]),
             n,

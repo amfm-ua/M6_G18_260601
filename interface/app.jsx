@@ -67,8 +67,14 @@ function App() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn })
-      .then(data => {
+    Promise.all([
+      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn }),
+      // Taxa de IRC efetiva da API (fonte de verdade única, C-1). Fallback
+      // silencioso para o default offline se a chamada falhar.
+      API.assumptions({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn })
+        .catch(() => ({})),
+    ])
+      .then(([data, assum]) => {
         if (cancelled) return;
         setCtx({
           dr: data.dr,
@@ -77,6 +83,7 @@ function App() {
           kpis: data.kpis,
           fse: data.fse,
           pessoal: data.pessoal,
+          ircTaxaEfetiva: assum.irc_taxa_efetiva ?? GRESTEL.IRC_TAXA_EFETIVA,
           scenario, hubOn: effectiveHubOn, ecogresOn,
         });
         setLoading(false);

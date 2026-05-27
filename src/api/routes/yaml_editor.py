@@ -1,6 +1,5 @@
 """Rotas para edição de ficheiros YAML de pressupostos pelo docente."""
 
-import subprocess
 from pathlib import Path
 
 import yaml
@@ -10,6 +9,7 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/api/admin")
 
 _DATA_DIR = Path(__file__).resolve().parents[3] / "src" / "engine" / "data"
+_DEFAULTS_DIR = _DATA_DIR / "_defaults"
 
 # Whitelist dos ficheiros editáveis — os marcados com ✓ em guia_docentes.md.
 # Formato: key → (caminho_relativo, label, grupo)
@@ -50,7 +50,18 @@ def list_yaml_files():
     files = []
     for key, (rel, label, group) in _EDITABLE.items():
         path = _DATA_DIR / rel
-        files.append({"key": key, "label": label, "group": group, "path": rel, "exists": path.exists()})
+        default_path = _DEFAULTS_DIR / rel
+        current = path.read_text(encoding="utf-8") if path.exists() else None
+        default = default_path.read_text(encoding="utf-8") if default_path.exists() else None
+        is_modified = current is not None and default is not None and current != default
+        files.append({
+            "key": key,
+            "label": label,
+            "group": group,
+            "path": rel,
+            "exists": path.exists(),
+            "is_modified": is_modified,
+        })
     return {"files": files}
 
 
@@ -59,7 +70,15 @@ def get_yaml_file(key: str):
     path = _resolve(key)
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Ficheiro não encontrado em disco: {path}")
-    return {"key": key, "content": path.read_text(encoding="utf-8")}
+    content = path.read_text(encoding="utf-8")
+    rel, _label, _group = _EDITABLE[key]
+    default_path = _DEFAULTS_DIR / rel
+    default_content = default_path.read_text(encoding="utf-8") if default_path.exists() else None
+    return {
+        "key": key,
+        "content": content,
+        "is_modified": default_content is not None and content != default_content,
+    }
 
 
 @router.put("/yaml/{key}")
@@ -76,13 +95,10 @@ def put_yaml_file(key: str, body: YamlPayload):
 @router.post("/yaml/{key}/restore")
 def restore_yaml_file(key: str):
     path = _resolve(key)
-    repo_root = Path(__file__).resolve().parents[4]
-    result = subprocess.run(
-        ["git", "restore", str(path)],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise HTTPException(status_code=500, detail=f"git restore falhou: {result.stderr.strip()}")
-    return {"status": "ok", "key": key, "content": path.read_text(encoding="utf-8")}
+    rel, _label, _group = _EDITABLE[key]
+    default_path = _DEFAULTS_DIR / rel
+    if not default_path.exists():
+        raise HTTPException(status_code=404, detail=f"Predefinição não encontrada para '{key}'.")
+    original = default_path.read_text(encoding="utf-8")
+    path.write_text(original, encoding="utf-8")
+    return {"status": "ok", "key": key, "content": original}

@@ -25,6 +25,22 @@ const API = (() => {
     };
   }
 
+  // ─── assumptions ─────────────────────────────────────────────────────────
+  // Fonte de verdade única da taxa de IRC (C-1): o backend devolve
+  // irc_taxa_efetiva em GET /api/assumptions/effective. O frontend consome este
+  // valor e injeta-o em todas as chamadas do Hub — nunca o tem hardcoded.
+  // Em modo mock cai no fallback offline GRESTEL.IRC_TAXA_EFETIVA.
+  async function assumptions({ cenario = "Base", hub_on = false, ecogres_on = true } = {}) {
+    if (useMock) {
+      return { irc_taxa_efetiva: GRESTEL.IRC_TAXA_EFETIVA };
+    }
+    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on) });
+    const r = await fetch(BACKEND_URL + "/api/assumptions/effective?" + params);
+    if (!r.ok) throw new Error("Erro /api/assumptions/effective: " + r.status);
+    const d = await r.json();
+    return d.effective || {};
+  }
+
   // ─── projecao ──────────────────────────────────────────────────────────────
   async function projecao({ cenario, hub_on, ecogres_on }) {
     if (useMock) {
@@ -390,7 +406,7 @@ const API = (() => {
   // ─── hubViability ──────────────────────────────────────────────────────────
   async function hubViability({ cenario = "Base", irc_taxa, wacc } = {}) {
     if (useMock) {
-      const v = GRESTEL.hubViability(irc_taxa || 0.245);
+      const v = GRESTEL.hubViability(irc_taxa ?? GRESTEL.IRC_TAXA_EFETIVA);
       return v;
     }
     const params = new URLSearchParams({ cenario });
@@ -480,7 +496,7 @@ const API = (() => {
   }
 
   // ─── hubMonteCarlo ─────────────────────────────────────────────────────────
-  async function hubMonteCarlo({ cenario = "Base", n = 1000, irc_taxa = 0.245, seed } = {}) {
+  async function hubMonteCarlo({ cenario = "Base", n = 1000, irc_taxa = GRESTEL.IRC_TAXA_EFETIVA, seed } = {}) {
     const params = new URLSearchParams({ cenario, n: String(n), irc_taxa: String(irc_taxa) });
     if (seed != null) params.set("seed", String(seed));
     const r = await fetch(BACKEND_URL + "/api/hub/monte-carlo?" + params);
@@ -489,7 +505,7 @@ const API = (() => {
   }
 
   // ─── hubMonteCarloVala ─────────────────────────────────────────────────────
-  async function hubMonteCarloVala({ cenario = "Base", n = 1000, irc_taxa = 0.245, seed, pt2030_prob } = {}) {
+  async function hubMonteCarloVala({ cenario = "Base", n = 1000, irc_taxa = GRESTEL.IRC_TAXA_EFETIVA, seed, pt2030_prob } = {}) {
     const params = new URLSearchParams({ cenario, n: String(n), irc_taxa: String(irc_taxa) });
     if (seed != null) params.set("seed", String(seed));
     if (pt2030_prob != null) params.set("pt2030_prob", String(pt2030_prob));
@@ -596,7 +612,7 @@ const API = (() => {
         const ebit        = ebitda - dep;
         const juros       = (d24.juros - d24.rend_financeiros) * 0.96;
         const rai         = ebit - juros;
-        const irc         = Math.max(rai, 0) * 0.215;
+        const irc         = Math.max(rai, 0) * GRESTEL.IRC_TAXA_EFETIVA; // fonte única (C-1)
         const rl          = rai - irc;
         return { vn, ebitda, margem_ebitda: vn > 0 ? ebitda / vn : 0, rl };
       }
@@ -829,5 +845,5 @@ const API = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { useMock, health, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, FSE_RUBRICAS };
+  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, FSE_RUBRICAS };
 })();

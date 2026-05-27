@@ -10,6 +10,25 @@
 const GRESTEL = (() => {
   const YEARS = [2024, 2025, 2026, 2027, 2028, 2029];
 
+  // ── IRC: fonte de verdade única (correção C-1) ─────────────────────────────
+  // Antes existiam 4 valores divergentes para a mesma taxa (0.20 / 0.21 / 0.215
+  // / 0.245), espalhados por projectDR, hubViability, Monte Carlo e ASSUMPTIONS.
+  // Isto enviesava qualquer comparação mock ↔ live. Centraliza-se aqui e usa-se
+  // SEMPRE a mesma constante em todo o frontend.
+  //
+  // Taxas NOMINAIS 2024 (R&C auditado): IRC 21% + Derrama Municipal 1,5%
+  //   + Derrama Estadual 3% (1.º escalão €1,5M–€7,5M) = 25,5% nominal combinada.
+  //   (O antigo 0.245 correspondia a 20% — taxa 2025+ OE2024 — + 1,5% + 3%.)
+  // Taxa EFETIVA auditada: 8% (2024) / 18% (2023), reduzida por SIFIDE II e ICE.
+  //
+  // As projeções usam a taxa EFETIVA normalizada (13% = ponto médio da banda
+  // histórica 8%–18%), NÃO a nominal: usar a nominal subestimaria o resultado
+  // líquido e a viabilidade dos investimentos (Hub, Ecogres 4.0). Ver C-1.
+  // Em modo live, o valor canónico vem de GET /api/assumptions/effective
+  // (campo irc_taxa_efetiva); esta constante é o fallback do mock/offline.
+  const IRC_TAXA_EFETIVA = 0.13;
+  const IRC_TAXA_NOMINAL_COMBINADA = 0.255; // 21% + 1,5% + 3% — só referência documental
+
   // 2024 audited from base.yaml -> dr_2024_real
   const DR_2024 = {
     vn: 37884115.64,
@@ -111,7 +130,7 @@ const GRESTEL = (() => {
       outros_gastos: [DR_2024.outros_gastos + DR_2024.imparidades],
       depreciacoes: [DR_2024.depreciacoes],
       juros: [DR_2024.juros - DR_2024.rend_financeiros],
-      irc_taxa: 0.215, // IRC + derramas combinado
+      irc_taxa: IRC_TAXA_EFETIVA, // fonte de verdade única (C-1)
     };
 
     for (let i = 1; i < YEARS.length; i++) {
@@ -214,6 +233,12 @@ const GRESTEL = (() => {
 
   function projectBalanco(dr, opts = {}) {
     const hubOn = !!opts.hubOn;
+    // Caixa mínima (C-2): reconcilia os 3 valores antes divergentes (300 k€ literal,
+    // 500 k€ na UI, 1,3% VN no backend). Regra: max(piso absoluto, VN × pct).
+    // No modo live estes parâmetros chegam via opts (vindos do backend); no mock caem
+    // nos pressupostos declarados em ASSUMPTIONS — nunca mais um literal escondido.
+    const caixaMinAbs   = opts.caixaMinima    ?? ASSUMPTIONS.Caixa_minima;       // 500 k€
+    const caixaMinPctVn = opts.caixaMinimaPctVn ?? ASSUMPTIONS.Caixa_minima_pct_vn; // 1,3% VN
     const rows = [];
     let bal = { ...BAL_2024 };
     // 2024 row
@@ -248,7 +273,10 @@ const GRESTEL = (() => {
       const passivoCP = passivos(bal) + capitais(bal) - bal.Caixa;
       // simples: caixa cresce com lucro - capex - amortizações
       caixa = caixa + r.rl + dep - capex - (i === 1 && hubOn ? 0 : 800000);
-      bal.Caixa = Math.max(300000, caixa);
+      // Piso de caixa escala com o VN do ano (1,3%, ~593 k€ em 2025) mas nunca abaixo
+      // do piso absoluto declarado (500 k€). Coerente com a UI e com o backend.
+      const caixaMinima = Math.max(caixaMinAbs, r.vn * caixaMinPctVn);
+      bal.Caixa = Math.max(caixaMinima, caixa);
       rows.push(yearBalance(year, bal));
     }
     return rows;
@@ -363,7 +391,7 @@ const GRESTEL = (() => {
   }
 
   // Hub Logístico — viabilidade
-  function hubViability(irc_taxa = 0.21) {
+  function hubViability(irc_taxa = IRC_TAXA_EFETIVA) {
     // Reconstrução das contas do m6_hub_assumptions.yaml
     const wacc = 0.073;
     const capex = [0, 3300000, 2200000, 0, 0, 0, 0, 0, 0, 0, 0]; // 2025-2034 (idx0 = 2024)
@@ -417,8 +445,11 @@ const GRESTEL = (() => {
         wacc,
         irc_taxa: irc_taxa,
         capex_base: 6000000,
-        capex_2025: 3000000,
-        capex_2026: 3000000,
+        // C-3: referenciar o array `capex` usado no cálculo real dos FCF, em vez de
+        // literais. Garante que a ficha do Hub mostra exactamente o que o modelo usa
+        // (capex[1]=3,3M em 2025, capex[2]=2,2M em 2026); idx0 = 2024.
+        capex_2025: capex[1], // 3 300 000 €
+        capex_2026: capex[2], // 2 200 000 €
         horizonte_anos: 10,
         crescimento_terminal: 0.02,
         poupanca_operacional: 480000,
@@ -595,10 +626,15 @@ const GRESTEL = (() => {
 
   // Pressupostos exibidos
   const ASSUMPTIONS = {
-    IRC_taxa_geral: 0.20, Derrama_Municipal: 0.015, Derrama_Estadual: 0.0135,
+    // Nominais 2024 corrigidas (C-1): combinada = 21% + 1,5% + 3% = 25,5%.
+    IRC_taxa_geral: 0.21, Derrama_Municipal: 0.015, Derrama_Estadual: 0.03,
+    IRC_taxa_nominal_combinada: IRC_TAXA_NOMINAL_COMBINADA, IRC_taxa_efetiva: IRC_TAXA_EFETIVA,
     TSU_Empresa: 0.2375, SIFIDE_taxa_credito: 0.325,
     PMR_dias: 45, PMP_Inventarios_dias: 63, DMI_PA_dias: 160, DMI_MP_dias: 160,
-    Caixa_minima: 500000, Caixa_maxima: 1500000,
+    // Caixa mínima (C-2): piso absoluto de 500 k€ + componente dinâmica de 1,3% do VN.
+    // O pct espelha caixa.minima_pct_vn do backend (serializers.py / balanco.py); o piso
+    // absoluto é o valor de segurança declarado. projectBalanco usa max(piso, VN×pct).
+    Caixa_minima: 500000, Caixa_minima_pct_vn: 0.013, Caixa_maxima: 1500000,
     Payout_ratio: 0.20, Reserva_legal_pct: 0.05,
     Headcount_2024: 734, Custo_pessoal_2024: 14371357.70,
     Elasticidade_alpha_sem_hub: 0.40, Elasticidade_alpha_com_hub: 0.15,
@@ -606,7 +642,8 @@ const GRESTEL = (() => {
   };
 
   return {
-    YEARS, SCENARIOS, MESES, MERCADOS, CANAIS, ASSUMPTIONS,
+    YEARS, IRC_TAXA_EFETIVA, IRC_TAXA_NOMINAL_COMBINADA,
+    SCENARIOS, MESES, MERCADOS, CANAIS, ASSUMPTIONS,
     DR_2024, FSE_2024, BAL_2024,
     projectDR, projectBalanco, projectDFC, projectKPIs,
     projectFSE, projectEcogres,

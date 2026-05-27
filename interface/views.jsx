@@ -570,10 +570,10 @@ function HubViabilidadeView({ ctx }) {
     setLoading(true);
     setError(null);
     Promise.all([
-      API.hubViability({ cenario: ctx.scenario }),
-      API.hubTornado(),
+      API.hubViability({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva }),
+      API.hubTornado({ irc_taxa: ctx.ircTaxaEfetiva }),
       API.hubComparativo({ cenario: ctx.scenario }),
-      API.hubConsolidado({ cenario: ctx.scenario }),
+      API.hubConsolidado({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva }),
     ])
       .then(([v, t, c, s]) => {
         if (cancelled) return;
@@ -586,15 +586,15 @@ function HubViabilidadeView({ ctx }) {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [ctx.scenario]);
+  }, [ctx.scenario, ctx.ircTaxaEfetiva]);
 
   React.useEffect(() => {
     let cancelled = false;
-    API.hubViabilidadeCenarios()
+    API.hubViabilidadeCenarios({ irc_taxa: ctx.ircTaxaEfetiva })
       .then(d => { if (!cancelled) setViabCenarios(d); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [ctx.ircTaxaEfetiva]);
 
   if (loading && !viab) return <LoadingShell />;
   if (error && !viab) return <ErrorBanner message={error} onRetry={() => setError(null)} />;
@@ -678,7 +678,7 @@ function HubViabilidadeView({ ctx }) {
             <KV k="Cronograma 2025" v={fmt.eurC(p.capex_2025 || 2280000)} />
             <KV k="Cronograma 2026" v={fmt.eurC(p.capex_2026 || 1520000)} />
             <KV k="WACC" v={fmt.pct(wacc, 1)} />
-            <KV k="IRC taxa" v={fmt.pct(p.irc_taxa || 0.245, 1)} />
+            <KV k="IRC taxa" v={fmt.pct(p.irc_taxa ?? GRESTEL.IRC_TAXA_EFETIVA, 1)} />
             <KV k="Horizonte" v={(p.horizonte_anos || 10) + " anos"} />
             <KV k="Poupança operacional" v={fmt.eurC(p.poupanca_operacional || 380000) + " / ano"} />
             <KV k="Redução quebras" v={fmt.eurC(p.reducao_quebras || 50000) + " / ano"} />
@@ -1096,21 +1096,21 @@ function HubMonteCarloView({ ctx }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    API.hubMonteCarlo({ cenario: ctx.scenario, n: params.n, seed: params.seed })
+    API.hubMonteCarlo({ cenario: ctx.scenario, n: params.n, seed: params.seed, irc_taxa: ctx.ircTaxaEfetiva })
       .then(d => { if (!cancelled) { setMc(d); setLoading(false); } })
       .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [ctx.scenario, params]);
+  }, [ctx.scenario, ctx.ircTaxaEfetiva, params]);
 
   React.useEffect(() => {
     let cancelled = false;
     setLoadingVala(true);
     setErrorVala(null);
-    API.hubMonteCarloVala({ cenario: ctx.scenario, n: params.n, seed: params.seed })
+    API.hubMonteCarloVala({ cenario: ctx.scenario, n: params.n, seed: params.seed, irc_taxa: ctx.ircTaxaEfetiva })
       .then(d => { if (!cancelled) { setMcVala(d); setLoadingVala(false); } })
       .catch(err => { if (!cancelled) { setErrorVala(err.message || String(err)); setLoadingVala(false); } });
     return () => { cancelled = true; };
-  }, [ctx.scenario, params]);
+  }, [ctx.scenario, ctx.ircTaxaEfetiva, params]);
 
   if (loading && !mc) return <LoadingShell />;
   if (error && !mc) return <ErrorBanner message={error} onRetry={() => setParams(p => ({ ...p }))} />;
@@ -1803,16 +1803,16 @@ function HubVALAView({ ctx }) {
     setLoading(true);
     setError(null);
     Promise.all([
-      API.hubVala({ cenario: ctx.scenario }),
-      API.hubViability({ cenario: ctx.scenario }),
-      API.hubValaSensibilidade({ cenario: ctx.scenario }),
+      API.hubVala({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva }),
+      API.hubViability({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva }),
+      API.hubValaSensibilidade({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva }),
     ])
       .then(([v, vi, s]) => {
         if (!cancelled) { setVala(v); setViab(vi); setSens(s); setLoading(false); }
       })
       .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [ctx.scenario]);
+  }, [ctx.scenario, ctx.ircTaxaEfetiva]);
 
   if (loading && !vala) return <LoadingShell />;
   if (error   && !vala) return <ErrorBanner message={error} onRetry={() => setError(null)} />;
@@ -2088,13 +2088,13 @@ function HubContingenciaView({ ctx }) {
     setError(null);
     Promise.all([
       API.hubComparativo({ cenario: ctx.scenario }),
-      API.hubValaSensibilidade({ cenario: ctx.scenario }),
-      API.hubViabilidadeCenarios(),
+      API.hubValaSensibilidade({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva }),
+      API.hubViabilidadeCenarios({ irc_taxa: ctx.ircTaxaEfetiva }),
     ])
       .then(([c, s, vc]) => { if (!cancelled) { setComp(c); setSens(s); setViabCenarios(vc); setLoading(false); } })
       .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [ctx.scenario]);
+  }, [ctx.scenario, ctx.ircTaxaEfetiva]);
 
   if (loading && !comp) return <LoadingShell />;
   if (error && !comp) return <ErrorBanner message={error} onRetry={() => setError(null)} />;
@@ -3133,23 +3133,28 @@ function YamlEditorView() {
   const [files, setFiles] = React.useState([]);
   const [selectedKey, setSelectedKey] = React.useState(null);
   const [content, setContent] = React.useState("");
-  const [original, setOriginal] = React.useState("");
+  const [savedContent, setSavedContent] = React.useState(""); // último estado em disco
   const [saving, setSaving] = React.useState(false);
   const [feedback, setFeedback] = React.useState(null); // {type:"ok"|"err", msg}
+  const [confirmRestore, setConfirmRestore] = React.useState(false);
+  const textareaRef = React.useRef(null);
 
-  React.useEffect(() => {
+  function refreshList() {
     API.listYamlFiles()
       .then(d => setFiles(d.files || []))
       .catch(e => setFeedback({ type: "err", msg: e.message }));
-  }, []);
+  }
+
+  React.useEffect(() => { refreshList(); }, []);
 
   function loadFile(key) {
     setFeedback(null);
+    setConfirmRestore(false);
     setSelectedKey(key);
     setContent("");
-    setOriginal("");
+    setSavedContent("");
     API.getYamlContent(key)
-      .then(d => { setContent(d.content); setOriginal(d.content); })
+      .then(d => { setContent(d.content); setSavedContent(d.content); })
       .catch(e => setFeedback({ type: "err", msg: e.message }));
   }
 
@@ -3158,32 +3163,63 @@ function YamlEditorView() {
     setSaving(true);
     setFeedback(null);
     API.putYamlContent(selectedKey, content)
-      .then(() => { setOriginal(content); setFeedback({ type: "ok", msg: "Guardado com sucesso." }); })
+      .then(() => {
+        setSavedContent(content);
+        setFeedback({ type: "ok", msg: "Guardado com sucesso." });
+        refreshList(); // atualiza indicadores na sidebar
+      })
       .catch(e => setFeedback({ type: "err", msg: e.message }))
       .finally(() => setSaving(false));
   }
 
-  function handleReset() {
-    setContent(original);
+  function handleDiscardEdits() {
+    setContent(savedContent);
     setFeedback(null);
   }
 
-  function handleRestore() {
+  function handleRestoreConfirmed() {
     if (!selectedKey) return;
-    if (!window.confirm("Repor o ficheiro ao estado original do git?\nTodas as alterações guardadas serão perdidas.")) return;
+    setConfirmRestore(false);
     setSaving(true);
     setFeedback(null);
     API.restoreYamlContent(selectedKey)
-      .then(d => { setContent(d.content); setOriginal(d.content); setFeedback({ type: "ok", msg: "Ficheiro reposto ao estado original." }); })
+      .then(d => {
+        setContent(d.content);
+        setSavedContent(d.content);
+        setFeedback({ type: "ok", msg: "Ficheiro reposto aos valores predefinidos." });
+        refreshList();
+      })
       .catch(e => setFeedback({ type: "err", msg: e.message }))
       .finally(() => setSaving(false));
   }
 
-  const dirty = content !== original;
+  // Tab insere 2 espaços em vez de mudar foco
+  function handleKeyDown(e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const ta = textareaRef.current;
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const next = content.slice(0, start) + "  " + content.slice(end);
+      setContent(next);
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = start + 2;
+      });
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      if (!dirty || saving) return;
+      handleSave();
+    }
+  }
+
+  const dirty = content !== savedContent;
+  const selectedFile = files.find(f => f.key === selectedKey);
 
   return (
     <>
       <h2 style={{ margin: "0 0 1rem" }}>Editor de Pressupostos</h2>
+
       {feedback && (
         <div style={{
           padding: "0.6rem 1rem",
@@ -3198,7 +3234,42 @@ function YamlEditorView() {
           {feedback.type === "ok" ? "✓ " : "✗ "}{feedback.msg}
         </div>
       )}
+
+      {/* Banner de confirmação para restauro de predefinições */}
+      {confirmRestore && (
+        <div style={{
+          padding: "0.75rem 1rem",
+          marginBottom: "1rem",
+          borderRadius: "6px",
+          background: "#fef3c7",
+          border: "1px solid #f59e0b",
+          color: "#92400e",
+          fontSize: "0.85rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          flexWrap: "wrap",
+        }}>
+          <span>⚠ Isto irá repor o ficheiro aos valores originais do projeto. As alterações guardadas serão perdidas. Tem a certeza?</span>
+          <div style={{ display: "flex", gap: "0.5rem", marginLeft: "auto" }}>
+            <button
+              onClick={handleRestoreConfirmed}
+              style={{ padding: "0.3rem 0.9rem", borderRadius: "5px", border: "none", background: "#b45309", color: "#fff", cursor: "pointer", fontSize: "0.82rem", fontWeight: 600 }}
+            >
+              Sim, repor
+            </button>
+            <button
+              onClick={() => setConfirmRestore(false)}
+              style={{ padding: "0.3rem 0.9rem", borderRadius: "5px", border: "1px solid #d97706", background: "transparent", color: "#92400e", cursor: "pointer", fontSize: "0.82rem" }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+        {/* Sidebar de ficheiros */}
         <div style={{
           width: "240px",
           flexShrink: 0,
@@ -3230,8 +3301,11 @@ function YamlEditorView() {
                   <button
                     key={f.key}
                     onClick={() => loadFile(f.key)}
+                    title={f.is_modified ? "Modificado em relação aos valores originais" : undefined}
                     style={{
-                      display: "block",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
                       width: "100%",
                       textAlign: "left",
                       padding: "0.45rem 0.75rem",
@@ -3244,7 +3318,10 @@ function YamlEditorView() {
                       color: f.exists ? "inherit" : "#999",
                     }}
                   >
-                    {f.label}
+                    <span style={{ flex: 1 }}>{f.label}</span>
+                    {f.is_modified && (
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} title="Modificado" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -3252,55 +3329,65 @@ function YamlEditorView() {
           })()}
         </div>
 
+        {/* Área de edição */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {selectedKey && (
-            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ fontSize: "0.8rem", color: "var(--clr-muted, #888)", fontFamily: "monospace" }}>
-                {files.find(f => f.key === selectedKey)?.path}
+                {selectedFile?.path}
               </span>
               {dirty && <span style={{ fontSize: "0.75rem", color: "#b45309" }}>● não guardado</span>}
+              {!dirty && selectedFile?.is_modified && (
+                <span style={{ fontSize: "0.75rem", color: "#92400e" }}>● modificado vs. original</span>
+              )}
               <span style={{ flex: 1 }} />
+              {/* Descartar edições não guardadas */}
               <button
-                onClick={handleRestore}
-                disabled={saving}
-                title="Repor ao estado original do git (apaga alterações guardadas)"
-                style={{
-                  padding: "0.35rem 0.9rem",
-                  borderRadius: "5px",
-                  border: "1px solid #f87171",
-                  background: "transparent",
-                  color: "#b91c1c",
-                  cursor: "pointer",
-                  fontSize: "0.82rem",
-                }}
-              >
-                Repor original
-              </button>
-              <button
-                onClick={handleReset}
+                onClick={handleDiscardEdits}
                 disabled={!dirty || saving}
+                title="Descartar as alterações não guardadas e voltar ao último estado guardado"
                 style={{
                   padding: "0.35rem 0.9rem",
                   borderRadius: "5px",
                   border: "1px solid var(--clr-border, #e2ddd6)",
                   background: "transparent",
-                  cursor: dirty ? "pointer" : "default",
+                  cursor: dirty && !saving ? "pointer" : "default",
                   fontSize: "0.82rem",
-                  opacity: dirty ? 1 : 0.4,
+                  opacity: dirty && !saving ? 1 : 0.4,
                 }}
               >
-                Repor
+                Descartar edição
               </button>
+              {/* Restaurar predefinições — destrutivo, requer confirmação */}
+              <button
+                onClick={() => { setFeedback(null); setConfirmRestore(true); }}
+                disabled={saving || confirmRestore}
+                title="Repor aos valores originais do projeto (predefinições)"
+                style={{
+                  padding: "0.35rem 0.9rem",
+                  borderRadius: "5px",
+                  border: "1px solid #f59e0b",
+                  background: "transparent",
+                  color: "#92400e",
+                  cursor: saving || confirmRestore ? "default" : "pointer",
+                  fontSize: "0.82rem",
+                  opacity: saving || confirmRestore ? 0.5 : 1,
+                }}
+              >
+                Repor predefinições
+              </button>
+              {/* Guardar */}
               <button
                 onClick={handleSave}
                 disabled={saving || !dirty}
+                title="Guardar alterações em disco (Ctrl+S)"
                 style={{
                   padding: "0.35rem 1rem",
                   borderRadius: "5px",
                   border: "none",
-                  background: dirty ? "var(--clr-accent, #7c6e57)" : "#ccc",
+                  background: dirty && !saving ? "var(--clr-accent, #7c6e57)" : "#ccc",
                   color: "#fff",
-                  cursor: dirty ? "pointer" : "default",
+                  cursor: dirty && !saving ? "pointer" : "default",
                   fontSize: "0.82rem",
                   fontWeight: 600,
                 }}
@@ -3310,9 +3397,11 @@ function YamlEditorView() {
             </div>
           )}
           <textarea
+            ref={textareaRef}
             value={content}
-            onChange={e => { setContent(e.target.value); setFeedback(null); }}
-            placeholder={selectedKey ? "A carregar…" : "Seleccione um ficheiro à esquerda."}
+            onChange={e => { setContent(e.target.value); setFeedback(null); setConfirmRestore(false); }}
+            onKeyDown={handleKeyDown}
+            placeholder={selectedKey ? "A carregar…" : "Selecione um ficheiro à esquerda."}
             spellCheck={false}
             style={{
               width: "100%",
@@ -3329,6 +3418,11 @@ function YamlEditorView() {
               boxSizing: "border-box",
             }}
           />
+          {selectedKey && (
+            <div style={{ fontSize: "0.72rem", color: "var(--clr-muted, #999)", textAlign: "right" }}>
+              Tab insere 2 espaços · Ctrl+S guarda
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -92,6 +92,10 @@ def _flatten_assumptions(a) -> dict[str, Any]:
     out["hub_cresc_beneficios"] = float((h.get("beneficios_anuais") or {}).get("crescimento_anual", 0.02)) * 100
 
     impostos = raw.get("impostos", {}) or {}
+    # Taxa efetiva de planeamento — fonte de verdade única (C-1). Exposta como
+    # FRAÇÃO (0.13), não em %, porque é passada diretamente aos endpoints do Hub
+    # (irc_taxa). Elimina os valores hardcoded divergentes do frontend.
+    out["irc_taxa_efetiva"] = float(impostos.get("IRC_taxa_efetiva_planeamento", 0.13))
     out["irc_taxa_geral"] = float(impostos.get("IRC_taxa_geral", 0.21)) * 100
     out["irc_taxa_reduzida"] = float(impostos.get("IRC_taxa_reduzida", 0.17)) * 100
     out["derrama_municipal"] = float(impostos.get("Derrama_Municipal", 0.015)) * 100

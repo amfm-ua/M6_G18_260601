@@ -1,0 +1,19 @@
+# CAPEX planeado e taxas de depreciação 2025-2029.
+# Após alterar, regenerar computed/schedules.yaml executando o motor de investimento.
+
+taxa_dep_aft: 0.17
+taxa_amort_intang: 0.10
+
+novo_investimento_aft:
+  2025: 1500000  # flagship Madrid (fit-out) + outlet Lisboa + modernização equipamento industrial
+  2026: 1500000
+  2027: 1200000
+  2028: 1000000
+  2029: 800000
+
+novo_investimento_intang:
+  2025: 150000   # plataforma IA marketing + website B2B/B2C + software Indústria 4.0
+  2026: 120000
+  2027: 100000
+  2028: 80000
+  2029: 60000

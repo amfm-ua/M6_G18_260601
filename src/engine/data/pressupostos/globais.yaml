@@ -1,0 +1,268 @@
+# _metadata:
+#   versao: "OE4"
+#   data_criacao: "2025-05-26"
+#   data_ultima_alteracao: "2026-05-27"
+#   alterado_por: "grupo18"
+#   descricao: "Pressupostos globais actualizados para OE4 + fixes M6"
+
+impostos:
+  # OE2024 (Lei 28/2023): taxa geral reduzida de 21 % para 20 %, com efeitos a partir de 2025
+  # OE2025: taxa reduzida PME desce de 17 % para 16 % — não aplicável à Grestel (>250 trab.)
+  # A Grestel é grande empresa: art. 87.º n.º 1 CIRC — taxa geral aplica-se desde o 1.º euro
+  IRC_taxa_geral: 0.20           # taxa base 2025+ (OE2024 Lei 28/2023)
+  IRC_taxa_reduzida: 0.20        # Grestel tem 734 trab. → grande empresa; taxa reduzida PME não se aplica (art. 87.º n.º 2 CIRC)
+  IRC_aplicar_taxa_reduzida: false  # Grestel é grande empresa → taxa reduzida PME não se aplica
+  IRC_limiar_taxa_reduzida: 50000  # Limiar taxa reduzida PME (art. 87.º n.º 2 CIRC)
+  # Sobreposição por ano (confirma R&C 2024: taxa geral 21% em 2024)
+  IRC_taxa_geral_ano:
+    2024: 0.21
+  IRC_taxa_reduzida_ano: {}
+  Derrama_Municipal: 0.015       # máximo legal (Lei Finanças Locais art. 18.º); Vagos usa taxa máxima
+  Derrama_Estadual: 0.03         # art. 87.º-A CIRC: 3 % no 1.º escalão (€1,5 M–€7,5 M)
+  Derrama_Estadual_limiar: 1500000
+  Derrama_Estadual_2_taxa: 0.05  # art. 87.º-A n.º 2 CIRC: 5 % no 2.º escalão (€7,5 M–€35 M)
+  Derrama_Estadual_2_limiar: 7500000
+  Derrama_Estadual_3_taxa: 0.09  # art. 87.º-A n.º 3 CIRC: 9 % no 3.º escalão (> €35 M)
+  Derrama_Estadual_3_limiar: 35000000
+  Deducoes_Fiscais: 0.0
+  IVA_Vendas: 0.23
+  IVA_FSE: 0.15         # média ponderada FSE: energia/gás/transportes/rendas/honorários
+  IVA_CMVMC: 0.23       # IVA sobre matérias-primas (argila, feldspato, caulino): taxa plena 23 % (CIVA art. 18.º §1 al. c)
+  IVA_Inventarios: 0.23
+  TSU_Efetiva: 0.1935       # R&C 2024: taxa efetiva TSU (2.211.532,19€ / 11.428.817,69€); inferior à taxa legal 23,75%
+  imparidade_clientes_taxa: 0.005  # taxa base de imparidade sobre saldo de clientes; ajustar em cenários (ex: 0.01 em Stress)
+  IVA_AFT: 0.23
+  IVA_Diff_Dias: 0
+  TSU_Empresa: 0.2375
+  TSU_Trabalhador: 0.11
+  SAT: 0.03
+  IRS_Retencao: 0.25
+  SIFIDE_taxa_credito: 0.325
+  # Crédito SIFIDE II à coleta por ano (dedução direta ao IRC calculado)
+  # 2025: crédito apurado em 2024 (632 304 × 32,5% = 380 796€), pendente aprovação ANI
+  SIFIDE_credito_coleta_ano:
+    2025: 380795.67
+  # Estimativa conservadora de despesas elegíveis I&D anuais (laser, H2/gás — R&C 2025+)
+  SIFIDE_despesas_anuais: 400000.0
+  SIFIDE_ano_inicio_recorrente: 2026    # crédito de 2025 deduz à coleta de 2026
+
+  # ICE — Incentivo à Capitalização das Empresas (art. 41.º-A EBF)
+  # Valor auditado 2024: 342 403€. Cresce com a acumulação de capitais próprios.
+  ICE_valor_base: 342403.0
+  ICE_taxa_crescimento: 0.03
+
+  # Tributação Autónoma (valor fixo sobre despesas não dedutíveis: viaturas, representação)
+  Tributacao_Autonoma_taxa: 0.1         # mantido para API/UI
+  Tributacao_Autonoma_valor_2024: 22302.04
+  Tributacao_Autonoma_crescimento: 0.03
+
+  Majoracao_Energia_pct: 0.2
+
+caixa:
+  # Limites expressos como % do VN anual projetado (teoria keynesiana do motivo transação:
+  # a procura de liquidez escala com o volume de transações — Keynes 1936, Baumol 1952).
+  # Calibrados para coincidir com os valores históricos em 2025 e escalar com o crescimento.
+  minima_pct_vn: 0.013   # 1.3% VN → ≈ 527 k€ em 2025, ≈ 691 k€ em 2029
+  maxima_pct_vn: 0.086   # 8.6% VN → ≈ 3.48 M€ em 2025, ≈ 4.57 M€ em 2029
+
+  # Taxa de juro da linha de crédito rotativo CP (Euribor 3m ~3,5% + spread ~3pp).
+  taxa_juro_cc_anual: 0.065   # 6.5% — usado no dimensionamento da linha rotativa
+
+  # Floor fixo legado (mantido para retrocompatibilidade; sobreposto pelo floor dinâmico abaixo).
+  mensal_minima: 0
+
+  # ── Floor Dinâmico ───────────────────────────────────────────────────────────
+  # Floor[m] = MAX(floor_minimo_abs ; pct_floor × Pagamentos_Totais[m+1])
+  # Pagamentos_Totais = Pag.Fornecedores + Pag.Pessoal + Total_Fiscal do mês seguinte.
+  # Para Dezembro: proxy = média(Out, Nov, Dez) dos pagamentos do próprio ano.
+  floor_minimo_abs: 250000   # €250.000 — mínimo absoluto (editável)
+  pct_floor: 0.15             # 15% dos pagamentos totais do mês seguinte (editável)
+
+  # ── Linha de Crédito Rotativo ─────────────────────────────────────────────────
+  # null = sem limite; número = gera alerta quando drawdown > tecto
+  tecto_linha_credito: null
+
+distribuicao_resultados:
+  payout_ratio: 0.20
+  ano_inicio_distribuicao: 2026  # RL_2024 totalmente retido (sem dividendo em 2025 — capital afeto ao investimento hub)
+  reserva_legal_pct: 0.05
+
+# Crescimento anual dos rendimentos financeiros (juros de depósitos e aplicações de tesouraria)
+rendimentos_financeiros_base: 64677.79      # R&C 2024: rendimentos financeiros reais auditados
+rendimentos_financeiros_crescimento: 0.025
+
+# Nota: 2025 é tratado como exercício completo de 12 meses para efeitos dos mapas financeiros.
+
+prazos:
+  PMR_dias: 45
+  # PMP 2024 histórico: 63 dias (saldo auditado R&C 2024; usado via base.balanco diretamente).
+  # Objetivo estratégico 2025+: renegociar PMP com fornecedores para ≤55 dias,
+  # cumprindo a Diretiva 2011/7/UE (B2B ≤60 dias) com 5 dias de margem.
+  # Custo de oportunidade: ~1,1 M€ extra de fundo de maneio vs. 63 dias
+  # (8 dias × ~40 M€ CMVMC / 365 × 1,23 IVA). Ver pmp_2025 em smart_objetivos.yaml.
+  PMP_Inventarios_dias: 55
+  DMI_PA_dias: 160
+  DMI_MP_dias: 160
+  DMI_Mercadorias_dias: 60
+  Caixa_Dias: 15
+
+fse:
+  pct_producao: 0.4
+  pct_nao_producao: 0.6
+  meses_2025: 12      # 2025 tratado como ano completo; fator_tempo_fixo = 1.0 (sem truncagem do FSE fixo)
+
+pessoal:
+  custo_total_2024_auditado: 14371357.7
+  headcount_2024: 734
+  headcount_2025: 744
+  # headcount 2026-2029 é derivado: total_custo / custo_medio_base(só inflação salarial)
+  # elasticidade implícita ≈ alpha_pessoal (ver elasticidade_pessoal abaixo)
+  taxa_cresc_custo_2025: 0.035
+  elasticidade_sem_hub: 0.85
+  elasticidade_com_hub: 0.65
+  subsídio_férias_mes: Jun
+  subsídio_natal_mes: Nov
+  TSU_empregador: 0.2375
+  TSU_efetiva: 0.1935          # R&C 2024: taxa efetiva (2.211.532,19€ / 11.428.817,69€); usada no cálculo de custos
+
+  # ─── Subdivisão Contabilística (Nota 28 — IAS 19) ──────────────────────────
+  # Remuneracoes_2024: valor auditado R&C 2024 (salários brutos + sub. férias/natal)
+  # Nos anos seguintes: Remuneracoes cresce à mesma taxa que o total de pessoal.
+  # Encargos_TSU: calculado em runtime como Remuneracoes × TSU_empregador.
+  # Seguros_AT:   calculado em runtime como Remuneracoes × sat_pct_remun.
+  # Outros_Encargos: residual (participação lucros IAS 19, formação, outros).
+  contab:
+    Remuneracoes_2024: 11428817.69  # Nota 28 R&C 2024 auditado (antes: 11400000.0)
+    sat_pct_remun: 0.01182          # Prémio SAT: 135102.98 / 11428817.69 (antes: 0.0132)
+    remun_pct_total: 0.7952         # Remuneracoes / total_pessoal 2024 — usado no EOEP
+    irs_retencao_folha: 0.10        # Taxa simplificada IRS folha (retenção EOEP dezembro)
+
+  # ─── Subdivisão Departamental ───────────────────────────────────────────────
+  # Pesos estáveis aplicados ao total projetado em cada ano.
+  # Soma deve ser 1.0.
+  departamentos:
+    Producao:             0.65   # Maior concentração operacional (~477 FTE em 2024)
+    RD:                   0.05   # I&D e inovação de produto/processo
+    Comercial:            0.10   # Retalho + Hotelaria (força de vendas)
+    Financeira:           0.12   # Back-office, contabilidade, RH, jurídico
+    Marketing:            0.08   # Comunicação, marcas próprias
+
+elasticidade_pessoal:
+  alpha_sem_hub: 0.4
+  alpha_com_hub: 0.15
+
+esg:
+  reducao_gas_pecas: 0.05
+  eficiencia_gas_anual: 0.03
+  eficiencia_eletricidade_anual: 0.02
+
+sazonalidade:
+  PT:
+    Jan: 0.08
+    Fev: 0.08
+    Mar: 0.09
+    Abr: 0.09
+    Mai: 0.09
+    Jun: 0.09
+    Jul: 0.08
+    Ago: 0.06
+    Set: 0.08
+    Out: 0.09
+    Nov: 0.09
+    Dez: 0.08
+  UE:
+    Jan: 0.08
+    Fev: 0.08
+    Mar: 0.09
+    Abr: 0.09
+    Mai: 0.09
+    Jun: 0.09
+    Jul: 0.08
+    Ago: 0.06
+    Set: 0.08
+    Out: 0.09
+    Nov: 0.09
+    Dez: 0.08
+  USA:
+    Jan: 0.08
+    Fev: 0.08
+    Mar: 0.09
+    Abr: 0.09
+    Mai: 0.09
+    Jun: 0.09
+    Jul: 0.08
+    Ago: 0.06
+    Set: 0.08
+    Out: 0.09
+    Nov: 0.09
+    Dez: 0.08
+  ROW:
+    Jan: 0.08
+    Fev: 0.08
+    Mar: 0.09
+    Abr: 0.09
+    Mai: 0.09
+    Jun: 0.09
+    Jul: 0.08
+    Ago: 0.06
+    Set: 0.08
+    Out: 0.09
+    Nov: 0.09
+    Dez: 0.08
+
+mercados:
+  PT:
+    peso_global: 0.17
+    canais:
+      Private_Label: 0.3
+      Hotelaria: 0.25
+      Retalho: 0.25
+      E_Commerce: 0.2
+  UE:
+    peso_global: 0.3
+    canais:
+      Private_Label: 0.25
+      Hotelaria: 0.3
+      Retalho: 0.25
+      E_Commerce: 0.2
+  USA:
+    peso_global: 0.35
+    canais:
+      Private_Label: 0.2
+      Hotelaria: 0.35
+      Retalho: 0.25
+      E_Commerce: 0.2
+  ROW:
+    peso_global: 0.18
+    canais:
+      Private_Label: 0.15
+      Hotelaria: 0.35
+      Retalho: 0.3
+      E_Commerce: 0.2
+
+mix_canais_2024:
+  Private_Label: 0.25
+  Hotelaria: 0.31
+  Retalho: 0.26
+  E_Commerce: 0.18
+
+cambio_usd:
+  # Taxa de referência M3 (Bloomberg Consensus) — base para o factor de conversão
+  eur_usd_base: 1.08
+  # Peso das vendas denominadas em USD no VN total:
+  #   60% das vendas no mercado USA × 35% do peso USA no VN = 21%
+  # Para validar o impacto de 2.050 k€ / 10% USD depreciation, este parâmetro
+  # precisaria ser ~0.54 (consistente com "60% do VN total em USD" de M1).
+  # Mantém-se 0.21 (base M2); ajustar aqui se a decomposição for expandida a ROW.
+  pct_vn_usd: 0.21
+
+triggers: {}
+
+# ── Novo Financiamento Core ───────────────────────────────────────────────────
+# Encaixe de novo empréstimo bancário (fora do hub) com mês e montante editáveis.
+# O valor entra no fluxo_financiamento do mês configurado (desembolso único).
+# Para cenário com projeto (hub_on=True), usar montante_com_projeto.
+novo_financiamento_core:
+  mes_desembolso: Jan             # mês do desembolso (Jan por defeito)
+  montante_sem_projeto: 1130000   # €1.130.000 — cenário sem hub
+  montante_com_projeto: 1130000   # igual por defeito; ajustar se hub exigir financiamento adicional

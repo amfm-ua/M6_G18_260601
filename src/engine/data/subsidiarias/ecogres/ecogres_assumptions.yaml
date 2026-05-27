@@ -1,0 +1,48 @@
+# _metadata:
+#   versao: "OE4"
+#   data_criacao: "2025-05-26"
+#   data_ultima_alteracao: "2026-05-27"
+#   alterado_por: "grupo18"
+#   descricao: "Pressupostos Ecogres actualizados"
+
+incluir_ecogres: true
+
+operacoes_correntes:
+  custos_operacionais_2024:
+    total: 7880000
+  depreciacao_2024: 275000
+  rl_base_2024: 85000
+  crescimento_custos_anual: 0.02
+  crescimento_depreciacao: 0.01
+  elasticidade_pessoal:
+    alpha_sem_hub: 0.40
+    alpha_com_hub: 0.15
+
+transacoes_grestel:
+  subcontratacao_2024: 8260000
+  cedencia_pessoal_2024: 2222745
+  crescimento_subcontratacao: 0.03
+  crescimento_cedencia: 0.02
+
+financiamento:
+  rend_financeiros: 5000
+
+viabilidade:
+  irc_taxa_ecogres: 0.21  # taxa histórica 2024
+  irc_taxa_por_ano:
+    2025: 0.20
+    2026: 0.20
+    2027: 0.20
+    2028: 0.20
+    2029: 0.20
+
+transferencia_hub:
+  inicio: 2026
+  preco_transferencia_base: 180000
+  crescimento_anual: 0.02
+  custo_operacional_ecogres: 120000
+
+capacidade:
+  ativar_reducao_mpsc: false
+  reducao_mpsc_por_capacidade: 0.15
+  subcontratacao_capacidade_referencia: 8260000

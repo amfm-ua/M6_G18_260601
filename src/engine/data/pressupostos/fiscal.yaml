@@ -1,0 +1,76 @@
+# Parâmetros fiscais parametrizados para fácil actualização OE5
+# Todos os valores hardcoded em impostos.py, eoep.py, tesouraria.py
+# devem migrar para este ficheiro.
+
+irc:
+  taxa_geral_por_ano:
+    2024: 0.21
+    2025: 0.20
+    2026: 0.20
+    2027: 0.20
+    2028: 0.20
+    2029: 0.20
+  taxa_reduzida_por_ano:
+    2024: 0.17
+    2025: 0.16
+    2026: 0.16
+    2027: 0.16
+    2028: 0.16
+    2029: 0.16
+  aplicar_taxa_reduzida: false
+  limiar_taxa_reduzida: 50000
+  limiar_pme_vn: 500000
+  limiar_pme_trabalhadores: 250
+
+derrama_estadual:
+  escaloes:
+    - limiar_inferior: 0
+      limiar_superior: 1500000
+      taxa: 0.03
+    - limiar_inferior: 1500000
+      limiar_superior: 7500000
+      taxa: 0.05
+    - limiar_inferior: 7500000
+      limiar_superior: 35000000
+      taxa: 0.09
+    - limiar_inferior: 35000000
+      limiar_superior: null
+      taxa: 0.09
+
+derrama_municipal: 0.015
+
+sifide_ii:
+  taxa: 0.325
+  carry_forward_anos: 8
+
+rfai:
+  taxa: 0.10
+  limite_pct_coleta: 0.25
+  carry_forward_anos: 10
+
+ice:
+  deducao_base_pct: 0.04
+  crescimento_anual: 0.03
+
+tsu:
+  patronal: 0.2375
+  efetiva: 0.1935
+  trabalhador: 0.11
+
+sat: 0.0132
+
+trib_autonoma:
+  despesas_nao_doc: 0.10
+  viaturas: 0.10
+
+iva:
+  taxa_standard: 0.23
+  taxa_intermedia: 0.13
+  taxa_reduzida: 0.06
+  compras_cmvmc: 0.23
+  compras_fse: 0.15
+  vendas_mercado_interno: 0.23
+
+ppc_irc:
+  pct: 0.85
+  meses: [7, 9, 12]

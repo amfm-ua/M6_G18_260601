@@ -1,0 +1,838 @@
+"""Monte Carlo — Viabilidade do Hub Logístico 4.0.
+
+Complementa a análise determinística (tornado, ponto crítico) com simulação estocástica:
+em vez de 2 pontos por driver (pessimista/otimista), amostra distribuições contínuas e
+corre N iterações completas do modelo de viabilidade.
+
+Principais saídas:
+  • Distribuição do VAL e TIR (percentis P5–P95, média, desvio-padrão)
+  • P(VAL > 0)  — probabilidade de o projeto ser viável
+  • P(TIR > WACC_base) — probabilidade de excesso de retorno sobre o custo de capital
+  • Correlações de Pearson driver → VAL (ranking de importância dos riscos)
+  • Dados de histograma prontos para renderização no frontend
+
+Distribuições por driver (simétricas → E[driver] = valor_cenário → E[VAL_MC] ≈ VAL_determinístico):
+  inventario   Triangular(75 %, 100 %, 125 % do cenário) — simétrica; mean = mode
+  pt2030_taxa  Triangular(30 %, 45 %, 60 %)              — simétrica; mean = mode = 45 %
+  b2c          Normal truncada N(1,0; σ=0,20) ∈ [0,3; 2,0] — incerteza de mercado
+  pessoal      Triangular(70 %, 100 %, 130 % do cenário) — simétrica; mean = mode
+  wacc         Triangular(WACC−2 p.p., WACC_cenário, WACC+2 p.p.) — simétrica; mean = wacc_cenário
+  capex        Triangular(−15 %, base, +15 %)            — simétrica; mean = capex_base
+
+Dependências: apenas numpy + stdlib (sem scipy).
+"""
+
+from __future__ import annotations
+
+import copy
+import math
+from typing import Any
+
+import numpy as np
+
+from .hub_logistico import load, viabilidade_hub, vala_hub
+
+
+# ---------------------------------------------------------------------------
+# Distribuições por defeito (calibradas com os ranges do tornado_hub)
+# ---------------------------------------------------------------------------
+
+DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
+    "inventario": {
+        "type": "triangular",
+        "min": 1_000_000.0,
+        "mode": 2_000_000.0,
+        "max": 2_500_000.0,
+    },
+    # Triangular simétrica (mean = mode = 45 %): incerteza simétrica em torno
+    # do cenário base PT2030 (45 %), range ±15 p.p.
+    "pt2030_taxa": {
+        "type": "triangular",
+        "min": 0.30,
+        "mode": 0.45,
+        "max": 0.60,
+    },
+    # Normal truncada: incerteza de mercado em torno do cenário base (×1.0).
+    "b2c": {
+        "type": "truncnorm",
+        "mean": 1.0,
+        "std": 0.20,
+        "low": 0.30,
+        "high": 2.00,
+    },
+    "pessoal": {
+        "type": "triangular",
+        "min": 200_000.0,
+        "mode": 380_000.0,
+        "max": 500_000.0,
+    },
+    "wacc": {
+        "type": "triangular",
+        "min": 0.06,
+        "mode": 0.073,
+        "max": 0.10,
+    },
+    # capex: min/mode/max calculados em runtime (±15 % sobre proj["capex"]["base"])
+    "capex": {
+        "type": "triangular",
+        "min": None,
+        "mode": None,
+        "max": None,
+    },
+    # Preço da eletricidade (€/kWh) — oscilação OMIE 2023-2024 em Portugal
+    "preco_eletricidade": {
+        "type": "triangular",
+        "min": 0.08,
+        "mode": 0.12,
+        "max": 0.20,
+    },
+    # Taxa de câmbio EUR/USD (USD por 1 EUR) — oscilação histórica 2020-2024.
+    # EUR/USD ↑ (EUR aprecia) → cada USD recebido vale MENOS em EUR → impacto negativo no VAL.
+    # EUR/USD ↓ (EUR desvaloriza) → cada USD recebido vale MAIS em EUR → impacto positivo no VAL.
+    # Afeta apenas a fracção usd_fraction do vn_incremental (B2C internacional / exportações EUA).
+    # Correlação de Pearson esperada com o VAL: negativa.
+    "eur_usd": {
+        "type": "triangular",
+        "min": 0.90,   # EUR fraco (abr-2022: 0,97 mínimo pós-paridade)
+        "mode": 1.08,  # referência 2024
+        "max": 1.25,   # EUR forte (fev-2018: 1,25 máximo recente)
+    },
+    # Taxa de crescimento nominal dos benefícios (substitui crescimento_anual fixo do YAML)
+    "crescimento_logistico": {
+        "type": "triangular",
+        "min": 0.02,
+        "mode": 0.04,
+        "max": 0.07,
+    },
+}
+
+DRIVERS = [
+    "inventario", "pt2030_taxa", "b2c", "pessoal", "wacc", "capex",
+    "preco_eletricidade", "eur_usd", "crescimento_logistico",
+]
+
+# ---------------------------------------------------------------------------
+# Drivers e distribuições adicionais para Monte Carlo VALA (APV)
+# ---------------------------------------------------------------------------
+
+# pt2030_approved : Bernoulli(p=0.75) — 0 = rejeitado, 1 = aprovado
+# rfai_utilization: Triangular(0.5, 1.0, 1.0) — fração do crédito RFAI efetivamente absorvida
+# kd_shock        : Triangular(−100 bps, 0, +200 bps) — choque aditivo ao Kd bancário
+VALA_EXTRA_DRIVERS = ["pt2030_approved", "rfai_utilization", "kd_shock"]
+
+DEFAULT_VALA_EXTRA_DISTRIBUTIONS: dict[str, dict] = {
+    "pt2030_approved": {
+        "type": "bernoulli",
+        "p": 0.75,
+    },
+    "rfai_utilization": {
+        "type": "triangular",
+        "min": 0.50,
+        "mode": 1.00,
+        "max": 1.00,
+    },
+    "kd_shock": {
+        "type": "triangular",
+        "min": -0.010,
+        "mode": 0.000,
+        "max": 0.020,
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Samplers (numpy puro)
+# ---------------------------------------------------------------------------
+
+def _sample_triangular(
+    rng: np.random.Generator,
+    low: float,
+    mode: float,
+    high: float,
+    n: int,
+) -> np.ndarray:
+    """Amostrador triangular usando numpy.random.Generator.triangular."""
+    # Caso degenerado: se low == high (distribuição pontual), retorna constante.
+    if math.isclose(low, high, rel_tol=1e-9):
+        return np.full(n, low)
+    # numpy aceita mode == low ou mode == high (casos degenerados válidos)
+    return rng.triangular(low, mode, high, size=n)
+
+
+def _sample_truncated_normal(
+    rng: np.random.Generator,
+    mean: float,
+    std: float,
+    low: float,
+    high: float,
+    n: int,
+) -> np.ndarray:
+    """Normal truncada por rejection sampling.
+
+    Para os parâmetros b2c (N(1.0, 0.20) em [0.3, 2.0]) a taxa de rejeição é
+    < 0,3 % — o over-sampling de 10× é suficiente para qualquer n prático.
+    """
+    collected: list[float] = []
+    while len(collected) < n:
+        batch = rng.normal(mean, std, size=max(n * 10, 500))
+        valid = batch[(batch >= low) & (batch <= high)]
+        collected.extend(valid.tolist())
+    return np.array(collected[:n])
+
+
+def _draw_samples(
+    rng: np.random.Generator,
+    dist_cfg: dict,
+    n: int,
+) -> np.ndarray:
+    """Despacha para o sampler correto conforme dist_cfg["type"]."""
+    t = dist_cfg["type"]
+    if t == "triangular":
+        return _sample_triangular(
+            rng,
+            float(dist_cfg["min"]),
+            float(dist_cfg["mode"]),
+            float(dist_cfg["max"]),
+            n,
+        )
+    if t == "truncnorm":
+        return _sample_truncated_normal(
+            rng,
+            float(dist_cfg["mean"]),
+            float(dist_cfg["std"]),
+            float(dist_cfg["low"]),
+            float(dist_cfg["high"]),
+            n,
+        )
+    if t == "bernoulli":
+        # Devolve 1.0 (aprovado) com probabilidade p, 0.0 (rejeitado) com 1−p.
+        p = float(dist_cfg["p"])
+        return (rng.random(n) < p).astype(float)
+    raise ValueError(f"Tipo de distribuição desconhecido: {t!r}")
+
+
+# ---------------------------------------------------------------------------
+# Mutação do hub (espelha sensibilidade_hub() de hub_logistico.py)
+# ---------------------------------------------------------------------------
+
+def _apply_sample(hub_base: dict, s: dict[str, float]) -> tuple[dict, float]:
+    """Aplica um conjunto de valores amostrados a uma cópia profunda do hub.
+
+    Retorna (hub_mutado, wacc_amostrado).
+    O wacc NÃO é mutado no dicionário — é passado como kwarg a viabilidade_hub()
+    (mesmo comportamento de sensibilidade_hub() nas linhas 1515-1527 do módulo original).
+    """
+    h = copy.deepcopy(hub_base)
+    proj = h["projeto_hub"]
+
+    # 1. Libertação de inventário (benefício pontual one-time)
+    proj["beneficios_pontuais"]["libertacao_inventario"] = s["inventario"]
+
+    # 2. CAPEX — escala base + cronograma anual proporcionalmente.
+    #    A mesma proporção é aplicada ao capex_elegivel do RFAI para manter
+    #    consistência interna (se mais é investido, mais é elegível a crédito fiscal).
+    capex_base_val = float(proj["capex"]["base"])
+    factor = s["capex"] / capex_base_val if capex_base_val else 1.0
+    proj["capex"]["base"] = s["capex"]
+    for y in list(proj["capex"]["cronograma"].keys()):
+        proj["capex"]["cronograma"][y] = float(proj["capex"]["cronograma"][y]) * factor
+    rfai_cfg = proj.get("rfai", {})
+    if rfai_cfg.get("aplicar", False) and "capex_elegivel" in rfai_cfg:
+        rfai_cfg["capex_elegivel"] = float(rfai_cfg["capex_elegivel"]) * factor
+
+    # 3. PT2030 — montante em € = taxa amostrada × CAPEX amostrado.
+    #    (O subsídio é definido como % do CAPEX, logo ambos variam em conjunto.)
+    proj["financiamento"]["PT2030"]["montante"] = s["pt2030_taxa"] * s["capex"]
+
+    # 4. Poupança operacional (pessoal + automação)
+    ben = proj["beneficios_anuais"]
+    ben["poupanca_operacional"] = s["pessoal"]
+    quebras = float(ben.get("reducao_quebras", 0.0))
+    opex = abs(float(
+        ben.get("opex_incremental")
+        or proj.get("opex_detalhe", {}).get("total", 0.0)
+        or 0.0
+    ))
+    ben["beneficio_liquido_anual"] = s["pessoal"] + quebras - opex
+
+    # 5. B2C — factor de escala sobre o VN incremental por ano
+    vn_map = proj.get("beneficios_comerciais", {}).get("vn_incremental", {})
+    for yr in list(vn_map.keys()):
+        vn_map[yr] = float(vn_map[yr]) * s["b2c"]
+
+    # 6. Preço da eletricidade — delta sobre beneficio_liquido_anual
+    #    O opex_incremental do YAML já embute um custo energético base (energia líq. de PV);
+    #    este step modela a volatilidade desse componente face ao preço OMIE amostrado.
+    energia_cfg = proj.get("opex_detalhe", {}).get("energia", {})
+    consumo_kwh = float(energia_cfg.get("consumo_liquido_kwh", 90_000))
+    preco_kwh_base = float(energia_cfg.get("preco_kwh_base", 0.12))
+    energia_delta = (s["preco_eletricidade"] - preco_kwh_base) * consumo_kwh
+    ben["beneficio_liquido_anual"] = ben["beneficio_liquido_anual"] - energia_delta
+
+    # 7. EUR/USD — ajuste da fracção USD do VN incremental (aplica-se depois do step b2c)
+    #
+    #    Lógica: a empresa recebe dólares (vendas B2C internacionais) e converte a EUR.
+    #      USD recebidos → EUR = USD / EUR_USD_rate
+    #    Logo EUR/USD ↑ (EUR aprecia) → conversão produz menos EUR → VAL desce.
+    #         EUR/USD ↓ (EUR desvaloriza) → conversão produz mais EUR → VAL sobe.
+    #
+    #    fx_factor = eur_usd_base / eur_usd_amostrado
+    #      • = 1,0 exatamente no caso base (sem efeito)
+    #      • > 1,0 quando EUR desvaloriza (eur_usd amostrado < base) → amplifica receita
+    #      • < 1,0 quando EUR aprecia   (eur_usd amostrado > base) → reduz receita
+    #
+    #    Apenas usd_fraction do vn_incremental é USD-denominado; a parte EUR mantém-se inalterada.
+    #    Fórmula: vn_ajustado = vn × [1 − usd_frac × (1 − fx_factor)]
+    #      equivalente a: vn_eur_puro + vn_usd_puro × fx_factor
+    usd_frac = float(proj.get("beneficios_comerciais", {}).get("usd_fraction", 0.15))
+    eur_usd_base = float(proj.get("viabilidade", {}).get("eur_usd_base", 1.08))
+    fx_factor = eur_usd_base / s["eur_usd"]
+    for yr in list(vn_map.keys()):
+        vn_map[yr] = vn_map[yr] * (1.0 - usd_frac * (1.0 - fx_factor))
+
+    # 8. Taxa de crescimento nominal dos benefícios (substitui o valor fixo do YAML)
+    proj["beneficios_anuais"]["crescimento_anual"] = s["crescimento_logistico"]
+
+    # wacc devolvido separadamente (não mutado no dict)
+    return h, float(s["wacc"])
+
+
+# ---------------------------------------------------------------------------
+# Estatísticas e histograma
+# ---------------------------------------------------------------------------
+
+def _percentiles(values: np.ndarray, pcts: list[int]) -> dict[str, float]:
+    """Dicionário de percentis a partir de um array numpy."""
+    return {f"p{p}": float(np.percentile(values, p)) for p in pcts}
+
+
+def _build_histogram(values: np.ndarray, n_bins: int = 40) -> dict[str, Any]:
+    """Histograma JSON-serializable com centros de bins, contagens e arestas."""
+    counts, edges = np.histogram(values, bins=n_bins)
+    centers = [(float(edges[i]) + float(edges[i + 1])) / 2.0 for i in range(n_bins)]
+    return {
+        "bins": centers,
+        "counts": [int(c) for c in counts],
+        "edges": [float(e) for e in edges],
+    }
+
+
+def _pearson(x: list[float], y: list[float]) -> float:
+    """Correlação de Pearson entre dois vetores (ignora NaN via máscara)."""
+    xa = np.array(x, dtype=float)
+    ya = np.array(y, dtype=float)
+    mask = np.isfinite(xa) & np.isfinite(ya)
+    if mask.sum() < 2:
+        return 0.0
+    corr_matrix = np.corrcoef(xa[mask], ya[mask])
+    return float(corr_matrix[0, 1])
+
+
+# ---------------------------------------------------------------------------
+# Função principal
+# ---------------------------------------------------------------------------
+
+def monte_carlo_hub(
+    hub: dict | None = None,
+    n_simulations: int = 1000,
+    irc_taxa: float | None = None,
+    distributions: dict | None = None,
+    seed: int | None = None,
+) -> dict:
+    """Simulação Monte Carlo da viabilidade do Hub Logístico 4.0.
+
+    Parâmetros
+    ----------
+    hub : dict | None
+        Dicionário de pressupostos (carregado de m6_hub_assumptions.yaml).
+        Se None, carrega automaticamente via load().
+    n_simulations : int
+        Número de iterações (recomendado: 1 000–5 000).
+    irc_taxa : float | None
+        Taxa combinada de IRC. Se None, usa o valor do YAML (por defeito 22,5 %).
+    distributions : dict | None
+        Override de parâmetros por driver. Mesma estrutura de DEFAULT_DISTRIBUTIONS.
+        Apenas as chaves fornecidas são substituídas; as restantes mantêm o defeito.
+    seed : int | None
+        Seed do gerador aleatório (para reprodutibilidade). None = seed aleatório.
+
+    Retorna
+    -------
+    dict com:
+      val          — estatísticas e histograma do VAL (€)
+      tir          — estatísticas da TIR (exclui iterações sem convergência)
+      correlacoes_val — Pearson r entre cada driver e o VAL (ranking de risco)
+      distribuicoes_usadas — parâmetros efetivos usados na simulação
+      parametros_base      — caso base determinístico para referência
+    """
+    if hub is None:
+        hub = load()
+
+    proj = hub["projeto_hub"]
+    via = proj["viabilidade"]
+
+    if irc_taxa is None:
+        irc_taxa = float(via.get("irc_taxa", 0.21))
+    wacc_base = float(via["wacc"])
+    capex_base = float(proj["capex"]["base"])
+
+    # ── Resolver distribuições efetivas ─────────────────────────────────────
+    dist_efetivas: dict[str, dict] = {}
+    for drv in DRIVERS:
+        cfg = dict(DEFAULT_DISTRIBUTIONS[drv])
+        if distributions and drv in distributions:
+            cfg.update(distributions[drv])
+        dist_efetivas[drv] = cfg
+
+    # WACC: distribuição simétrica ±2 p.p. em torno do WACC do cenário.
+    # Distribuição simétrica garante E[WACC] = wacc_cenário → E[VAL_MC] ≈ VAL_determinístico.
+    # Limites fixos [6%, mode, 10%] criavam assimetria: para Upside (mode=6,9%) a média
+    # subia para 7,6%, deprimindo sistematicamente o VAL médio do MC.
+    if not (distributions and "wacc" in distributions):
+        _wacc_spread = 0.02  # ±2 p.p. de incerteza sobre o custo de capital
+        dist_efetivas["wacc"] = {
+            "type": "triangular",
+            "min": max(0.04, wacc_base - _wacc_spread),
+            "mode": wacc_base,
+            "max": min(0.15, wacc_base + _wacc_spread),
+        }
+    elif "mode" not in (distributions.get("wacc") or {}):
+        dist_efetivas["wacc"]["mode"] = wacc_base
+
+    # Pessoal e inventário: distribuições simétricas centradas no valor do cenário.
+    # Intervalos simétricos garantem E[driver] = valor_cenário → E[VAL_MC] ≈ VAL_determinístico.
+    #   pessoal:    Triangular[mode × 0,70 ; mode ; mode × 1,30]  (mean = mode)
+    #   inventario: Triangular[mode × 0,75 ; mode ; mode × 1,25]  (mean = mode)
+    pessoal_cenario = float(proj["beneficios_anuais"].get("poupanca_operacional", 380_000))
+    inventario_cenario = float(proj["beneficios_pontuais"].get("libertacao_inventario", 2_000_000))
+
+    if not (distributions and "pessoal" in distributions):
+        dist_efetivas["pessoal"] = {
+            "type": "triangular",
+            "min": pessoal_cenario * 0.70,
+            "mode": pessoal_cenario,
+            "max": pessoal_cenario * 1.30,
+        }
+
+    if not (distributions and "inventario" in distributions):
+        dist_efetivas["inventario"] = {
+            "type": "triangular",
+            "min": inventario_cenario * 0.75,
+            "mode": inventario_cenario,
+            "max": inventario_cenario * 1.25,
+        }
+
+    # Calcular limites do CAPEX em runtime (dependem do capex_base do YAML)
+    if dist_efetivas["capex"]["min"] is None:
+        dist_efetivas["capex"]["min"] = capex_base * 0.85
+        dist_efetivas["capex"]["mode"] = capex_base
+        dist_efetivas["capex"]["max"] = capex_base * 1.15
+
+    # ── Caso base (determinístico, para referência) ──────────────────────────
+    res_base = viabilidade_hub(hub, irc_taxa=irc_taxa, wacc=wacc_base)
+    val_base = float(res_base["val"])
+    tir_base = res_base.get("tir")
+
+    # ── Gerar amostras antecipadamente (mais eficiente que amostrar no loop) ─
+    rng = np.random.default_rng(seed)
+    samples_arr: dict[str, np.ndarray] = {
+        drv: _draw_samples(rng, dist_efetivas[drv], n_simulations)
+        for drv in DRIVERS
+    }
+
+    # ── Loop principal ────────────────────────────────────────────────────────
+    val_list: list[float] = []
+    tir_list: list[float | None] = []
+    driver_samples: dict[str, list[float]] = {d: [] for d in DRIVERS}
+
+    for i in range(n_simulations):
+        s = {drv: float(samples_arr[drv][i]) for drv in DRIVERS}
+        for drv in DRIVERS:
+            driver_samples[drv].append(s[drv])
+
+        h_mut, wacc_i = _apply_sample(hub, s)
+        res = viabilidade_hub(h_mut, irc_taxa=irc_taxa, wacc=wacc_i)
+
+        val_list.append(float(res["val"]))
+        tir_list.append(res.get("tir"))  # None quando IRR não converge
+
+    # ── Estatísticas VAL ─────────────────────────────────────────────────────
+    val_arr = np.array(val_list, dtype=float)
+    pcts = [5, 10, 25, 50, 75, 90, 95]
+
+    val_stats: dict[str, Any] = {
+        "mean": float(np.mean(val_arr)),
+        "std": float(np.std(val_arr, ddof=1)),
+        **_percentiles(val_arr, pcts),
+        "min": float(np.min(val_arr)),
+        "max": float(np.max(val_arr)),
+        # Probabilidade de viabilidade: P(VAL > 0)
+        "prob_positivo": float(np.mean(val_arr > 0)),
+        "histogram": _build_histogram(val_arr),
+    }
+
+    # ── Estatísticas TIR ─────────────────────────────────────────────────────
+    tir_validas = [t for t in tir_list if t is not None]
+    n_validas = len(tir_validas)
+    n_invalidas = n_simulations - n_validas
+
+    if n_validas >= 2:
+        tir_arr = np.array(tir_validas, dtype=float)
+        tir_stats: dict[str, Any] = {
+            "mean": float(np.mean(tir_arr)),
+            "std": float(np.std(tir_arr, ddof=1)),
+            **_percentiles(tir_arr, pcts),
+            # P(TIR > wacc_base): usa o WACC base como limiar fixo para interpretabilidade
+            "prob_supera_wacc_base": float(np.mean(tir_arr > wacc_base)),
+        }
+    else:
+        tir_stats = {k: None for k in ["mean", "std"] + [f"p{p}" for p in pcts] + ["prob_supera_wacc_base"]}
+
+    tir_stats["n_validas"] = n_validas
+    tir_stats["n_invalidas"] = n_invalidas
+
+    # ── Correlações de Pearson: driver → VAL ────────────────────────────────
+    # r > 0 → driver aumenta VAL; r < 0 → driver reduz VAL.
+    # Ordenado por |r| decrescente (maior impacto primeiro).
+    correlacoes_raw = {
+        drv: _pearson(driver_samples[drv], val_list)
+        for drv in DRIVERS
+    }
+    correlacoes_val = dict(
+        sorted(correlacoes_raw.items(), key=lambda kv: abs(kv[1]), reverse=True)
+    )
+
+    return {
+        "n_simulations": n_simulations,
+        "irc_taxa": float(irc_taxa),
+        "val": val_stats,
+        "tir": tir_stats,
+        "correlacoes_val": {k: float(v) for k, v in correlacoes_val.items()},
+        # Parâmetros efetivos usados — útil para o frontend mostrar os ranges
+        "distribuicoes_usadas": {
+            drv: {k: (float(v) if isinstance(v, (int, float)) and v is not None else v)
+                  for k, v in cfg.items()}
+            for drv, cfg in dist_efetivas.items()
+        },
+        # Caso base determinístico para comparação
+        "parametros_base": {
+            "val_base": val_base,
+            "tir_base": float(tir_base) if tir_base is not None else None,
+            "wacc_base": float(wacc_base),
+            "capex_base": float(capex_base),
+            "irc_taxa": float(irc_taxa),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Monte Carlo VALA (APV) — distribuição desagregada por componente
+# ---------------------------------------------------------------------------
+
+def _apply_sample_vala(hub_base: dict, s: dict[str, float]) -> dict:
+    """Aplica amostra base + mutações dos 3 drivers fiscais extras ao hub.
+
+    Sequência:
+      1. _apply_sample()  — drivers operacionais + wacc + capex + pt2030_taxa
+      2. pt2030_approved  — se Bernoulli=0, anula PT2030.montante
+      3. rfai_utilization — escala rfai.capex_elegivel pela taxa de utilização
+      4. kd_shock         — adiciona choque aditivo ao Kd de cada tranche
+
+    Retorna o hub mutado (wacc_i descartado — vala_hub usa Ke fixo do YAML).
+    """
+    h, _ = _apply_sample(hub_base, s)
+    proj = h["projeto_hub"]
+
+    # 1. Rejeição binária do PT2030
+    if s.get("pt2030_approved", 1.0) < 0.5:
+        proj["financiamento"]["PT2030"]["montante"] = 0.0
+
+    # 2. Utilização parcial do crédito RFAI (escala capex_elegivel)
+    util = float(s.get("rfai_utilization", 1.0))
+    if util < 1.0 - 1e-6:
+        rfai_cfg = proj.get("rfai", {})
+        if rfai_cfg.get("aplicar", False) and "capex_elegivel" in rfai_cfg:
+            rfai_cfg["capex_elegivel"] = float(rfai_cfg["capex_elegivel"]) * util
+
+    # 3. Choque no spread bancário (Kd aditivo)
+    shock = float(s.get("kd_shock", 0.0))
+    if abs(shock) > 1e-9:
+        for v in proj["financiamento"].values():
+            if isinstance(v, dict) and "taxa_juro" in v and "amortizacao_anual" in v:
+                v["taxa_juro"] = max(0.005, float(v["taxa_juro"]) + shock)
+
+    return h
+
+
+def _component_stats(values: list[float], *, histogram: bool = False) -> dict[str, Any]:
+    """Estatísticas descritivas de um componente VALA (mean, std, percentis, prob_positivo)."""
+    arr = np.array(values, dtype=float)
+    pcts = [5, 10, 25, 50, 75, 90, 95]
+    d: dict[str, Any] = {
+        "mean": float(np.mean(arr)),
+        "std": float(np.std(arr, ddof=1)),
+        **_percentiles(arr, pcts),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+        "prob_positivo": float(np.mean(arr > 0)),
+    }
+    if histogram:
+        d["histogram"] = _build_histogram(arr)
+    return d
+
+
+def _stress_fiscal(hub_base: dict, irc_taxa_base: float) -> dict[str, dict]:
+    """Três cenários de stress fiscal determinísticos (sem MC).
+
+    Cenários:
+      base             — pressupostos nominais (referência)
+      pt2030_rejeitado — PT2030.montante = 0 (subsídio não aprovado)
+      rfai_esgotado    — RFAI.aplicar = False (carry-forward não absorvido)
+      irc_28pct        — IRC sobe de 24,5 % para 28 %
+    """
+    def _run(h: dict, irc_t: float) -> dict:
+        r = vala_hub(h, irc_taxa=irc_t)
+        return {
+            "vala": r["vala"],
+            "val_base_ke": r["val_base_ke"],
+            "escudo_fiscal": r["escudo_fiscal_total"],
+            "pv_pt2030": r["pv_pt2030_liquido"],
+            "pv_rfai": r["pv_rfai"],
+        }
+
+    result: dict[str, dict] = {
+        "base": {"label": "Base — PT2030=45%, RFAI, IRC nominal", **_run(hub_base, irc_taxa_base)},
+    }
+
+    h = copy.deepcopy(hub_base)
+    h["projeto_hub"]["financiamento"]["PT2030"]["montante"] = 0.0
+    result["pt2030_rejeitado"] = {
+        "label": "PT2030 rejeitado (montante = 0)",
+        **_run(h, irc_taxa_base),
+    }
+
+    h = copy.deepcopy(hub_base)
+    if "rfai" in h["projeto_hub"]:
+        h["projeto_hub"]["rfai"]["aplicar"] = False
+    result["rfai_esgotado"] = {
+        "label": "RFAI carry-forward esgota (crédito não absorvido)",
+        **_run(h, irc_taxa_base),
+    }
+
+    result["irc_28pct"] = {
+        "label": "IRC sobe para 28%",
+        **_run(hub_base, 0.28),
+    }
+
+    return result
+
+
+def monte_carlo_vala_hub(
+    hub: dict | None = None,
+    n_simulations: int = 1000,
+    irc_taxa: float | None = None,
+    distributions: dict | None = None,
+    seed: int | None = None,
+    incluir_stress: bool = True,
+) -> dict:
+    """Monte Carlo do VALA (APV) — distribuição desagregada por componente.
+
+    Estende o monte_carlo_hub() com três drivers estocásticos fiscais:
+      pt2030_approved   Bernoulli(p=0.75) — aprovação binária do PT2030
+      rfai_utilization  Triangular[0.50, 1.00, 1.00] — absorção do crédito RFAI
+      kd_shock          Triangular[−1%, 0%, +2%] — choque aditivo no spread bancário
+
+    Em cada iteração chama vala_hub() e regista os quatro componentes APV:
+      VAL_base(Ke), Escudo Fiscal, PV(PT2030 líquido), PV(RFAI)
+
+    Saídas principais
+    -----------------
+    vala / val_base_ke / escudo_fiscal / pv_pt2030 / pv_rfai
+        Estatísticas (mean, std, P5–P95, prob_positivo) de cada componente.
+    diagnostico
+        P(VALA>0), P(VAL_base>0), P(VALA_sem_PT2030>0).
+        Análise de causa das falhas:
+          "Em X% das simulações onde o projeto falha, o PT2030 não foi aprovado."
+        P(VALA>0 | PT2030 aprovado) vs. P(VALA>0 | PT2030 rejeitado).
+    correlacoes_vala
+        Pearson r para todos os drivers (incluindo fiscais) ordenado por |r|.
+    stress_fiscal
+        Três cenários determinísticos: PT2030 rejeitado, RFAI esgotado, IRC=28%.
+    """
+    if hub is None:
+        hub = load()
+
+    proj = hub["projeto_hub"]
+    via = proj["viabilidade"]
+
+    if irc_taxa is None:
+        irc_taxa = float(via.get("irc_taxa", 0.21))
+    wacc_base = float(via["wacc"])
+    capex_base = float(proj["capex"]["base"])
+
+    # ── Resolver distribuições efetivas (espelha monte_carlo_hub) ────────────
+    dist_efetivas: dict[str, dict] = {}
+    for drv in DRIVERS:
+        cfg = dict(DEFAULT_DISTRIBUTIONS[drv])
+        if distributions and drv in distributions:
+            cfg.update(distributions[drv])
+        dist_efetivas[drv] = cfg
+
+    if not (distributions and "wacc" in distributions):
+        _wacc_spread = 0.02
+        dist_efetivas["wacc"] = {
+            "type": "triangular",
+            "min": max(0.04, wacc_base - _wacc_spread),
+            "mode": wacc_base,
+            "max": min(0.15, wacc_base + _wacc_spread),
+        }
+    elif "mode" not in (distributions.get("wacc") or {}):
+        dist_efetivas["wacc"]["mode"] = wacc_base
+
+    pessoal_cenario = float(proj["beneficios_anuais"].get("poupanca_operacional", 380_000))
+    inventario_cenario = float(proj["beneficios_pontuais"].get("libertacao_inventario", 2_000_000))
+
+    if not (distributions and "pessoal" in distributions):
+        dist_efetivas["pessoal"] = {
+            "type": "triangular",
+            "min": pessoal_cenario * 0.70,
+            "mode": pessoal_cenario,
+            "max": pessoal_cenario * 1.30,
+        }
+    if not (distributions and "inventario" in distributions):
+        dist_efetivas["inventario"] = {
+            "type": "triangular",
+            "min": inventario_cenario * 0.75,
+            "mode": inventario_cenario,
+            "max": inventario_cenario * 1.25,
+        }
+    if dist_efetivas["capex"]["min"] is None:
+        dist_efetivas["capex"]["min"] = capex_base * 0.85
+        dist_efetivas["capex"]["mode"] = capex_base
+        dist_efetivas["capex"]["max"] = capex_base * 1.15
+
+    # Drivers fiscais extras
+    for drv in VALA_EXTRA_DRIVERS:
+        cfg = dict(DEFAULT_VALA_EXTRA_DISTRIBUTIONS[drv])
+        if distributions and drv in distributions:
+            cfg.update(distributions[drv])
+        dist_efetivas[drv] = cfg
+
+    # ── Caso base determinístico ─────────────────────────────────────────────
+    res_base = vala_hub(hub, irc_taxa=irc_taxa)
+    vala_base_det = float(res_base["vala"])
+
+    # ── Amostras antecipadas ─────────────────────────────────────────────────
+    all_vala_drivers = DRIVERS + VALA_EXTRA_DRIVERS
+    rng = np.random.default_rng(seed)
+    samples_arr: dict[str, np.ndarray] = {
+        drv: _draw_samples(rng, dist_efetivas[drv], n_simulations)
+        for drv in all_vala_drivers
+    }
+
+    # ── Loop principal ────────────────────────────────────────────────────────
+    vala_list: list[float] = []
+    val_base_ke_list: list[float] = []
+    escudo_list: list[float] = []
+    pv_pt2030_list: list[float] = []
+    pv_rfai_list: list[float] = []
+    pt2030_approved_list: list[float] = []
+    driver_samples: dict[str, list[float]] = {d: [] for d in all_vala_drivers}
+
+    for i in range(n_simulations):
+        s = {drv: float(samples_arr[drv][i]) for drv in all_vala_drivers}
+        for drv in all_vala_drivers:
+            driver_samples[drv].append(s[drv])
+
+        h_mut = _apply_sample_vala(hub, s)
+        res = vala_hub(h_mut, irc_taxa=irc_taxa)
+
+        vala_list.append(float(res["vala"]))
+        val_base_ke_list.append(float(res["val_base_ke"]))
+        escudo_list.append(float(res["escudo_fiscal_total"]))
+        pv_pt2030_list.append(float(res["pv_pt2030_liquido"]))
+        pv_rfai_list.append(float(res["pv_rfai"]))
+        pt2030_approved_list.append(s["pt2030_approved"])
+
+    # ── Estatísticas por componente ───────────────────────────────────────────
+    vala_arr = np.array(vala_list, dtype=float)
+    val_base_arr = np.array(val_base_ke_list, dtype=float)
+    escudo_arr = np.array(escudo_list, dtype=float)
+    rfai_arr = np.array(pv_rfai_list, dtype=float)
+    approved_arr = np.array(pt2030_approved_list, dtype=float)
+
+    # ── Diagnóstico de falhas ─────────────────────────────────────────────────
+    # VALA sem PT2030: val_base + escudo + rfai (PT2030 a zero)
+    vala_sem_pt2030_arr = val_base_arr + escudo_arr + rfai_arr
+
+    mask_falha = vala_arr < 0
+    n_falhas = int(mask_falha.sum())
+    mask_rejeitado = approved_arr < 0.5
+
+    n_falhas_por_pt2030 = int((mask_falha & mask_rejeitado).sum())
+    pct_falhas_por_pt2030 = n_falhas_por_pt2030 / n_falhas if n_falhas > 0 else 0.0
+
+    n_falhas_val_base_neg = int((mask_falha & (val_base_arr < 0)).sum())
+    pct_falhas_val_base = n_falhas_val_base_neg / n_falhas if n_falhas > 0 else 0.0
+
+    n_aprovado = int((~mask_rejeitado).sum())
+    n_rejeitado = int(mask_rejeitado.sum())
+    prob_pos_aprovado = float(np.mean(vala_arr[~mask_rejeitado] > 0)) if n_aprovado > 0 else 0.0
+    prob_pos_rejeitado = float(np.mean(vala_arr[mask_rejeitado] > 0)) if n_rejeitado > 0 else 0.0
+
+    diagnostico: dict[str, Any] = {
+        "prob_vala_positivo": float(np.mean(vala_arr > 0)),
+        "prob_val_base_positivo": float(np.mean(val_base_arr > 0)),
+        "prob_vala_sem_pt2030_positivo": float(np.mean(vala_sem_pt2030_arr > 0)),
+        "n_falhas": n_falhas,
+        "pct_falhas_por_pt2030_rejeitado": round(pct_falhas_por_pt2030, 4),
+        "pct_falhas_com_val_base_negativo": round(pct_falhas_val_base, 4),
+        "prob_vala_positivo_dado_pt2030_aprovado": round(prob_pos_aprovado, 4),
+        "prob_vala_positivo_dado_pt2030_rejeitado": round(prob_pos_rejeitado, 4),
+        "interpretacao": (
+            f"Em {pct_falhas_por_pt2030:.0%} das {n_falhas} simulações onde o projeto falha, "
+            f"o PT2030 não foi aprovado. "
+            f"Sem PT2030: P(VALA>0)={prob_pos_rejeitado:.1%}; "
+            f"com PT2030: P(VALA>0)={prob_pos_aprovado:.1%}."
+        ),
+    }
+
+    # ── Correlações driver → VALA ─────────────────────────────────────────────
+    correlacoes_raw = {
+        drv: _pearson(driver_samples[drv], vala_list)
+        for drv in all_vala_drivers
+    }
+    correlacoes_vala = dict(
+        sorted(correlacoes_raw.items(), key=lambda kv: abs(kv[1]), reverse=True)
+    )
+
+    # ── Stress tests fiscais (determinísticos) ────────────────────────────────
+    stress = _stress_fiscal(hub, irc_taxa) if incluir_stress else {}
+
+    return {
+        "n_simulations": n_simulations,
+        "irc_taxa": float(irc_taxa),
+        "vala": _component_stats(vala_list, histogram=True),
+        "val_base_ke": _component_stats(val_base_ke_list),
+        "escudo_fiscal": _component_stats(escudo_list),
+        "pv_pt2030": _component_stats(pv_pt2030_list),
+        "pv_rfai": _component_stats(pv_rfai_list),
+        "diagnostico": diagnostico,
+        "correlacoes_vala": {k: float(v) for k, v in correlacoes_vala.items()},
+        "stress_fiscal": stress,
+        "distribuicoes_usadas": {
+            drv: {k: (float(v) if isinstance(v, (int, float)) and v is not None else v)
+                  for k, v in cfg.items()}
+            for drv, cfg in dist_efetivas.items()
+        },
+        "parametros_base": {
+            "vala_base": vala_base_det,
+            "val_base_ke": float(res_base["val_base_ke"]),
+            "escudo_fiscal": float(res_base["escudo_fiscal_total"]),
+            "pv_pt2030": float(res_base["pv_pt2030_liquido"]),
+            "pv_rfai": float(res_base["pv_rfai"]),
+            "wacc_base": float(wacc_base),
+            "capex_base": float(capex_base),
+            "irc_taxa": float(irc_taxa),
+        },
+    }

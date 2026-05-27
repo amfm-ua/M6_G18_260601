@@ -1,0 +1,76 @@
+version: 1
+
+# Mapeamento declarativo de rubricas de FSE.
+# - `yaml_key` é a chave no YAML base2024.yaml em `fse_detalhe_2024`.
+# - `dr_col` é o nome da coluna exportada para a DR (engine/dr.py e engine/tesouraria_mensal.py).
+# - `label` é o label para renderização na UI (pt-PT).
+# - `pct_variavel` é a fração do custo que escala com o VN (0.0 = 100% fixo, 1.0 = 100% variável).
+#   Fonte: Relatório de Gestão 2024 + análise operacional Grestel.
+
+rubricas:
+  - yaml_key: Subcontratos
+    dr_col: fse_subcontratos
+    label: Subcontratos
+    pct_variavel: 1.0   # ajuste explícito ao volume de encomendas (R&C 2024)
+
+  - yaml_key: Eletricidade
+    dr_col: fse_eletricidade
+    label: Eletricidade
+    pct_variavel: 0.8   # consumo dos fornos escala com produção; potência contratada é fixa
+
+  - yaml_key: Gas_Natural
+    dr_col: fse_gas_natural
+    label: Gas Natural
+    pct_variavel: 0.8   # queima cerâmica; componente fixa de ligação à rede
+
+  - yaml_key: Agua
+    dr_col: fse_agua
+    label: Agua
+    pct_variavel: 0.8   # processo produtivo e ETARI; tarifa fixa residual
+
+  - yaml_key: Manutencao
+    dr_col: fse_manutencao
+    label: Manutencao e Reparacao
+    pct_variavel: 0.0   # planos anuais de conservação; independente do volume
+
+  - yaml_key: Transportes_Fretes
+    dr_col: fse_transportes_fretes
+    label: Transportes e Fretes
+    pct_variavel: 1.0   # escala directamente com vendas online e marca própria (R&C 2024)
+
+  - yaml_key: Seguros
+    dr_col: fse_seguros
+    label: Seguros
+    pct_variavel: 0.0   # prémios anuais fixos de estrutura
+
+  - yaml_key: Comunicacoes
+    dr_col: fse_comunicacoes
+    label: Comunicacoes
+    pct_variavel: 0.0   # telecomunicações e infra-TI; contratos fixos
+
+  - yaml_key: Honorarios
+    dr_col: fse_honorarios
+    label: Honorarios
+    pct_variavel: 0.0   # consultoria e assessoria jurídica; custo discricionário
+
+  - yaml_key: Rendas
+    dr_col: fse_rendas_alugueres
+    label: Rendas e Alugueres
+    pct_variavel: 0.0   # contratos de locação IFRS 16; independente da produção
+
+  - yaml_key: Limpeza
+    dr_col: fse_limpeza
+    label: Limpeza
+    pct_variavel: 0.0   # serviço contratado a preço fixo mensal
+
+  - yaml_key: Vigilancia
+    dr_col: fse_vigilancia
+    label: Seguranca e Vigilancia
+    pct_variavel: 0.0   # contrato de segurança anual fixo
+
+  - yaml_key: Outros_FSE
+    dr_col: fse_outros_fse
+    label: Outros FSE
+    pct_variavel: 0.4   # mix não classificado; mantém proporção global como fallback
+
+# Drivers/ESG: reservado para evolução (ex.: indexação por inflação energia).

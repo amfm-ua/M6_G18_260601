@@ -1,0 +1,66 @@
+# Catálogo de produtos — dados estruturais calibrados ao R&C 2024.
+# cip_unitario = MP + MOD + GGF por unidade (CIIP — não inclui FSE).
+# estrutura_custos: fracções reais auditadas (ver CUSTO DE PRODUÇÃO POR 1 PAIC, R&C 2024).
+# detalhe_mp: fracções de cada matéria-prima no cip_unitario (MP = soma das parcelas).
+# Dados 2024 (sales_mix, pvu_base): ver historico/2024/produtos.yaml
+
+product_families:
+  Pratos:
+    cip_unitario: 6.963
+    estrutura_custos:
+      MP:  0.2972    # 2.069€ / 6.963€ — pasta+vidrados+cartão+gesso
+      MOD: 0.2604    # 1.813€ / 6.963€
+      GGF: 0.4424    # 3.081€ / 6.963€
+      detalhe_mp:
+        Pasta_ceramica_gres: 0.0839    # 0.584€ / 6.963€
+        Vidrados_esmaltes:   0.0700    # 0.487€ / 6.963€
+        Cartao_embalagens:   0.1040    # 0.724€ / 6.963€
+        Gesso_moldes:        0.0394    # 0.274€ / 6.963€
+
+  Tigelas:
+    cip_unitario: 4.968
+    estrutura_custos:
+      MP:  0.4164    # 2.069€ / 4.968€
+      MOD: 0.3650    # 1.813€ / 4.968€
+      GGF: 0.2184    # 1.085€ / 4.968€ (GGF menor por produto de menor complexidade)
+      detalhe_mp:
+        Pasta_ceramica_gres: 0.1175    # 0.584€ / 4.968€
+        Vidrados_esmaltes:   0.0980    # 0.487€ / 4.968€
+        Cartao_embalagens:   0.1458    # 0.724€ / 4.968€
+        Gesso_moldes:        0.0552    # 0.274€ / 4.968€
+
+  Canecas:
+    cip_unitario: 4.471
+    estrutura_custos:
+      MP:  0.4104    # 1.835€ / 4.471€
+      MOD: 0.4733    # 2.116€ / 4.471€ (MOD mais elevada — processo de moldagem manual)
+      GGF: 0.1163    # 0.520€ / 4.471€
+      detalhe_mp:
+        Pasta_ceramica_gres: 0.0957    # 0.428€ / 4.471€
+        Vidrados_esmaltes:   0.0872    # 0.390€ / 4.471€
+        Cartao_embalagens:   0.1295    # 0.579€ / 4.471€
+        Gesso_moldes:        0.0980    # 0.438€ / 4.471€
+
+  Pecas_Servir:
+    cip_unitario: 6.955
+    estrutura_custos:
+      MP:  0.3495    # 2.431€ / 6.955€ (cartão elevado — embalagem maior)
+      MOD: 0.2172    # 1.511€ / 6.955€
+      GGF: 0.4330    # 3.012€ / 6.955€
+      detalhe_mp:
+        Pasta_ceramica_gres: 0.0840    # 0.584€ / 6.955€
+        Vidrados_esmaltes:   0.0700    # 0.487€ / 6.955€
+        Cartao_embalagens:   0.1561    # 1.086€ / 6.955€
+        Gesso_moldes:        0.0394    # 0.274€ / 6.955€
+
+  Forno_Cozinha:
+    cip_unitario: 5.464
+    estrutura_custos:
+      MP:  0.4143    # 2.264€ / 5.464€ (pasta mais elevada — produto refractário)
+      MOD: 0.2766    # 1.511€ / 5.464€
+      GGF: 0.3090    # 1.689€ / 5.464€
+      detalhe_mp:
+        Pasta_ceramica_gres: 0.1426    # 0.779€ / 5.464€
+        Vidrados_esmaltes:   0.0891    # 0.487€ / 5.464€
+        Cartao_embalagens:   0.1325    # 0.724€ / 5.464€
+        Gesso_moldes:        0.0501    # 0.274€ / 5.464€

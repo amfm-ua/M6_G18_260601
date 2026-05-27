@@ -1,0 +1,12 @@
+# Catálogo de mercadorias — dados estruturais estáveis.
+# Dados 2024 (sales_mix, pvu_base, mix_regiao, mix_canal, sazonalidade): ver historico/2024/mercadorias.yaml
+
+merchandise_families:
+  Cutelaria:
+    pcu: 12.10
+
+  Vidros_Cristais:
+    pcu: 4.84
+
+  Texteis_Acessorios:
+    pcu: 8.07

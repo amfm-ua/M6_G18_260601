@@ -1,0 +1,356 @@
+# smart_objetivos.yaml — Tracker de Objetivos SMART da Grestel
+#
+# Estrutura de dois níveis (Manual do Estudante PEF M6, §3.3):
+#
+#   Tabela 8 — Objetivos ESTRUTURANTES (constraints plurianuais 2025-2029)
+#     São pisos mínimos (floors) negociados com o banco BPI (covenants) e com
+#     a administração. Incumprimento ativa cláusulas de evento de default.
+#
+#   Tabela 9 — ALAVANCAS 2025 (targets de curto prazo para o primeiro exercício)
+#     São ambições operacionais para 2025 (ano completo: Jan-Dez).
+#     Não são covenants — o seu incumprimento não desencadeia obrigações contratuais,
+#     mas sinaliza desvio na execução estratégica.
+#
+# ──────────────────────────────────────────────────────────────────────────────
+# NOTA METODOLÓGICA — fonte e kpi_field
+#   fonte: kpis  → campo calculado em engine/modelo/kpis.py  (build_kpis())
+#   fonte: gas   → campo calculado em engine/modelo/kpis.py  (gas_por_peca_anual())
+#   fonte: pendente → KPI identificado mas ainda não calculado pelo motor
+#                      (ver comentário no objetivo para contexto)
+#
+# Objetivos com fonte:pendente são omitidos do tracker automático mas
+# ficam documentados aqui para transparência e implementação futura.
+# ──────────────────────────────────────────────────────────────────────────────
+
+objetivos:
+
+  # ══════════════════════════════════════════════════════════════
+  # TABELA 8 — OBJETIVOS ESTRUTURANTES (covenants + pisos)
+  # ══════════════════════════════════════════════════════════════
+
+  # --- CRESCIMENTO ---
+
+  - id: cresc_vn
+    nome: Crescimento do Volume de Negócios
+    categoria: economica
+    # Tabela 8, Obj. 1 — Covenant implícito de crescimento aprovado pelo BPI.
+    # Grestel precisa crescer ≥6% ao ano para atingir o VN-alvo de ~46 M€ até 2027
+    # (CAGR 2024-2027 ≈ 6,7% sobre base de 37,9 M€ auditado R&C 2024).
+    # Exercício 2025 é ano completo (12 meses): cresc_vn compara VN 2025 vs. VN 2024 diretamente.
+    descricao: >-
+      Crescer VN ≥6% ao ano entre 2025-2027, atingindo ~46 M€ em 2027 (+20,3% vs.
+      base de 37,9 M€ em 2024). Combina crescimento de volume (mix de produto e mercado)
+      com pricing acima da inflação (poder de fixação de preços Grestel brand).
+    kpi_field: cresc_vn
+    fonte: kpis
+    anos_alvo: [2025, 2026, 2027]
+    alvo: 0.06
+    operador: gte
+    unidade: pct
+
+  # --- RENDIBILIDADE ---
+
+  - id: ebitda_margin
+    nome: Margem EBITDA
+    categoria: economica
+    # Tabela 8, Obj. 2 — Piso de rendibilidade operacional.
+    # EBITDA 2024 auditado: 4 149 679 € / VN 37 884 116 € = 10,95% (abaixo do alvo).
+    # A trajetória para ≥15% exige: (a) Hub logístico (poupança operacional +480k€/ano a
+    # partir de 2026), (b) redução de CMVMC via mix premium e misturas H2/gás,
+    # (c) alavanca de escala sobre FSE fixo.
+    # Nota: EBITDA inclui Outros Rendimentos (equivalência patrimonial Ecogres,
+    # cedências, subsídios). EBITDA puro (excluindo não-recorrentes) é calculado
+    # separadamente como ebitda_puro para análise bancária DSCR.
+    descricao: >-
+      Manter margem EBITDA ≥15% em todos os anos do plano. EBITDA 2024 auditado foi
+      10,95% — a trajetória para ≥15% é suportada pelo Hub logístico (+480k€/ano desde
+      2026), eficiência energética (H2/gás -10% até 2026) e alavancagem operacional.
+      Benchmark setor cerâmica de mesa premium: 15-22% (Villeroy & Boch 18%, Churchill 16%).
+    kpi_field: ebitda_margin
+    fonte: kpis
+    anos_alvo: [2025, 2026, 2027, 2028, 2029]
+    alvo: 0.15
+    operador: gte
+    unidade: pct
+
+  # --- EFICIÊNCIA INDUSTRIAL (FLOOR ESTRUTURAL) ---
+
+  - id: eficiencia_industrial
+    nome: Rácio de Eficiência Industrial (CMVMC/VN) — piso estrutural
+    categoria: economica
+    # Tabela 8, Obj. 3 — Floor negociado de eficiência industrial.
+    # CMVMC/VN 2024 real: 15 298 208 € / 37 884 116 € = 40,37% ≈ 40,4%.
+    # Cada 1 pp de desvio acima do floor de 41% representa ~-456k€ no EBITDA
+    # (impacto direto: 1% × 37,9M€ × (1-IRC 20%) ≈ 304k€ líquido).
+    # DISTINÇÃO IMPORTANTE vs. cmvmc_aspiracao_2025:
+    #   Este objetivo é o PISO MÍNIMO ACEITÁVEL (constraint estratégico).
+    #   A "aspiração 37%" é o alvo-ambição para 2025 (ver cmvmc_aspiracao_2025).
+    #   Reportar ambos no relatório com esta distinção explícita evita
+    #   inconsistência aparente perante o júri.
+    descricao: >-
+      Floor estratégico: CMVMC/VN ≤41% ao longo do plano (piso negociado, não aspiração).
+      CMVMC 2024 real: 40,4% — margin of safety de apenas 0,6pp sobre o floor.
+      Cada 1pp de desvio = -456k€ no EBITDA. Pressões ascendentes: matérias-primas
+      (pasta cerâmica, vidrados) indexadas a commodities; mitigantes: Hub (WMS picking
+      +2pp) e eficiência de forno (H2/gás -10%).
+    kpi_field: cmvmc_vn
+    fonte: kpis
+    anos_alvo: [2025, 2026, 2027, 2028, 2029]
+    alvo: 0.41
+    operador: lte
+    unidade: pct
+
+  # --- COVENANTS FINANCEIROS ---
+
+  - id: autonomia_financeira
+    nome: Autonomia Financeira Ajustada
+    categoria: financeira
+    # Tabela 8, Obj. 4 — Covenant bancário BPI.
+    # CP 2024: ~12,2 M€ / Ativo total ~35,9 M€ = 34% (abaixo do alvo ≥35%).
+    # Covenant hard: ≥30% (limite de default). A Grestel opera com margem de
+    # conforto de 5pp (alvo interno 35% vs. covenant 30%).
+    # Risco: investimento Hub (3 M€ novo crédito) dilui CP/Ativo em 2025;
+    # a recuperação via resultados retidos deve repor autonomia ≥35% em 2026.
+    descricao: >-
+      Manter autonomia financeira ≥35% (CP/Ativo total) em todos os exercícios do plano.
+      Covenant bancário BPI: ≥30% (5pp de safety margin). Autonomia 2024: ~34% —
+      o investimento Hub (3 M€ em 2025) pressiona o rácio; recuperação via retenção
+      de resultados projetada para 2026+. Desvio abaixo de 30% ativa cláusula de
+      event-of-default (exigibilidade antecipada).
+    kpi_field: autonomia_financeira
+    fonte: kpis
+    anos_alvo: [2025, 2026, 2027, 2028, 2029]
+    alvo: 0.35
+    operador: gte
+    unidade: pct
+    covenant_limite: 0.30
+
+  - id: nd_ebitda_covenant
+    nome: Dívida Líquida / EBITDA
+    categoria: financeira
+    # Tabela 8, Obj. 5 — Covenant bancário BPI (leverage covenant).
+    # Dívida líquida 2024: (12,2 M€ NC + 5,5 M€ C) - 0,54 M€ caixa = 17,2 M€.
+    # EBITDA 2024 auditado: 4,15 M€.
+    # ND/EBITDA 2024: 17,2 / 4,15 = 4,14x — ACIMA do covenant ≤3,5x!
+    # A trajetória para ≤3,5x exige combinação de: crescimento EBITDA + amortização BPI.
+    # Em 2025: pré-pagamento IAPMEI (5,5 M€) via novo crédito Hub (3 M€) + cash flow
+    # operacional liberta ND significativamente. Projeção: ND/EBITDA 2025 ≈ 3,2x.
+    descricao: >-
+      Manter Dívida Líquida/EBITDA ≤3,5x em todos os anos do plano (covenant BPI).
+      Situação 2024: ~4,1x (acima do covenant) — risco de evento de default mitigado pela
+      renegociação prevista (refinanciamento IAPMEI + crédito Hub em 2025). A amortização
+      progressiva BPI (111k€/mês) e o crescimento EBITDA convergem para ≤3,5x em 2025-2026.
+    kpi_field: nd_ebitda
+    fonte: kpis
+    anos_alvo: [2025, 2026, 2027, 2028, 2029]
+    alvo: 3.5
+    operador: lte
+    unidade: ratio
+
+  # --- EFICIÊNCIA OPERACIONAL ---
+
+  - id: ccc_2027
+    nome: Ciclo de Conversão de Caixa
+    categoria: operacional
+    # Tabela 8, Obj. 6 — Alavanca de fundo de maneio plurianual.
+    # CCC 2024 estimado: PMR(~38d) + DMI(~320d) - PMP(~63d) ≈ 295 dias.
+    # DMI elevado (160d MP + 160d PA + 60d Merc.) reflete natureza do processo:
+    # cerâmica gres tem ciclos de produção longos (secagem, cozedura, decoração).
+    # Hub logístico reduz DMI em ~30 dias via WMS/otimização de inventário (libertação
+    # de 1,9 M€ de inventário em 2026-2027, reduzindo DMI de 320d para ~290d).
+    # Target ≤260 dias é o resultado de PMR reduzido (B2B digital) + Hub.
+    descricao: >-
+      Reduzir CCC para ≤260 dias até 2027 via: (1) Hub logístico — libertação de 1,9 M€
+      de inventário (DMI -30d); (2) Plataforma B2B digital — PMR -5d (pagamentos online).
+      CCC 2024 estimado: ~295 dias. Cada 10 dias de redução = ~1 M€ de caixa libertada
+      (base VN 40 M€). Benchmark setor: 90-150 dias (CCC alto é estrutural em cerâmica
+      de mesa devido a ciclos de produção longos).
+    kpi_field: ciclo_caixa
+    fonte: kpis
+    anos_alvo: [2026, 2027]
+    alvo: 260
+    operador: lte
+    unidade: dias
+
+  # ══════════════════════════════════════════════════════════════
+  # TABELA 9 — ALAVANCAS OPERACIONAIS 2025
+  # Objetivos de curto prazo que suportam a trajetória estrutural.
+  # Fonte: Manual do Estudante PEF — Momento M6, secção 3.3.
+  # Exercício 2025 = 12 meses (Jan-Dez); rácios calculados para o ano completo.
+  # ══════════════════════════════════════════════════════════════
+
+  - id: cmvmc_aspiracao_2025
+    nome: Rácio CMVMC/VN — aspiração 2025
+    categoria: economica
+    # Tabela 9, Obj. 2 — Alvo-ambição para 2025, distinto do floor estrutural de 41%.
+    # DISTINÇÃO CRÍTICA:
+    #   - eficiencia_industrial (≤41%): piso mínimo / constraint de não-violação
+    #   - cmvmc_aspiracao_2025 (≤37%): alvo de ambição para 2025 (stretch target)
+    # A aspiração de 37% representa a melhoria máxima esperável em 2025 com:
+    #   (a) otimização do mix de produto (mais Hotelaria premium e E-Commerce D2C);
+    #   (b) redução de desperdício via IA de inspeção visual (Hub);
+    #   (c) substituição parcial de matérias-primas (argila nacional vs. importada).
+    # Se CMVMC/VN cair entre 37%-41%: exercício bem-sucedido (melhor do esperado).
+    # Se CMVMC/VN permanecer entre 38%-41%: exercício normal (floor respeitado).
+    # CMVMC/VN 2024 real: 40,4% — cada pp de melhoria = +456k€ EBITDA.
+    descricao: >-
+      Aspiração 2025: CMVMC/VN ≤37% (alvo-ambição, não constraint — ver eficiencia_industrial
+      para o piso de 41%). Melhoria de 3pp vs. 2024 (40,4%) viabilizada por: mix premium
+      (+Hotelaria/E-Commerce), otimização de pasta cerâmica e redução de refugo (Hub IA).
+      Cada 1pp de melhoria = +456k€ EBITDA. Alvo stretch — incumprimento não viola covenants.
+    kpi_field: cmvmc_vn
+    fonte: kpis
+    anos_alvo: [2025]
+    alvo: 0.37
+    operador: lte
+    unidade: pct
+
+  - id: pmr_2025
+    nome: Prazo Médio de Recebimento
+    categoria: operacional
+    # Tabela 9, Obj. 6 — Eficiência de cobranças / plataforma B2B.
+    # PMR 2024 (estimativa): clientes 4,96 M€ / (VN 37,9 M€ × 1,23 IVA) × 365 ≈ 39 dias.
+    # Plano assume PMR_dias: 45 em globais.yaml (conservador vs. calculado).
+    # Target ≤60 dias é um floor de eficiência: a plataforma B2B digital deve manter
+    # e melhorar o PMR atual, evitando degradação para além de 60 dias.
+    # Extensão a 2026-2027: cobre o período de ramp-up do Hub (clientes novos B2B podem
+    # ter prazos mais longos no início da relação comercial).
+    descricao: >-
+      Manter PMR ≤60 dias em 2025-2027 via plataforma B2B digital (pagamento online)
+      e melhoria de eficiência comercial. PMR 2024 estimado: ~39 dias (saldo clientes
+      4,96 M€). O target de 60 dias é um safety floor — a plataforma B2B deve mantê-lo
+      abaixo de 45 dias (objetivo interno). PMR acima de 60 dias aumentaria o CCC e
+      pressionaria as necessidades de fundo de maneio (+1 M€ por 10 dias extra).
+    kpi_field: pmr_dias
+    fonte: kpis
+    anos_alvo: [2025, 2026, 2027]
+    alvo: 60
+    operador: lte
+    unidade: dias
+
+  - id: pmp_2025
+    nome: Prazo Médio de Pagamento
+    categoria: operacional
+    # Tabela 9, Obj. 4 — Renegociação de PMP com fornecedores + compliance Diretiva 2011/7/UE.
+    #
+    # HISTÓRICO vs. PROJEÇÃO:
+    #   PMP 2024 real: 63 dias (saldo auditado R&C 2024 — base.balanco["Fornecedores"]).
+    #   O modelo usa globais.yaml prazos.PMP_Inventarios_dias = 55 dias para 2025+,
+    #   reflectindo o objetivo estratégico de renegociação com os fornecedores.
+    #   2024 usa sempre o saldo auditado directamente (não é afectado por este parâmetro).
+    #
+    # RACIONAL DA RENEGOCIAÇÃO:
+    #   (a) Compliance regulatório: Diretiva 2011/7/UE impõe ≤60 dias B2B;
+    #       a Grestel visa ≤55 dias com 5 dias de margem de segurança.
+    #   (b) Relações estratégicas: fornecedores de pasta cerâmica e vidrados com PMP
+    #       reduzido ganham confiança → melhores condições de qualidade e entrega JIT.
+    #   (c) Preparação para o Hub: entregas just-in-time ao hub exigem fornecedores
+    #       comprometidos com prazos — o PMP mais curto é a contrapartida da Grestel.
+    #
+    # CUSTO DE OPORTUNIDADE:
+    #   8 dias × ~40 M€ CMVMC / 365 × 1,23 IVA ≈ 1,1 M€ extra de fundo de maneio
+    #   vs. manter 63 dias. Este custo está reflectido na projeção de NFM 2025+.
+    descricao: >-
+      Renegociar PMP para ≤55 dias em 2025 (vs. 63 dias histórico 2024), cumprindo a
+      Diretiva 2011/7/UE (B2B ≤60 dias) com 5 dias de margem. Objetivo estratégico:
+      fornecedores de pasta cerâmica e vidrados pagos mais cedo em troca de condições
+      JIT para o Hub. Custo de oportunidade: ~1,1 M€ de NFM adicional
+      (8 dias × ~40 M€ CMVMC / 365 × 1,23 IVA) — reflectido nas projeções do modelo.
+    kpi_field: pmp_dias
+    fonte: kpis
+    anos_alvo: [2025]
+    alvo: 55
+    operador: lte
+    unidade: dias
+
+  - id: gastos_financiamento_2025
+    nome: Gastos de Financiamento
+    categoria: financeira
+    # Tabela 9, Obj. 5 — Controlo do custo da dívida em 2025.
+    # Juros 2024 auditados (DR): 528 161 € (BPI 4,15% + locações 3,5% + IAPMEI 0%).
+    # 2025 é ano completo (12 meses): juros core ≈ 528k€ com benefício de amortização BPI.
+    # TRATAMENTO CRÍTICO DO CRÉDITO HUB:
+    #   O novo crédito Hub (3 M€ @ 4,15%, contratado em Jan-2025) tem juros do período
+    #   de construção CAPITALIZADOS no AFT (NCRF 10 — juros capitalizáveis: true).
+    #   Os juros capitalizados NÃO aparecem na DR de 2025 como gasto financeiro —
+    #   aparecem como adição ao custo do ativo (AFT Hub) depreciado a partir de 2026.
+    #   Logo: o juros_abs do tracker de 2025 NÃO inclui juros do crédito Hub.
+    # Projeção: juros 2025 ≈ BPI(111k€/mês × 12 × 4,15%/12) + locações(31k/mês × 12 × 3,5%) ≈ 525k€.
+    descricao: >-
+      Manter gastos de financiamento ≤530k€ em 2025 (ano completo Jan-Dez).
+      Juros 2024 auditados: 528k€; projeção 2025: ~525k€ (12 meses, com amortização BPI progressiva).
+      Juros do crédito Hub (3 M€ @ 4,15%) são CAPITALIZADOS no AFT em 2025 (NCRF 10)
+      e não aparecem na DR — passam a gasto de depreciação a partir de 2026.
+      Risco: subida da Euribor 3M acima de 2,90% (base Mar-2025) aumenta juros variáveis BPI.
+    kpi_field: juros_abs
+    fonte: kpis
+    anos_alvo: [2025]
+    alvo: 530000
+    operador: lte
+    unidade: EUR
+
+  - id: ecommerce_global_2025
+    nome: Quota do Canal E-Commerce no VN Global
+    categoria: economica
+    # Tabela 9, Obj. 3 — Alavanca digital 2025.
+    #
+    # ESTADO DE IMPLEMENTAÇÃO: ⚠️ PENDENTE — KPI não calculado pelo motor.
+    # Razão: o modelo atual não rastreia a dimensão canal (E-Commerce, Hotelaria, etc.)
+    # no output da DR — só existe desagregação por mercado geográfico (PT, UE, USA, ROW).
+    # Implementar requer: (1) adicionar coluna 'canal' a vendas.py; (2) agregar por canal
+    # em kpis.py; (3) alterar build_smart_tracker para suportar fonte:kpis com ecommerce_pct.
+    #
+    # BASELINE 2024: mix_canais_2024.E_Commerce = 18% do VN global (globais.yaml).
+    # Decomposição 2024 por mercado × canal (mix_canal_produto historico/2024/mix.yaml):
+    #   PT (17% VN): E_Commerce 10% → contribuição 1,7pp
+    #   UE (30% VN): E_Commerce 20% → contribuição 6,0pp
+    #   USA(35% VN): E_Commerce 20% → contribuição 7,0pp
+    #   ROW(18% VN): E_Commerce 20% → contribuição 3,6pp
+    #   Total weighted ≈ 18,3% — consistente com os 18% auditados.
+    #
+    # TARGET CORRIGIDO: ≥20% (crescimento de 18% em 2024 via novos marketplaces UE/USA).
+    # NOTA: O target original "≥12%" no relatório preliminar estava abaixo do baseline 2024
+    # (18%) e foi corrigido para ≥20% (alvo aspiracional de crescimento +2pp vs. 2024).
+    # Se o relatório usar "≥12%" este deve ser explicitado como quota PT-apenas (10% em 2024).
+    descricao: >-
+      Aspiração 2025: E-Commerce ≥20% do VN global (crescimento de +2pp vs. 18% em 2024).
+      Alavancas: novos marketplaces (Amazon.de, Bol.nl), loja online Grestel renovada,
+      programa de personalização D2C. KPI PENDENTE DE IMPLEMENTAÇÃO — requer rastreio
+      de canal em vendas.py. Baseline 2024: 18% global (10% PT + 20% UE/USA/ROW).
+    kpi_field: ecommerce_pct_mix
+    fonte: pendente
+    anos_alvo: [2025]
+    alvo: 0.20
+    operador: gte
+    unidade: pct
+
+  # ══════════════════════════════════════════════════════════════
+  # TABELA 8 — ESG (OBJETIVO AMBIENTAL ESTRUTURANTE)
+  # ══════════════════════════════════════════════════════════════
+
+  - id: gas_peca_2026
+    nome: Consumo Gás Natural por Peça Produzida
+    categoria: esg
+    # Tabela 8, Obj. 7 — Target de eficiência energética.
+    # Baseline 2024 (esg_2024 de base.yaml):
+    #   Gás Natural: 2 983 000 kWh (447 486€ / 0,15€/kWh)
+    #   Produção: 4 034 437 peças
+    #   Consumo por peça: 0,7394 kWh/peça
+    # Alavanca: introdução de misturas hidrogénio-gás natural nos fornos de cozedura
+    # (projeto piloto 2025, rollout 2026). Redução -10% por peça até 2026 equivale a:
+    #   -298 300 kWh/ano → -44 745€/ano @ 0,15€/kWh → -89 490€/bienio (2026+2027).
+    # Alinhado com Taxonomia UE (regulamento 2020/852) — critério substantial contribution
+    # para atividades de manufactura com redução de emissões GEE.
+    # Extensão de monitorização a 2027 recomendada (meta de -15% até 2027 opcional).
+    descricao: >-
+      Reduzir 10% o consumo de gás natural por peça produzida até 2026 vs. 2024.
+      Baseline 2024: 0,7394 kWh/peça (2 983 000 kWh / 4 034 437 peças).
+      Alavanca: misturas H2/gás natural nos fornos Grestel (piloto 2025, rollout 2026).
+      Poupança estimada: -44 745€/ano em energia + redução de emissões CO₂ (~55 tCO₂/ano).
+      Alinhado com Taxonomia UE (Art. 10 regulamento 2020/852 — manufacturing with GHG reduction).
+    kpi_field: var_vs_2024
+    fonte: gas
+    anos_alvo: [2026]
+    alvo: -0.10
+    operador: lte
+    unidade: pct

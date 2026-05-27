@@ -1,0 +1,71 @@
+# Pesos mensais de sazonalidade por mercado
+# Soma = 1.0 para cada mercado
+PT:
+  Jan: 0.07
+  Fev: 0.07
+  Mar: 0.08
+  Abr: 0.08
+  Mai: 0.10
+  Jun: 0.09
+  Jul: 0.07
+  Ago: 0.05
+  Set: 0.08
+  Out: 0.09
+  Nov: 0.10
+  Dez: 0.12
+
+UE:
+  Jan: 0.06
+  Fev: 0.06
+  Mar: 0.07
+  Abr: 0.08
+  Mai: 0.09
+  Jun: 0.10
+  Jul: 0.09
+  Ago: 0.06
+  Set: 0.08
+  Out: 0.09
+  Nov: 0.11
+  Dez: 0.11
+
+USA:
+  Jan: 0.06
+  Fev: 0.06
+  Mar: 0.08
+  Abr: 0.08
+  Mai: 0.09
+  Jun: 0.10
+  Jul: 0.08
+  Ago: 0.07
+  Set: 0.09
+  Out: 0.09
+  Nov: 0.11
+  Dez: 0.09
+
+ROW:
+  Jan: 0.07
+  Fev: 0.07
+  Mar: 0.08
+  Abr: 0.08
+  Mai: 0.09
+  Jun: 0.09
+  Jul: 0.08
+  Ago: 0.07
+  Set: 0.09
+  Out: 0.09
+  Nov: 0.10
+  Dez: 0.09
+
+default:
+  Jan: 0.0833
+  Fev: 0.0833
+  Mar: 0.0833
+  Abr: 0.0833
+  Mai: 0.0833
+  Jun: 0.0833
+  Jul: 0.0833
+  Ago: 0.0833
+  Set: 0.0833
+  Out: 0.0833
+  Nov: 0.0833
+  Dez: 0.0833

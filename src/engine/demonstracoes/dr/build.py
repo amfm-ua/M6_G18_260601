@@ -12,9 +12,10 @@ from ...operacional import cmvmc
 from ...operacional import clientes as conta_clientes
 from ...operacional import inventarios
 from ...projetos import ecogres as ecogres_mod
-from .loaders import _load_hub_dr, _load_ecogres
+from .loaders import _load_hub_dr, _load_ecogres, _load_cozedura
 from .rubricas import _outros_rendimentos, _outros_gastos, _imparidades
 from .impostos import _irc
+from ...projetos.cozedura import impacto as coz_mod
 
 
 def build_dr(
@@ -164,6 +165,19 @@ def build_dr(
         subc_map = {y: 0.0 for y in ALL_YEARS}
         eco_mpsc_red = {y: 0.0 for y in ALL_YEARS}
 
+    # Cozedura de Baixa Temperatura (toggle): poupança de energia (FSE) líquida
+    # do incremento de CMVMC pela pasta reformulada (volastonite), faseada.
+    coz = _load_cozedura(a)
+    if coz is not None:
+        cmvmc_by_year = {
+            int(r["ano"]): float(r["cmvmc"]) for _, r in df_cmvmc.iterrows()
+        }
+        coz_fse_red_map = coz_mod.cozedura_fse_reducao(coz, fse_det_by_year)
+        coz_cmvmc_inc_map = coz_mod.cozedura_cmvmc_incremento(coz, cmvmc_by_year)
+    else:
+        coz_fse_red_map = {y: 0.0 for y in ALL_YEARS}
+        coz_cmvmc_inc_map = {y: 0.0 for y in ALL_YEARS}
+
     # ===== ETAPA 10: CÁLCULO DE OUTROS RENDIMENTOS =====
     # Outros Rendimentos: receitas não operacionais
     #   - Equivalência Patrimonial: resultado de participações em associadas
@@ -234,6 +248,8 @@ def build_dr(
             "hub_outros_rend_subsidio": 0.0,
             "fse_subcontratacao_ecogres": subc_map.get(2024, 0.0),
             "ecogres_reducao_mpsc": 0.0,
+            "cozedura_fse_reducao": 0.0,
+            "cozedura_cmvmc_incremento": 0.0,
             "outros_rend_ced_loc": bk24["outros_rend_ced_loc"],
             "outros_rend_ced_pessoal": bk24["outros_rend_ced_pessoal"],
             "outros_rend_equiv_patr": bk24["outros_rend_equiv_patr"],
@@ -302,6 +318,13 @@ def build_dr(
         # Adicionados a outros_gastos para não contaminar a reconciliação FSE/detalhe.
         out_gast = out_gast + hub_gastos_preop
 
+        # Cozedura de Baixa Temperatura: FSE ↓ (poupança de energia) e CMVMC ↑
+        # (pasta reformulada). Efeito líquido recorrente no EBITDA, faseado.
+        coz_fse_red = coz_fse_red_map.get(y, 0.0)
+        coz_cmvmc_inc = coz_cmvmc_inc_map.get(y, 0.0)
+        f = f - coz_fse_red
+        c = c + coz_cmvmc_inc
+
         ebitda = vn + var_inv + var_producao + out_rend - c - f - p - imp - out_gast
         ebit = ebitda - d
         rai = ebit - j + rend_fin
@@ -345,6 +368,8 @@ def build_dr(
                 "hub_outros_rend_subsidio": hub_outros_rend,
                 "fse_subcontratacao_ecogres": ecogres_subc,
                 "ecogres_reducao_mpsc": eco_mpsc_red.get(y, 0.0),
+                "cozedura_fse_reducao": coz_fse_red,
+                "cozedura_cmvmc_incremento": coz_cmvmc_inc,
                 "outros_rend_ced_loc": bky["outros_rend_ced_loc"],
                 "outros_rend_ced_pessoal": bky["outros_rend_ced_pessoal"],
                 "outros_rend_equiv_patr": bky["outros_rend_equiv_patr"],

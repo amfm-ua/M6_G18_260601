@@ -30,6 +30,7 @@ from .models import Assumptions, Base2024, Schedules
 from .paths import (
     ASSUMPTIONS_FILE,
     BASE2024_FILE,
+    COZEDURA_FILE,
     CUSTOS_2025_FILE,
     CUSTOS_2026_2029_FILE,
     ECOGRES_ASSUMPTIONS_FILE,
@@ -490,6 +491,14 @@ def load(cenario: str = "Base"):
         assumptions.setdefault("ecogres", ecogres_data)
     if hub_data:
         assumptions.setdefault("hub_logistico", hub_data)
+
+    # Cenário "Cozedura de Baixa Temperatura" (toggle cozedura_on) — pressupostos
+    # de eficiência térmica baseados na tese UA/Roca. A flag `incluir` é definida
+    # em runtime por run_model(cozedura_on=...).
+    cozedura_data = _yaml_load(COZEDURA_FILE, required=False) or {}
+    coz_block = cozedura_data.get("cozedura_baixa_temp", cozedura_data)
+    if coz_block:
+        assumptions.setdefault("cozedura_baixa_temp", coz_block)
 
     # PASSO 5: Aplicação do cenário (override de crescimentos ou parâmetros custom)
     if cenario in _SCENARIO_OVERRIDES:

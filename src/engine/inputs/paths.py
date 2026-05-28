@@ -28,6 +28,7 @@ CUSTOS_2026_2029_FILE = (DATA_DIR / "pressupostos"   / "2026_2029" / "custos.yam
 PRODUTOS_FILE         = (DATA_DIR / "master"         / "produtos.yaml").resolve()
 MERCADORIAS_FILE      = (DATA_DIR / "master"         / "mercadorias.yaml").resolve()
 FSE_RUBRICAS_FILE     = (DATA_DIR / "master"         / "fse_rubricas.yaml").resolve()
+COZEDURA_FILE         = (DATA_DIR / "master"         / "cozedura_baixa_temp.yaml").resolve()
 
 # --- Outputs calculados pelo motor (não editar manualmente) ---
 SCHEDULES_FILE        = (DATA_DIR / "computed"       / "schedules.yaml").resolve()

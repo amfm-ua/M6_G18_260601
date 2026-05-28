@@ -35,3 +35,17 @@ def _load_ecogres(a: Assumptions) -> dict | None:
         return eco
     except Exception:
         return None
+
+
+def _load_cozedura(a: Assumptions) -> dict | None:
+    """Carrega os pressupostos do cenário Cozedura de Baixa Temperatura.
+
+    Devolve None se o toggle (cozedura_on) estiver desativado.
+    """
+    try:
+        coz = a.raw.get("cozedura_baixa_temp", {})
+        if not coz or not coz.get("incluir", False):
+            return None
+        return coz
+    except Exception:
+        return None

@@ -33,6 +33,7 @@ function App() {
   const [view, setView] = useState("overview");
   const [scenario, setScenario] = useState("Base");
   const [hubOn, setHubOn] = useState(false);
+  const [cozeduraOn, setCozeduraOn] = useState(false);
   // Ecogres é subsidiária — sempre consolidada
   const ecogresOn = true;
 
@@ -68,10 +69,10 @@ function App() {
     setLoading(true);
     setError(null);
     Promise.all([
-      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn }),
+      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn }),
       // Taxa de IRC efetiva da API (fonte de verdade única, C-1). Fallback
       // silencioso para o default offline se a chamada falhar.
-      API.assumptions({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn })
+      API.assumptions({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn })
         .catch(() => ({})),
     ])
       .then(([data, assum]) => {
@@ -84,7 +85,7 @@ function App() {
           fse: data.fse,
           pessoal: data.pessoal,
           ircTaxaEfetiva: assum.irc_taxa_efetiva ?? GRESTEL.IRC_TAXA_EFETIVA,
-          scenario, hubOn: effectiveHubOn, ecogresOn,
+          scenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn,
         });
         setLoading(false);
       })
@@ -94,7 +95,7 @@ function App() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [scenario, effectiveHubOn, ecogresOn]);
+  }, [scenario, effectiveHubOn, ecogresOn, cozeduraOn]);
 
   return (
     <div className="app">
@@ -107,6 +108,8 @@ function App() {
           hubOn={effectiveHubOn}
           setHubOn={setHubOn}
           hubLocked={hubLocked}
+          cozeduraOn={cozeduraOn}
+          setCozeduraOn={setCozeduraOn}
           loading={loading}
           ecogresOn={ecogresOn}
         />
@@ -292,7 +295,7 @@ function fmtIsoDate(iso) {
   } catch { return "—"; }
 }
 
-function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, loading, ecogresOn }) {
+function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozeduraOn, setCozeduraOn, loading, ecogresOn }) {
   const [exporting, setExporting] = useState(false);
   const [exportingM3, setExportingM3] = useState(false);
   const title = NAV.find(n => n.id === view)?.label || "";
@@ -332,6 +335,9 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, loadi
         <div className="topbar-desc">{desc}</div>
       </div>
       <div className="topbar-r">
+        <div className="chip-static" title="Subsidiária — sempre consolidada">
+          <span className="dot dot--ok" /> Ecogres
+        </div>
         <div className="seg">
           {Object.keys(GRESTEL.SCENARIOS).map(k => (
             <button
@@ -342,11 +348,9 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, loadi
           ))}
         </div>
         <Toggle label="Hub Logístico" on={hubOn} onChange={setHubOn} locked={hubLocked} />
-        <div className="chip-static" title="Subsidiária — sempre consolidada">
-          <span className="dot dot--ok" /> Ecogres
-        </div>
-        <button className="btn-ghost" disabled style={{ opacity: 0.45, cursor: "not-allowed" }} title="Exportação não disponível">
-          Exportar
+        <Toggle label="Cozedura BT" on={cozeduraOn} onChange={setCozeduraOn} />
+        <button className="btn-ghost" disabled style={{ opacity: 0.45, cursor: "not-allowed" }} title="Exportação não disponível" aria-label="Exportar">
+          <span aria-hidden="true">⤓</span>
         </button>
       </div>
     </header>

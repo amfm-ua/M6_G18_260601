@@ -30,11 +30,11 @@ const API = (() => {
   // irc_taxa_efetiva em GET /api/assumptions/effective. O frontend consome este
   // valor e injeta-o em todas as chamadas do Hub — nunca o tem hardcoded.
   // Em modo mock cai no fallback offline GRESTEL.IRC_TAXA_EFETIVA.
-  async function assumptions({ cenario = "Base", hub_on = false, ecogres_on = true } = {}) {
+  async function assumptions({ cenario = "Base", hub_on = false, ecogres_on = true, cozedura_on = false } = {}) {
     if (useMock) {
       return { irc_taxa_efetiva: GRESTEL.IRC_TAXA_EFETIVA };
     }
-    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on) });
+    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on), cozedura_on: String(cozedura_on) });
     const r = await fetch(BACKEND_URL + "/api/assumptions/effective?" + params);
     if (!r.ok) throw new Error("Erro /api/assumptions/effective: " + r.status);
     const d = await r.json();
@@ -42,7 +42,7 @@ const API = (() => {
   }
 
   // ─── projecao ──────────────────────────────────────────────────────────────
-  async function projecao({ cenario, hub_on, ecogres_on }) {
+  async function projecao({ cenario, hub_on, ecogres_on, cozedura_on = false }) {
     if (useMock) {
       const dr   = GRESTEL.projectDR(cenario, { hubOn: hub_on, ecogresOn: ecogres_on });
       const bal  = GRESTEL.projectBalanco(dr, { hubOn: hub_on });
@@ -55,7 +55,7 @@ const API = (() => {
     const r = await fetch(BACKEND_URL + "/api/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cenario, hub_on, ecogres_on }),
+      body: JSON.stringify({ cenario, hub_on, ecogres_on, cozedura_on }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: r.statusText }));
@@ -359,7 +359,7 @@ const API = (() => {
     return "nao_cumprido";
   }
 
-  async function smartTracker({ cenario, hub_on, ecogres_on }) {
+  async function smartTracker({ cenario, hub_on, ecogres_on, cozedura_on = false }) {
     if (useMock) {
       const dr   = GRESTEL.projectDR(cenario, { hubOn: hub_on, ecogresOn: ecogres_on });
       const bal  = GRESTEL.projectBalanco(dr, { hubOn: hub_on });
@@ -393,7 +393,7 @@ const API = (() => {
     }
 
     // Live: GET /api/smart/tracker
-    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on) });
+    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on), cozedura_on: String(cozedura_on) });
     const r = await fetch(BACKEND_URL + "/api/smart/tracker?" + params);
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: r.statusText }));

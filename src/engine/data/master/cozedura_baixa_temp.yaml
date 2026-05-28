@@ -1,0 +1,65 @@
+version: 1
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Cenário "Cozedura de Baixa Temperatura" — toggle (cozedura_on)
+#
+# Fonte técnica: dissertação de mestrado UA/Roca (Junqueira, 2023) — redução do
+# patamar de cozedura de 1200 ºC para 1140 ºC via reformulação de pasta
+# (incorporação de ~2% de volastonite e ajuste do rácio de fundentes), com uma
+# poupança energética de ~18% por ciclo mantendo a vitrificação (absorção <0,5%).
+#
+# TRANSFERÊNCIA POR ANALOGIA: a tese incide sobre louça sanitária (vitreous
+# china); a Grestel produz grés fino de mesa. A base mineralógica (argilas,
+# caulinos, feldspatos, quartzo) e o critério de absorção (<0,5%) são comuns,
+# pelo que as conclusões constituem uma "prova de conceito" adaptável — mas
+# exigem validação industrial (a composição W3 teve resistência mecânica
+# abaixo do alvo: 31,7 MPa @1140 ºC vs. 56,8 MPa da referência @1200 ºC).
+# Daí o faseamento (piloto 2027 → pleno 2029).
+#
+# ADITIVIDADE: ataca a PROCURA de energia (menos calor para vitrificar), ao
+# passo que os projetos atuais da Grestel (H2 50%, fotovoltaico, ECOGRES 4.0)
+# atuam na OFERTA de energia e na circularidade de materiais — os efeitos
+# multiplicam-se, não se sobrepõem.
+# ──────────────────────────────────────────────────────────────────────────────
+
+cozedura_baixa_temp:
+  incluir: false            # ativado em runtime por run_model(cozedura_on=True)
+
+  # ── Perna 1: poupança de energia (FSE) ──────────────────────────────────────
+  poupanca_energia_pct: 0.18      # redução por ciclo (tese)
+  base_gas_pct: 1.00              # 100% do Gás Natural é vetor térmico de cozedura
+  base_eletricidade_pct: 0.50     # ~50% da Eletricidade serve fornos/secagem
+                                  # (exclui iluminação, conformação, administrativo)
+
+  # ── Faseamento da adoção (share da produção com nova pasta) ─────────────────
+  ramp_up:
+    2025: 0.0
+    2026: 0.0
+    2027: 0.3333    # piloto (~1/3 da produção) — foco em resistência mecânica
+    2028: 0.6667    # escalabilidade (~2/3)
+    2029: 1.0       # pleno
+
+  # ── Perna 2: pasta reformulada — incremento de CMVMC (volastonite) ──────────
+  # A volastonite é um mineral técnico de maior valor unitário que as argilas
+  # comuns; a maior reatividade exige moagem mais fina (d50 ~3 µm), aumentando o
+  # processamento. Modelado como % do CMVMC total, aplicado à fração adotante
+  # (ramp). Conservador: mantém o efeito líquido claramente positivo.
+  cmvmc_incremento_pct: 0.003     # +0,3% do CMVMC no pleno (sensibilidade até 0,6%)
+
+  # ── Perna 3: investimento I&D + benefício fiscal (appraisal de viabilidade) ─
+  # Investimento low-capex de inovação de processo (vs. capex pesado do Hub):
+  # reformulação de pasta + ensaios industriais ("vagonas de teste", Kaizen).
+  # Referência: Grestel investiu ~116k€ em eficiência energética em 2024.
+  ano_investimento: 2027
+  investimento: 200000
+  sifide_taxa_credito: 0.325      # SIFIDE II base (art. 35.º CFI); upside ~0,60
+                                  # (rácio empírico Grestel 2024: 380 795/632 304)
+  wacc_appraisal: 0.073           # WACC de viabilidade (alinhado c/ Hub); OE5 usou 6,21%
+
+  # ── ESG: alavanca extra de gás/peça (soma ao programa H2 de -3%/ano) ────────
+  # Incrementos anuais de eficiência de gás/peça nos anos de adoção. Cumulativo
+  # ~-18% até 2029, ultrapassando largamente o objetivo SMART (gas_peca_2026: -10%).
+  eficiencia_gas_extra:
+    2027: 0.06
+    2028: 0.06
+    2029: 0.06

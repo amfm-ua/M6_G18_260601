@@ -3055,11 +3055,11 @@ function SmartView({ ctx }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    API.smartTracker({ cenario: ctx.scenario, hub_on: ctx.hubOn, ecogres_on: ctx.ecogresOn })
+    API.smartTracker({ cenario: ctx.scenario, hub_on: ctx.hubOn, ecogres_on: ctx.ecogresOn, cozedura_on: ctx.cozeduraOn })
       .then(data => { if (!cancelled) { setTracker(data); setLoading(false); } })
       .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [ctx.scenario, ctx.hubOn, ctx.ecogresOn]);
+  }, [ctx.scenario, ctx.hubOn, ctx.ecogresOn, ctx.cozeduraOn]);
 
   if (loading && !tracker) return <LoadingShell />;
   if (error && !tracker) return <ErrorBanner message={error} onRetry={() => { setError(null); setTracker(null); setLoading(true); }} />;

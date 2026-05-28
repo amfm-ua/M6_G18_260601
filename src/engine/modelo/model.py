@@ -10,7 +10,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from ..inputs import Assumptions, Base2024, Schedules, load, MESES
+from ..inputs import Assumptions, Base2024, Schedules, load, MESES, YEARS
 from ..inputs.yaml_io import _deep_update
 from ..demonstracoes import statements
 from ..operacional import fse as fse_mod
@@ -31,6 +31,7 @@ def run_model(
     cenario: str = "Base",
     hub_on: bool = False,
     ecogres_on: bool = True,
+    cozedura_on: bool = False,
     assumptions_overrides: dict[str, Any] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """
@@ -40,6 +41,9 @@ def run_model(
         cenario: Nome do cenário (ex: "Base")
         hub_on: Ativa o Hub Logístico M6
         ecogres_on: Ativa a subsidiária Ecogres
+        cozedura_on: Ativa o cenário "Cozedura de Baixa Temperatura" (eficiência
+            térmica via reformulação de pasta — tese UA/Roca). Reduz FSE de
+            energia, aumenta ligeiramente o CMVMC e melhora o gás/peça (ESG).
 
     Returns:
         dict com DataFrames:
@@ -60,6 +64,20 @@ def run_model(
 
     a.raw.setdefault("ecogres", {})
     a.raw["ecogres"]["incluir_ecogres"] = bool(ecogres_on)
+
+    a.raw.setdefault("cozedura_baixa_temp", {})
+    a.raw["cozedura_baixa_temp"]["incluir"] = bool(cozedura_on)
+
+    # Cozedura de Baixa Temperatura: a redução do patamar de cozedura também baixa
+    # o consumo de gás por peça. Soma-se a alavanca extra de eficiência (faseada)
+    # ao programa H2 existente, melhorando o objetivo SMART de gás/peça.
+    if cozedura_on:
+        from ..projetos.cozedura import impacto as _coz
+        esg = a.raw.setdefault("esg", {})
+        base_efic = esg.get("eficiencia_gas_anual", 0.0)
+        esg["eficiencia_gas_anual"] = _coz.cozedura_gas_eficiencia_anual(
+            a.raw["cozedura_baixa_temp"], base_efic
+        )
 
     # Vendas anuais — calculadas uma vez e partilhadas com DR, Balanço e outputs
     df_prod = vendas_mod.vendas_anuais(a, base, sched)
@@ -202,6 +220,22 @@ def run_model(
     except Exception as exc:
         logger.warning("build_cmvmc_mensal falhou: %s", exc)
         dfs["cmvmc_mensal_2025"] = pd.DataFrame(columns=["mes", "cmvmc"])
+
+    # Business case da Cozedura de Baixa Temperatura (appraisal de viabilidade):
+    # investimento I&D + SIFIDE vs. poupança líquida recorrente → VAL e payback.
+    if cozedura_on:
+        try:
+            from ..projetos.cozedura import impacto as coz_mod
+            coz = a.raw.get("cozedura_baixa_temp", {})
+            dr = dfs["dr"]
+            fse_red = {int(r["ano"]): float(r["cozedura_fse_reducao"]) for _, r in dr.iterrows()}
+            cmvmc_inc = {int(r["ano"]): float(r["cozedura_cmvmc_incremento"]) for _, r in dr.iterrows()}
+            irc_taxa = float(a.impostos.get("IRC_taxa_geral", 0.21))
+            df_app = coz_mod.cozedura_appraisal(coz, fse_red, cmvmc_inc, irc_taxa)
+            dfs["cozedura_appraisal"] = df_app
+            dfs["cozedura_resumo"] = coz_mod.cozedura_resumo(df_app, coz)
+        except Exception as exc:
+            logger.warning("cozedura_appraisal falhou: %s", exc)
 
     return dfs
 

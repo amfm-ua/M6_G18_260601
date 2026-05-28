@@ -11,6 +11,7 @@ class RunRequest(BaseModel):
     cenario: str = "Base"
     hub_on: bool = False
     ecogres_on: bool = True
+    cozedura_on: bool = False
     assumptions: dict[str, Any] | None = None
     persist: bool = False
 

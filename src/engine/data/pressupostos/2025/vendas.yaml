@@ -11,9 +11,7 @@ crescimento_volume_vendas:
 crescimento_pvu_vendas:
   # Spread real de preço (pricing power): 0.8% real + 2.2% inflação ≈ 3.0% nominal
   base_2025: 0.008
-  acrescimos_mensais:
-    Fev: 0.001
-    Set: 0.002
+  # acrescimos_mensais: {}
 
 qtd_produto_crescimento:
   # Crescimento de quantidade DIFERENCIAL por produto (acumula sobre o baseline do cenário).

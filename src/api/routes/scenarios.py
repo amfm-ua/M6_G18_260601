@@ -115,6 +115,7 @@ def post_run(body: RunRequest):
         cenario=body.cenario,
         hub_on=body.hub_on,
         ecogres_on=body.ecogres_on,
+        cozedura_on=body.cozedura_on,
         assumptions_overrides=overrides,
     )
 

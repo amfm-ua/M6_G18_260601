@@ -26,6 +26,7 @@ def build_dr(
     df_merc: "pd.DataFrame | None" = None,
     df_total: "pd.DataFrame | None" = None,
     juros_linha_cp: "dict[int, float] | None" = None,
+    aplic_cp_rend: "dict[int, float] | None" = None,
 ) -> pd.DataFrame:
     """
     Constrói a Demonstração de Resultados Completa (2024-2029).
@@ -281,7 +282,10 @@ def build_dr(
         out_gast = outros_gastos[y]
         imp = imparidades.get(y, 0.0)
 
-        rend_fin = rend_fin_base * (1 + rend_fin_g) ** (y - 2025)
+        rend_fin = (
+            rend_fin_base * (1 + rend_fin_g) ** (y - 2025)
+            + (aplic_cp_rend or {}).get(y, 0.0)
+        )
 
         ecogres_subc = subc_map.get(y, 0.0)
 

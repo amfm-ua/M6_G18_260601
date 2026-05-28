@@ -69,7 +69,10 @@ caixa:
   # a procura de liquidez escala com o volume de transações — Keynes 1936, Baumol 1952).
   # Calibrados para coincidir com os valores históricos em 2025 e escalar com o crescimento.
   minima_pct_vn: 0.013   # 1.3% VN → ≈ 527 k€ em 2025, ≈ 691 k€ em 2029
-  maxima_pct_vn: 0.086   # 8.6% VN → ≈ 3.48 M€ em 2025, ≈ 4.57 M€ em 2029
+  maxima_pct_vn: 0.040   # 4.0% VN — calibrado ao histórico 2024 (€542k = 1.43% × ~3×): excesso vai para Aplicações Fin. CP
+
+  # Rendimento das Aplicações Financeiras de Curto Prazo (depósitos a prazo / fundo monetário).
+  taxa_rend_aplic_cp: 0.030   # 3.0% — taxa conservadora (BCE ~2.5% + margem 0.5 pp)
 
   # Taxa de juro da linha de crédito rotativo CP (Euribor 3m ~3,5% + spread ~3pp).
   taxa_juro_cc_anual: 0.065   # 6.5% — usado no dimensionamento da linha rotativa

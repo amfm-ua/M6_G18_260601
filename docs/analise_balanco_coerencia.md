@@ -76,20 +76,24 @@ aplic_cp  = max(0.0, surplus - caixa_max)   # excesso → aplicações fin. CP
 linha_cp  = max(0.0, caixa_min - surplus)   # défice → linha crédito CP
 ```
 
-Com `caixa_max = VN × 8,6%` (≈ €4,5M em 2029), todo o excedente acima deste limiar é depositado em `aplicacoes_fin_cp` (aplicações financeiras de curto prazo).
+### Correcção C4 (implementada em 2026-05-28)
 
-### Valores (cenário com Hub, 2025-2029)
+`caixa_max` foi recalibrado para `VN × 4,0%` (era 8,6%) com base no histórico real 2024 (€542k = 1,43% VN). A iteração C4 em `statements.py` calcula os rendimentos das aplicações usando o saldo do ano anterior × `taxa_rend_aplic_cp = 3,0%`.
 
-| Ano | Caixa | Aplicações Fin. CP | Total Liquidez |
-|-----|-------|-------------------|---------------|
-| 2025 | €500k | €0 | €500k |
-| 2026 | — | €0 | — |
-| 2027 | — | €378k | — |
-| 2028 | — | €2,673k | — |
-| 2029 | — | €5,388k | — |
+**Valores actuais (cenário com Hub, 2025-2029):**
+
+| Ano | Caixa | Aplicações Fin. CP | Rend. Financeiros | Total Liquidez |
+|-----|-------|-------------------|------------------|---------------|
+| 2025 | €1.312M | €0 | €64.678 | €1.312M |
+| 2026 | €583k | €0 | €66.295 | €583k |
+| 2027 | €1.907M | €3.545M | €67.952 | €5.452M |
+| 2028 | €2.033M | €6.118M | €175.987 | €8.151M |
+| 2029 | €2.153M | €9.151M | €251.753 | €11.304M |
+
+Ver `docs/aplicacoes_financeiras_cp.md` para análise completa do impacto.
 
 ### Interpretação
-A empresa é lucrativa e amortiza dívida, mas o plano não prevê distribuição de dividendos agressiva nem amortização antecipada de empréstimos. O excedente acumula-se passivamente. Para o M6, é defensável mas pode indicar ausência de política de alocação de capital de longo prazo.
+Com a C4, o excedente de tesouraria é reconhecido como activo financeiro de curto prazo e gera rendimentos explícitos na DR — congruente com a política de gestão de liquidez enunciada no R&C da Grestel.
 
 ---
 

@@ -110,6 +110,42 @@ def build_statements(
                 df_prod=df_prod, df_merc=df_merc, df_total=df_total,
             )
 
+    # Correcção C4 — rendimentos das Aplicações Financeiras CP (NCRF 27 §11):
+    # Quando o surplus supera caixa_max, o excesso fica em aplic_cp gerando juros.
+    # Uma iteração é suficiente: o impacto no surplus é < 2% do RL, tornando
+    # a segunda iteração desprezível (igual à lógica C3 da linha de crédito CP).
+    taxa_rend_aplic = float(a.raw.get("caixa", {}).get("taxa_rend_aplic_cp", 0.0))
+    if taxa_rend_aplic > 0.0:
+        aplic_cp_rend_map: dict[int, float] = {}
+        prev_aplic: float = 0.0
+        for _, row in df_balanco.sort_values("ano").iterrows():
+            y_row = int(row["ano"])
+            aplic_y = float(row["aplicacoes_fin_cp"])
+            if prev_aplic > 0.0:
+                aplic_cp_rend_map[y_row] = prev_aplic * taxa_rend_aplic
+            prev_aplic = aplic_y
+        if aplic_cp_rend_map:
+            # Preserva juros da linha CP calculados em C3 (coluna guardada negativa)
+            j_linha_preserved: "dict[int, float] | None" = None
+            if "juros_linha_cp" in df_dr.columns:
+                j_map = {
+                    int(r["ano"]): -float(r["juros_linha_cp"])
+                    for _, r in df_dr.iterrows()
+                    if float(r["juros_linha_cp"]) < 0.0
+                }
+                j_linha_preserved = j_map or None
+            df_dr = build_dr(
+                a, base, sched,
+                df_prod=df_prod, df_merc=df_merc, df_total=df_total,
+                juros_linha_cp=j_linha_preserved,
+                aplic_cp_rend=aplic_cp_rend_map,
+            )
+            df_balanco = build_balanco(
+                a, base, sched, df_dr,
+                df_eoep_mensal=df_eoep_mensal,
+                df_prod=df_prod, df_merc=df_merc, df_total=df_total,
+            )
+
     df_dfc = build_dfc(a, df_dr, df_balanco, sched, base)
 
     return {

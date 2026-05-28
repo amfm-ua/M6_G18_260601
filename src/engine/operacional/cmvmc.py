@@ -183,7 +183,9 @@ def cmvmc_anual(
     )
 
     cum_vol = _monthly_cum_index(_monthly_rates(vol_block))
-    cum_cost = _monthly_cum_index(_monthly_rates(cost_block))
+
+    # custo_mercadorias é inflation-linked (Filosofia B) — compor inflação
+    cum_cost = _monthly_cum_index(_monthly_rates(cost_block, inflation_monthly=a.inflacao_mensal_2025()))
 
     saz_pt = _saz_to_dict(a.sazonalidade.get("PT", []))
 

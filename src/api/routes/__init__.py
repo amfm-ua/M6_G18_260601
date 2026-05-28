@@ -24,6 +24,7 @@ from .smart import router as smart_router
 from .yaml_editor import router as yaml_editor_router
 from .export import router as export_router
 from .enquadramento import router as enquadramento_router
+from .valuation import router as valuation_router
 
 router = APIRouter()
 router.include_router(pressupostos_router)
@@ -37,3 +38,4 @@ router.include_router(smart_router)
 router.include_router(yaml_editor_router)
 router.include_router(export_router)
 router.include_router(enquadramento_router)
+router.include_router(valuation_router)

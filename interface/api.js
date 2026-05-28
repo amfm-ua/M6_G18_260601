@@ -805,6 +805,23 @@ const API = (() => {
     });
   }
 
+  // ─── valuationMC ───────────────────────────────────────────────────────────
+  async function valuationMCOperacional({ cenario = "Base", hub_on = false, n = 1000, seed } = {}) {
+    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), n: String(n) });
+    if (seed != null) params.set("seed", String(seed));
+    const r = await fetch(BACKEND_URL + "/api/valuation/monte-carlo/operacional?" + params);
+    if (!r.ok) throw new Error("Erro /valuation/monte-carlo/operacional: " + r.status);
+    return await r.json();
+  }
+
+  async function valuationMCComparativo({ cenario = "Base", n = 1000, seed } = {}) {
+    const params = new URLSearchParams({ cenario, n: String(n) });
+    if (seed != null) params.set("seed", String(seed));
+    const r = await fetch(BACKEND_URL + "/api/valuation/monte-carlo/comparativo?" + params);
+    if (!r.ok) throw new Error("Erro /valuation/monte-carlo/comparativo: " + r.status);
+    return await r.json();
+  }
+
   // ─── exportExcel ───────────────────────────────────────────────────────────
   async function exportExcel({ cenario, hub_on, ecogres_on }) {
     const params = new URLSearchParams({
@@ -845,5 +862,5 @@ const API = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, FSE_RUBRICAS };
+  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, valuationMCOperacional, valuationMCComparativo, FSE_RUBRICAS };
 })();

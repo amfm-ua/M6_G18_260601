@@ -7,6 +7,7 @@ const { useState, useMemo, useEffect, useCallback } = React;
 // -----------------------------------------------------------------------------
 const NAV = [
   { id: "overview",     label: "Visão Geral",       group: "Síntese" },
+  { id: "valuation_mc", label: "Avaliação MC",      group: "Síntese" },
   { id: "dr",           label: "DR", group: "Demonstrações Financeiras" },
   { id: "balanco",      label: "Balanço",           group: "Demonstrações Financeiras" },
   { id: "dfc",          label: "DFC",   group: "Demonstrações Financeiras" },
@@ -20,7 +21,7 @@ const NAV = [
   { id: "cenarios",       label: "Análise de Cenários",    group: "Análise" },
   { id: "producao",       label: "Orçamento de Produção",   group: "Produção" },
   { id: "hub",            label: "Hub Logístico",          group: "Projetos" },
-  { id: "ecogres",        label: "Ecogres",                group: "Análise" },
+  { id: "ecogres",        label: "ECOGRES",                group: "Análise" },
   { id: "pressupostos", label: "Pressupostos",      group: "Configuração" },
   { id: "yaml_editor", label: "Editor YAML",       group: "Configuração" },
 ];
@@ -133,6 +134,7 @@ function App() {
                   {view === "cenarios" && <CenariosView ctx={ctx} />}
                   {view === "producao" && <ProducaoView ctx={ctx} />}
                   {view === "hub" && <HubView ctx={ctx} />}
+                  {view === "valuation_mc" && <ValuationMCView ctx={ctx} />}
                   {view === "ecogres" && <EcogresView ctx={ctx} />}
                   {view === "pressupostos" && <PressupostosView ctx={ctx} />}
                 </>
@@ -246,7 +248,7 @@ function Sidebar({ view, setView, apiStatus }) {
       <div className="brand">
         <img className="brand-logo" src="assets/grestel-logo.png" alt="Grestel" />
         <div>
-          <div className="brand-sub">PEF G18 M6 · v0.9.5</div>
+          <div className="brand-sub">PEF G18 M6 · v1.0</div>
         </div>
       </div>
       <nav className="nav">

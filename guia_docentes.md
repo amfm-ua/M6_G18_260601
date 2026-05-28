@@ -1,6 +1,6 @@
 # GrestelPy — Guia do Docente
 
-> Motor financeiro da empresa Grestel · PEF 2025-26 · Grupo 18 · ISCA-UA · Engine v0.9.9
+> Motor financeiro da empresa Grestel · PEF 2025-26 · Grupo 18 · ISCA-UA · Engine v1.0
 
 ---
 
@@ -381,4 +381,4 @@ pytest tests/
 
 ---
 
-*GrestelPy · Engine v0.9.6 · PEF 2025-26 · Grupo G18 · ISCA-UA · actualizado 2026-05-28*
+*GrestelPy · Engine v1.0· PEF 2025-26 · Grupo G18 · ISCA-UA · actualizado 2026-05-28*

@@ -9,6 +9,27 @@ from ..inputs import Assumptions, Base2024, ALL_YEARS, YEARS, DATA_DIR, MESES
 import yaml
 
 
+def _fse_monthly_weights(
+    a: Assumptions,
+    dist_sazonal: dict[str, float],
+) -> dict[str, float]:
+    """Pesos mensais de FSE combinando sazonalidade com perfil de crescimento.
+
+    Quando acrescimos_mensais está definido, os meses com acréscimo
+    recebem peso proporcionalmente maior; sem acréscimos, o resultado
+    é idêntico à distribuição sazonal pura (preservando retro-compatibilidade).
+    """
+    from .vendas import _monthly_rates, _monthly_cum_index
+
+    block = a._driver_block("fse")
+    rates = _monthly_rates(block, inflation_monthly=a.inflacao_mensal_2025())
+    cum = _monthly_cum_index(rates)
+
+    weights = {m: dist_sazonal[m] * cum[m] for m in MESES}
+    total = sum(weights.values()) or 1.0
+    return {m: weights[m] / total for m in MESES}
+
+
 def fse_detalhe_mensal_2025(
     a: Assumptions,
     base: Base2024,
@@ -16,6 +37,9 @@ def fse_detalhe_mensal_2025(
     dist_sazonal: dict[str, float] | None = None,
 ) -> dict[str, dict[str, float]]:
     """Detalhe mensal de FSE 2025 por rubrica.
+
+    A distribuição mensal combina sazonalidade com o perfil de crescimento
+    do driver FSE (incluindo acrescimos_mensais e inflação — Filosofia B).
 
     Args:
         a: Pressupostos do cenário.
@@ -29,6 +53,9 @@ def fse_detalhe_mensal_2025(
     if dist_sazonal is None:
         dist_sazonal = {m: 1.0 / 12.0 for m in MESES}
 
+    # Pesos mensais com crescimento (acrescimos_mensais + inflação)
+    monthly_weights = _fse_monthly_weights(a, dist_sazonal)
+
     df_det_anual = fse_detalhe_anual(a, base, vendas_factor_2025)
     df_2025 = df_det_anual[df_det_anual.ano == 2025]
     annual_2025_by_rub = dict(zip(df_2025["rubrica"], df_2025["valor"]))
@@ -40,7 +67,7 @@ def fse_detalhe_mensal_2025(
             continue
 
         val_2025 = annual_2025_by_rub.get(rubica, 0.0)
-        result[rubica] = {m: val_2025 * dist_sazonal[m] for m in MESES}
+        result[rubica] = {m: val_2025 * monthly_weights[m] for m in MESES}
 
     return result
 

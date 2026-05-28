@@ -80,22 +80,20 @@ from ..inputs import Assumptions, Base2024, ALL_YEARS, YEARS, MESES
 def _taxa_pessoal_2025_efetiva(a: Assumptions) -> float:
     """Taxa anual efectiva de crescimento do custo médio de pessoal em 2025.
 
-    Usa `taxa_cresc_custo_2025` de assumptions.yaml como base anual.
-    Se `acrescimos_mensais` estiver definido em `crescimento_pessoal`
-    (custos_mensal.yaml), calcula a taxa composta a partir dos 12 meses:
-        taxa_ef = ∏(1 + r_m  para m em MESES) - 1
-    Sem acréscimos, o resultado é idêntico ao anterior.
+    Sem acrescimos_mensais: devolve taxa_cresc_custo_2025 (nominal, de globais.yaml).
+    Com acrescimos_mensais: usa o driver_block (base_2025 = spread real) e compõe
+    com inflação mensal (Filosofia B), consistente com _cresc_fse_2025_efetivo.
     """
-    base_anual = float(a.taxa_pessoal_2025())
     driver_block = a._driver_block("pessoal")
     acrescimos = driver_block.get("acrescimos_mensais") or driver_block.get("overrides_mensais") or {}
 
     if not acrescimos:
-        return base_anual
+        return float(a.taxa_pessoal_2025())
 
     from .vendas import _monthly_rates
 
-    rates = _monthly_rates({"base_2025": base_anual, "acrescimos_mensais": acrescimos})
+    # Com acrescimos mensais: usar driver_block + inflação (Filosofia B)
+    rates = _monthly_rates(driver_block, inflation_monthly=a.inflacao_mensal_2025())
     factor = 1.0
     for m in MESES:
         factor *= 1.0 + rates[m]

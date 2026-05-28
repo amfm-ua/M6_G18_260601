@@ -290,7 +290,7 @@ function BarChart({ groups, height = 220, padding = { top: 16, right: 16, bottom
                       key={bi}
                       x={x0}
                       y={top}
-                      width={barW - 2}
+                      width={Math.max(0, barW - 2)}
                       height={h}
                       fill={b.color}
                       onMouseMove={handle}

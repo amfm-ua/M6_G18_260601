@@ -104,7 +104,11 @@ def _mp_fraction_per_produto(a: Assumptions) -> dict[str, float]:
 
 
 def _cost_growth_factors(a: Assumptions) -> dict[int, float]:
-    """Fator de crescimento acumulado do custo de produção por ano."""
+    """Fator de crescimento acumulado do custo de produção por ano.
+
+    Nota: custo_mercadorias está em INFLATION_LINKED_DRIVERS (Filosofia B),
+    pelo que as taxas mensais devem ser compostas com a inflação.
+    """
     from .vendas import _monthly_cum_index, _monthly_rates, _saz_to_dict
 
     block = a.cenario_block()
@@ -114,7 +118,8 @@ def _cost_growth_factors(a: Assumptions) -> dict[int, float]:
         or a.raw.get("crescimento_custo_mercadorias", {})
     )
 
-    cum = _monthly_cum_index(_monthly_rates(cost_block))
+    # custo_mercadorias é inflation-linked — compor inflação (Filosofia B)
+    cum = _monthly_cum_index(_monthly_rates(cost_block, inflation_monthly=a.inflacao_mensal_2025()))
     saz = _saz_to_dict(a.sazonalidade.get("PT", []))
 
     f_2025 = sum(

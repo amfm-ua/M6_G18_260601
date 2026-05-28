@@ -1,6 +1,6 @@
 [project]
 name = "m6-g18-260601"
-version = "0.9.9"
+version = "1.0"
 description = "Modelo financeiro Grestel — M6 G18"
 requires-python = ">=3.10"
 dependencies = [

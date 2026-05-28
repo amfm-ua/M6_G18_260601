@@ -97,6 +97,31 @@ def _mes_pagamento(mes_custo: str, pmp_dias: float) -> str | None:
     return None
 
 
+def _cost_monthly_weights(
+    a: Assumptions,
+    dist_sazonal: dict[str, float],
+    driver_key: str,
+) -> dict[str, float]:
+    """Pesos mensais para custos combinando sazonalidade com perfil de crescimento.
+
+    Suporta acrescimos_mensais e composição com inflação (Filosofia B).
+    Sem acrescimos, o resultado é ≈ dist_sazonal (preserva retro-compatibilidade).
+    """
+    from ..operacional.vendas import _monthly_rates, _monthly_cum_index
+
+    block = a._driver_block(driver_key)
+    inflation = a.inflacao_mensal_2025() if driver_key in (
+        "fse", "pessoal", "custo_mercadorias", "mpsc",
+    ) else None
+
+    rates = _monthly_rates(block, inflation_monthly=inflation)
+    cum = _monthly_cum_index(rates)
+
+    weights = {m: dist_sazonal[m] * cum[m] for m in MESES}
+    total = sum(weights.values()) or 1.0
+    return {m: weights[m] / total for m in MESES}
+
+
 def _build_mensais_2025(
     a: Assumptions,
     base: Base2024,
@@ -127,9 +152,13 @@ def _build_mensais_2025(
 
     dist_saz = _dist_sazonal_total(a, base, sched)
 
+    # Pesos mensais com crescimento (acrescimos_mensais + inflação — Filosofia B)
+    fse_weights = _cost_monthly_weights(a, dist_saz, "fse")
+    cmvmc_weights = _cost_monthly_weights(a, dist_saz, "custo_mercadorias")
+
     vn_m = {m: vn_2025 * dist_saz[m] for m in MESES}
-    fse_m = {m: fse_2025 * dist_saz[m] for m in MESES}
-    cmvmc_m = {m: cmvmc_2025 * dist_saz[m] for m in MESES}
+    fse_m = {m: fse_2025 * fse_weights[m] for m in MESES}
+    cmvmc_m = {m: cmvmc_2025 * cmvmc_weights[m] for m in MESES}
 
     pessoal_m = {m: pessoal_2025 / 14.0 for m in MESES}
     pessoal_m["Jun"] = pessoal_2025 / 14.0 * 2
@@ -376,6 +405,10 @@ def build_dr_mensal(
 
     dist_saz = _dist_sazonal_total(a, base, sched)
 
+    # Pesos mensais com crescimento (acrescimos_mensais + inflação — Filosofia B)
+    fse_weights = _cost_monthly_weights(a, dist_saz, "fse")
+    cmvmc_weights = _cost_monthly_weights(a, dist_saz, "custo_mercadorias")
+
     pessoal_m: dict[str, float] = {m: pessoal_2025 / 14.0 for m in MESES}
     pessoal_m["Jun"] = pessoal_2025 / 14.0 * 2
     pessoal_m["Nov"] = pessoal_2025 / 14.0 * 2
@@ -384,13 +417,13 @@ def build_dr_mensal(
 
     for m in MESES:
         vn = vn_2025 * dist_saz[m]
-        cmvmc = cmvmc_2025 * dist_saz[m]
-        fse = fse_2025 * dist_saz[m]
+        cmvmc = cmvmc_2025 * cmvmc_weights[m]
+        fse = fse_2025 * fse_weights[m]
         pessoal = pessoal_m[m]
 
-        # Detalhe mensal de FSE 2025 por rubrica (aloca pela mesma sazonalidade do FSE total).
+        # Detalhe mensal de FSE 2025 por rubrica (pesos com crescimento).
         fse_det_m = {
-            rub_col[rub]: fse_det_2025_by_rub[rub] * dist_saz[m]
+            rub_col[rub]: fse_det_2025_by_rub[rub] * fse_weights[m]
             for rub in rubricas_fse
         }
 

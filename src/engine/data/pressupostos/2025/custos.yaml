@@ -1,43 +1,44 @@
-# Drivers de crescimento de custos para 2025 — SPREADS REAIS (Filosofia B)
-#
-# ┌─────────────────────────────────────────────────────────────────────────┐
-# │ Inflação estrutural + spread real                        │
-# │                                                                         │
-# │  Os valores abaixo são SPREADS REAIS acima da inflação.                 │
-# │  O engine calcula a taxa nominal em runtime:                            │
-# │                                                                         │
-# │    taxa_nominal = (1 + inflação_ano) × (1 + spread_real) − 1           │
-# │                                                                         │
-# │  Inflação 2025 ≈ 2.2% (de macro.yaml).                                 │
-# └─────────────────────────────────────────────────────────────────────────┘
-#
-# Formato:
-#   base_2025: <spread real anual>
-#   acrescimos_mensais:   ← opcional (delta pp real)
-#     Jan: +0.002
+# Custos 2025 — spreads reais acima da inflação (de macro.yaml)
+# taxa_nominal = (1 + inflação) × (1 + spread_real) − 1
+# base_2025: spread anual  |  acrescimos_mensais: delta mensal em p.p. (opcional)
 
 crescimento_fse:
   # Spread real de FSE: 0.8% real + 2.2% inflação ≈ 3.0% nominal
   # Reflecte crescimento de volume/estrutura acima da inflação de energia/serviços
   base_2025: 0.008
+  # Para acréscimos mensais: substituir {} por bloco indentado, ex.:
   # acrescimos_mensais:
   #   Mai: 0.002
   #   Set: -0.002
+  acrescimos_mensais:
+    Mar: 0.001
+    Jun: 0.002
+    Set: -0.001
 
 crescimento_pessoal:
   # Spread real salarial: 1.3% real + 2.2% inflação ≈ 3.5% nominal
   # Ganho salarial real alinhado com IRCT e produtividade
   base_2025: 0.013
+  # Para acréscimos mensais: substituir {} por bloco indentado, ex.:
   # acrescimos_mensais:
   #   Jul: 0.002
+  acrescimos_mensais:
+    Jul: 0.002
+    Dez: 0.001
 
 crescimento_custo_mercadorias:
   # Spread real de custo de mercadorias: 0.8% real + 2.2% inflação ≈ 3.0% nominal
   base_2025: 0.008
+  # Para acréscimos mensais: substituir {} por bloco indentado, ex.:
   # acrescimos_mensais:
   #   Jan: 0.002
+  acrescimos_mensais:
+    Jan: 0.002
+    Ago: -0.001
 
 crescimento_pcu_mpsc:
   # Spread real de PCU/MPSC: 0.8% real + 2.2% inflação ≈ 3.0% nominal
   base_2025: 0.008
-  # acrescimos_mensais: {}
+  acrescimos_mensais:
+    Abr: 0.001
+    Out: 0.001

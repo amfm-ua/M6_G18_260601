@@ -375,7 +375,7 @@ projeto_hub:
   # Nota: a política contabilística Grestel adopta VR = 0 (R&C 2024, uso
   # integral da vida económica). Para avaliação do projecto usa-se o VLC
   # efectivo — conservador, mas mais realista que zero.
-  # Se VR de mercado > VLC → mais-valia tributada a IRC 24,5 %.
+  # Se VR de mercado > VLC → mais-valia tributada a IRC 23,5 %.
   # Análise base: VR = VLC → mais-valia = 0 → sem tributação adicional.
   #
   # Pools com VLC > 0 em 2035:
@@ -402,12 +402,12 @@ projeto_hub:
       calcular_engine: true              # engine apura NFM_2035 e inclui como +CF em 2035
 
   viabilidade:
-    # Fluxos nominais (preços correntes) — WACC nominal 6,3 % derivado dos componentes CAPM.
-    # Cálculo: w_e × Ke + w_d × Kd × (1−t) = 0,25 × 16,18 % + 0,75 × 4,02 % × 0,755 = 6,30 %
-    # Alinhado com OE04_G18_260525(1).xlsx (revisão maio 2026).
-    wacc: 0.063
-    # Taxa combinada IRC: 21,0 % IRC + 2,0 % derrama estadual (escalão € 1,5–7,5 M, taxa efectiva Grestel) + 1,5 % derrama municipal (Vagos) = 24,5 %
-    irc_taxa: 0.245
+    # Fluxos nominais (preços correntes) — WACC nominal 6,46 % derivado dos componentes CAPM.
+    # Cálculo: w_e × Ke + w_d × Kd × (1−t) = 0,25 × 16,62 % + 0,75 × 4,02 % × 0,765 = 6,46 %
+    # Pressupostos actualizados: Damodaran 5-jan-2026; BPstat/Pordata média 2025; OE2025.
+    wacc: 0.0646
+    # Taxa combinada IRC: 20,0 % IRC (OE2025) + 2,0 % derrama estadual (escalão € 1,5–7,5 M, taxa efectiva Grestel) + 1,5 % derrama municipal (Vagos) = 23,5 %
+    irc_taxa: 0.235
     eur_usd_base: 1.08
     horizonte_anos: 10
 
@@ -416,18 +416,18 @@ projeto_hub:
     # o peso do capital próprio aumenta. Como Ke > Kd(1-t), o WACC sobe ao longo
     # do tempo — penalizando os FCF mais distantes (efeito desalavancagem).
     wacc_dinamico: true
-    rf: 0.0325                 # Taxa sem risco — OT Portugal 10 anos (maio 2025, Banco de Portugal)
-    erp: 0.055                 # ERP Portugal — Damodaran, jul. 2025
-    beta_u: 0.72
-    # Fonte: Damodaran — "Betas by Sector (Europe)", betaEurope.xls, janeiro 2026
-    #   Industry: Household Products / Housewares & Accessories
-    #   Coluna usada: Unlevered Beta (corr. for cash) — Bu = 0,72
+    rf: 0.0310                 # Taxa sem risco — OT Portugal 10 anos (média anual 2025, BPstat Série 12099464 / Pordata)
+    erp: 0.0578                # ERP Portugal — Damodaran, ctryprem.html, 5-jan-2026 (mature market 4,23 % + CRP 1,55 %)
+    beta_u: 0.71
+    # Fonte: Damodaran — "Betas by Sector (Europe)", betaEurope.xls, 5-jan-2026
+    #   Industry: Household Products / Housewares & Accessories (n = 65 empresas europeias)
+    #   Coluna usada: Unlevered Beta (corr. for cash) — Bu = 0,71
     #   Justificação do setor: a Grestel é fabricante de cerâmica utilitária/decorativa;
     #   o Hub é um ativo interno de automação operacional — o risco sistemático relevante
     #   é o do negócio core da empresa-mãe, não de uma empresa de logística autónoma.
     #   Nota sobre D/E: o multiplicador de alavancagem (D/E = 3,0; D/(D+E) = 75 %) reflete
     #   o financiamento específico do projeto (€4,5 M banco + €1,5 M equity).
-    ke: 0.161794               # Custo do capital próprio — CAPM: rf 3,25 % + β_l 2,35 × ERP 5,5 %
-                               # β_l = β_u × (1 + (1−t) × D/E) = 0,72 × (1 + 0,755 × 3) = 2,3508 ≈ 2,35
+    ke: 0.16622                # Custo do capital próprio — CAPM: rf 3,10 % + β_l 2,34 × ERP 5,78 %
+                               # β_l = β_u × (1 + (1−t) × D/E) = 0,71 × (1 + 0,765 × 3) = 2,3395 ≈ 2,34
     kd: 0.0402                 # Custo médio ponderado da dívida: (3M×4,15%+1,5M×3,75%)/4,5M = 4,02 %
     equity_inicial: 1500000    # Capital próprio investido = 25 % × CAPEX 6 M€

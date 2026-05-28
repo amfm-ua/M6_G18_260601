@@ -1296,18 +1296,22 @@ function HubMonteCarloView({ ctx }) {
               const isKwh  = (k === "preco_eletricidade");
               const isFx   = (k === "eur_usd");
               const f = isPct  ? (val => fmt.pct(val, 1))
-                      : isMult ? (val => val.toFixed(2) + "×")
-                      : isKwh  ? (val => val.toFixed(3) + " €/kWh")
-                      : isFx   ? (val => val.toFixed(3))
+                      : isMult ? (val => val != null ? val.toFixed(2) + "×" : "—")
+                      : isKwh  ? (val => val != null ? val.toFixed(3) + " €/kWh" : "—")
+                      : isFx   ? (val => val != null ? val.toFixed(3) : "—")
                                : fmt.eurC;
               const unidade = isPct ? "taxa" : isMult ? "× base" : isKwh ? "€/kWh" : isFx ? "EUR/USD" : "EUR";
+              // lognormal usa {mu, sigma, low, high}; truncnorm usa {mean, std, low, high}; triangular usa {min, mode, max}
+              const dMin = d.type === "truncnorm" ? d.low  : d.type === "lognormal" ? d.low          : d.min;
+              const dMid = d.type === "truncnorm" ? d.mean : d.type === "lognormal" ? Math.exp(d.mu) : d.mode;
+              const dMax = d.type === "truncnorm" ? d.high : d.type === "lognormal" ? d.high         : d.max;
               return (
                 <tr key={k}>
                   <td>{driverLabels[k] || k}</td>
                   <td><span className="chip-static" style={{ padding: "2px 8px", fontSize: 10.5 }}>{d.type}</span></td>
-                  <td className="mono num">{d.type === "truncnorm" ? f(d.low)  : f(d.min)}</td>
-                  <td className="mono num">{d.type === "truncnorm" ? f(d.mean) : f(d.mode)}</td>
-                  <td className="mono num">{d.type === "truncnorm" ? f(d.high) : f(d.max)}</td>
+                  <td className="mono num">{f(dMin)}</td>
+                  <td className="mono num">{f(dMid)}</td>
+                  <td className="mono num">{f(dMax)}</td>
                   <td className="muted">{unidade}</td>
                 </tr>
               );
@@ -3165,6 +3169,12 @@ function SmartView({ ctx }) {
 }
 
 // ── YamlEditorView ────────────────────────────────────────────────────────────
+function _parseYamlError(content) {
+  if (!content || typeof jsyaml === "undefined") return null;
+  try { jsyaml.load(content); return null; }
+  catch (e) { return e.message || String(e); }
+}
+
 function YamlEditorView() {
   const [files, setFiles] = React.useState([]);
   const [selectedKey, setSelectedKey] = React.useState(null);
@@ -3174,6 +3184,7 @@ function YamlEditorView() {
   const [feedback, setFeedback] = React.useState(null); // {type:"ok"|"err", msg}
   const [confirmRestore, setConfirmRestore] = React.useState(false);
   const textareaRef = React.useRef(null);
+  const yamlError = _parseYamlError(content);
 
   function refreshList() {
     API.listYamlFiles()
@@ -3244,13 +3255,14 @@ function YamlEditorView() {
     }
     if ((e.ctrlKey || e.metaKey) && e.key === "s") {
       e.preventDefault();
-      if (!dirty || saving) return;
+      if (!canSave) return;
       handleSave();
     }
   }
 
   const dirty = content !== savedContent;
   const selectedFile = files.find(f => f.key === selectedKey);
+  const canSave = dirty && !saving && !yamlError;
 
   return (
     <>
@@ -3415,21 +3427,42 @@ function YamlEditorView() {
               {/* Guardar */}
               <button
                 onClick={handleSave}
-                disabled={saving || !dirty}
-                title="Guardar alterações em disco (Ctrl+S)"
+                disabled={!canSave}
+                title={yamlError ? "Corrija o YAML antes de guardar" : "Guardar alterações em disco (Ctrl+S)"}
                 style={{
                   padding: "0.35rem 1rem",
                   borderRadius: "5px",
                   border: "none",
-                  background: dirty && !saving ? "var(--clr-accent, #7c6e57)" : "#ccc",
+                  background: canSave ? "var(--clr-accent, #7c6e57)" : "#ccc",
                   color: "#fff",
-                  cursor: dirty && !saving ? "pointer" : "default",
+                  cursor: canSave ? "pointer" : "default",
                   fontSize: "0.82rem",
                   fontWeight: 600,
                 }}
               >
                 {saving ? "A guardar…" : "Guardar"}
               </button>
+            </div>
+          )}
+          {yamlError && (
+            <div style={{
+              padding: "0.5rem 0.85rem",
+              borderRadius: "6px",
+              background: "#fee2e2",
+              color: "#991b1b",
+              fontFamily: "monospace",
+              fontSize: "0.78rem",
+              whiteSpace: "pre-wrap",
+              border: "1px solid #fca5a5",
+            }}>
+              <strong>⚠ YAML inválido</strong> — corrija antes de guardar{"\n"}{yamlError}
+              {yamlError.includes("block mapping") && (
+                <div style={{ marginTop: "0.4rem", borderTop: "1px solid #fca5a5", paddingTop: "0.4rem" }}>
+                  <strong>Dica:</strong> Para adicionar acréscimos mensais, substitua{" "}
+                  <code style={{ background: "#fecaca", padding: "0 3px" }}>acrescimos_mensais: {"{}"}</code>{" "}por:{"\n"}
+                  {"  acrescimos_mensais:\n    Jul: 0.002\n    Dez: -0.001"}
+                </div>
+              )}
             </div>
           )}
           <textarea
@@ -3446,7 +3479,7 @@ function YamlEditorView() {
               fontSize: "0.82rem",
               lineHeight: 1.55,
               padding: "0.75rem",
-              border: "1px solid var(--clr-border, #e2ddd6)",
+              border: `1px solid ${yamlError ? "#fca5a5" : "var(--clr-border, #e2ddd6)"}`,
               borderRadius: "8px",
               background: "var(--clr-surface, #f8f7f4)",
               resize: "vertical",
@@ -4266,10 +4299,185 @@ function PessoalView({ ctx }) {
   );
 }
 
+// ---- Monte Carlo · Avaliação ------------------------------------------------
+// Simulação estocástica do equity value com e sem Hub Logístico.
+function ValuationMCView({ ctx }) {
+  const [mc, setMc]           = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError]     = React.useState(null);
+  const [n, setN]             = React.useState(1000);
+  const [seed, setSeed]       = React.useState(42);
+  const [params, setParams]   = React.useState({ n: 1000, seed: 42 });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setMc(null);
+    API.valuationMCComparativo({ cenario: ctx.scenario, n: params.n, seed: params.seed })
+      .then(d => { if (!cancelled) { setMc(d); setLoading(false); } })
+      .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [ctx.scenario, params]);
+
+  const driverLabels = {
+    WACC:                "WACC",
+    g_terminal:          "Crescimento terminal (g)",
+    EV_EBITDA_mult:      "Múltiplo EV/EBITDA",
+    g_revenue_shock:     "Choque crescimento receita",
+    EBITDA_margin_shock: "Choque margem EBITDA",
+  };
+
+  const simControls = (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <label style={{ fontSize: 12, color: "var(--muted)", display: "inline-flex", gap: 6, alignItems: "center" }}>
+        n
+        <input type="number" min="100" max="10000" step="100" value={n}
+               onChange={e => setN(+e.target.value)}
+               style={{ width: 70, padding: "3px 6px", border: "1px solid var(--rule-strong)", background: "var(--surface)", fontFamily: "var(--mono)", fontSize: 12 }} />
+      </label>
+      <label style={{ fontSize: 12, color: "var(--muted)", display: "inline-flex", gap: 6, alignItems: "center" }}>
+        seed
+        <input type="number" value={seed}
+               onChange={e => setSeed(+e.target.value)}
+               style={{ width: 70, padding: "3px 6px", border: "1px solid var(--rule-strong)", background: "var(--surface)", fontFamily: "var(--mono)", fontSize: 12 }} />
+      </label>
+      <button className="btn-ghost" onClick={() => setParams({ n, seed })} disabled={loading}
+              style={{ background: "var(--ink)", color: "var(--surface)", borderColor: "var(--ink)" }}>
+        {loading ? "A simular…" : "Re-executar"}
+      </button>
+    </div>
+  );
+
+  if (loading && !mc) return <LoadingShell />;
+  if (error && !mc) return <ErrorBanner message={error} onRetry={() => setParams(p => ({ ...p }))} />;
+  if (!mc) return null;
+
+  const { sem_hub, com_hub, delta_weighted_equity_medio } = mc;
+  const corrItems = Object.entries(com_hub.correlacoes_spearman || {})
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .map(([k, v]) => ({ label: driverLabels[k] || k, value: v }));
+
+  return (
+    <>
+      <Panel
+        title="Monte Carlo · Avaliação Grestel"
+        sub={`Comparativo Com vs Sem Hub · ${com_hub.n_simulacoes} simulações · cenário ${ctx.scenario}`}
+        right={simControls}
+      >
+        <div className="legend" style={{ fontSize: 12 }}>
+          <div className="legend-row"><span className="swatch" style={{ background: "var(--accent)" }} /><span>Distribuição estocástica · equity value ponderado (DCF + Múltiplos + FCFE)</span></div>
+          <div className="legend-row"><span className="swatch" style={{ background: "var(--neg)" }} /><span>Caso base determinístico — linha tracejada</span></div>
+        </div>
+      </Panel>
+
+      <div className="grid-4">
+        <KPI
+          label="Equity médio — Sem Hub"
+          value={fmt.eurC(sem_hub.weighted_equity.mean)}
+          sub={"P50 " + fmt.eurC(sem_hub.weighted_equity.p50)}
+        />
+        <KPI
+          label="Equity médio — Com Hub"
+          value={fmt.eurC(com_hub.weighted_equity.mean)}
+          sub={"P50 " + fmt.eurC(com_hub.weighted_equity.p50)}
+        />
+        <KPI
+          label="Δ pelo Hub"
+          value={fmt.eurC(delta_weighted_equity_medio)}
+          tone={delta_weighted_equity_medio > 0 ? "pos" : "neg"}
+          sub="impacto incremental do Hub no equity"
+        />
+        <KPI
+          label="Preço mín. Com Hub"
+          value={fmt.eurC(com_hub.min_price.mean)}
+          sub={"P5 " + fmt.eurC(com_hub.min_price.p5)}
+        />
+      </div>
+
+      <Panel
+        title="Distribuição do Equity Value · Com vs Sem Hub"
+        sub="Histogramas estocásticos · linha tracejada = equity base determinístico"
+        right={<Legend items={[{ label: "Sem Hub", color: "var(--muted)" }, { label: "Com Hub", color: "var(--accent)" }]} />}
+      >
+        <div className="grid-2">
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: 1, textAlign: "center", marginBottom: 6 }}>Sem Hub</div>
+            <HistogramChart
+              bins={sem_hub.weighted_equity.histograma.bins}
+              counts={sem_hub.weighted_equity.histograma.counts}
+              edges={sem_hub.weighted_equity.histograma.edges}
+              baselineMark={sem_hub.parametros_base.weighted_equity}
+              baselineLabel={"Base · " + fmt.eurC(sem_hub.parametros_base.weighted_equity)}
+              percentiles={[
+                { p: "P5",  value: sem_hub.weighted_equity.p5  },
+                { p: "P50", value: sem_hub.weighted_equity.p50 },
+                { p: "P95", value: sem_hub.weighted_equity.p95 },
+              ]}
+              height={280}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: 1, textAlign: "center", marginBottom: 6 }}>Com Hub</div>
+            <HistogramChart
+              bins={com_hub.weighted_equity.histograma.bins}
+              counts={com_hub.weighted_equity.histograma.counts}
+              edges={com_hub.weighted_equity.histograma.edges}
+              baselineMark={com_hub.parametros_base.weighted_equity}
+              baselineLabel={"Base · " + fmt.eurC(com_hub.parametros_base.weighted_equity)}
+              percentiles={[
+                { p: "P5",  value: com_hub.weighted_equity.p5  },
+                { p: "P50", value: com_hub.weighted_equity.p50 },
+                { p: "P95", value: com_hub.weighted_equity.p95 },
+              ]}
+              height={280}
+            />
+          </div>
+        </div>
+      </Panel>
+
+      <Panel title="Percentis comparativos" sub="Equity value ponderado · P5 a P95">
+        <table className="ftable ftable--dense">
+          <thead>
+            <tr>
+              <th>Percentil</th>
+              <th className="mono num">Equity Sem Hub</th>
+              <th className="mono num">Equity Com Hub</th>
+              <th className="mono num">Δ Hub</th>
+            </tr>
+          </thead>
+          <tbody>
+            {["p5", "p25", "p50", "p75", "p95"].map(k => {
+              const delta = (com_hub.weighted_equity[k] || 0) - (sem_hub.weighted_equity[k] || 0);
+              return (
+                <tr key={k} className={k === "p50" ? "is-subtotal" : ""}>
+                  <td>{k.toUpperCase()}</td>
+                  <td className="mono num">{fmt.eurC(sem_hub.weighted_equity[k])}</td>
+                  <td className="mono num">{fmt.eurC(com_hub.weighted_equity[k])}</td>
+                  <td className={"mono num " + (delta >= 0 ? "pos" : "neg")}>{fmt.eurC(delta)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </Panel>
+
+      <Panel
+        title="Correlações Spearman · driver → Equity"
+        sub="ρ de Spearman · Com Hub · magnitude = importância do risco, sinal = direcção"
+        right={<Legend items={[{ label: "correlação positiva", color: "var(--pos)" }, { label: "correlação negativa", color: "var(--neg)" }]} />}
+      >
+        <HBarChart items={corrItems} />
+      </Panel>
+    </>
+  );
+}
+
 Object.assign(window, {
   DRView, BalancoView, DFCView, KPIView, FSEView, RollingView,
   HubView, HubViabilidadeView, HubMonteCarloView, HubOE4View, HubContingenciaView, FundingCard,
   HubComparativoDR, HubComparativoKPIs, HubConsolidadoView,
   EcogresView, PressupostosView, VendasView, SmartView, SmartBadge, KV, YamlEditorView,
   SensibilidadeView, CenariosView, ProducaoView, PessoalView,
+  ValuationMCView,
 });

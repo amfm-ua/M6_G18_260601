@@ -9,7 +9,9 @@
 
 | Driver | Distribuição actual | Parâmetros |
 |---|---|---|
-| `inventario` | Triangular | min=1 000k, mode=2 000k, max=2 500k |
+| `dmi_pa_reducao` | Triangular | min=8, mode=12, max=15 dias (VLMs, VDMA) |
+| `dmi_mp_reducao` | Triangular | min=8, mode=8, max=12 dias (Digital Twin, VDMA) |
+| `dmi_clearing_dias` | Triangular | min=12, mode=24, max=36 dias (clearing one-time) |
 | `pt2030_taxa` | Triangular | min=30%, mode=45%, max=60% |
 | `b2c` | Normal truncada | N(1,0; σ=0,20) ∈ [0,3; 2,0] |
 | `pessoal` | Triangular | min=200k, mode=380k, max=500k |
@@ -121,10 +123,23 @@ O crescimento do mercado logístico nacional (2-7%/a) é um driver de opinião d
 
 ---
 
-### `inventario` — manter Triangular
+### `dmi_pa_reducao` / `dmi_mp_reducao` / `dmi_clearing_dias` — driver físico (dias)
 
-**Justificação para manter:**  
-A libertação de inventário (1 250k€ + 1 250k€) está faseada por contrato e depende de decisões operacionais internas, não de mercado. A triangular com range ±25% reflecte adequadamente a incerteza de timing, não de valor.
+A libertação de inventário deixou de ser amostrada em euros (driver opaco) e passou a
+ser modelada pelo **driver físico — dias de DMI**, convertidos em € via CMVMC_prod
+(`€ = dias/365 × CMVMC_prod`, ver `impacto.py:hub_inventario_release`). Vantagens:
+
+- **Auditável:** os dias calibram-se diretamente à janela VDMA (PA 8-15 d, MP 8-12 d),
+  ao contrário de um valor em euros sem referência externa.
+- **Sem driver morto:** o escalar `libertacao_inventario` estava sombreado por
+  `libertacao_cronograma` → VAL insensível (swing 0). O driver de dias move o VAL.
+- **Unifica os mecanismos:** clearing one-time + redução estrutural recorrente derivam
+  da mesma cadeia dias→CMVMC_prod.
+
+As triangulares mantêm-se (elicitação de 3 pontos pessimista/base/optimista), mas em dias.
+Nota: como o mode de `dmi_mp_reducao` (8 d) coincide com o limite inferior da janela VDMA,
+a distribuição é ligeiramente assimétrica à direita → E[VAL_MC] fica marginalmente acima do
+VAL determinístico (base conservadora).
 
 ---
 

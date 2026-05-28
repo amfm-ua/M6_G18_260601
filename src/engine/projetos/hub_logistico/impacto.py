@@ -263,6 +263,73 @@ def hub_rfai(hub: dict, irc_taxa: float | None = None) -> dict[int, float]:
     return result
 
 
+def hub_inventario_release(hub: dict) -> dict[int, dict[str, float]]:
+    """Libertação anual de inventário (€) derivada de dias de DMI × CMVMC_prod.
+
+    Substitui o antigo escalar fixo `libertacao_inventario`. O driver físico é o
+    nº de dias de DMI (auditável à janela VDMA), convertido em euros pelo custo
+    de produção do ano: ``€ = dias / 365 × CMVMC_prod(ano)``.
+
+    Devolve, por ano, a decomposição em dois componentes (sinal + = entrada de caixa):
+
+      • "clearing" — libertação PONTUAL one-time (ano_inicio):
+            clearing_dias / 365 × CMVMC_prod[ano_inicio]
+        Liquidação de stock-excesso/obsoleto acima do novo nível eficiente (WMS).
+        Este é o ÚNICO componente consumido pelo balanço consolidado
+        (balanco.py:_hub_inv_liberation) — a redução estrutural no consolidado já
+        está embutida em inventarios.py (DMI reduzido), pelo que somá-la aqui
+        duplicaria o efeito.
+
+      • "estrutural" — redução ESTRUTURAL permanente de DMI:
+          - step-down one-time (ano_inicio): (Δd_PA+Δd_MP)/365 × CMVMC_prod[ano_inicio]
+          - recorrente (anos seguintes): (Δd_PA+Δd_MP)/365 × (CMVMC_prod[y]−CMVMC_prod[y−1])
+        Relevante APENAS para o VAL standalone do hub (que não corre inventarios.py).
+        NÃO deve ser propagado ao consolidado (evita dupla contagem).
+
+      • "total" = clearing + estrutural — usado no FCF do hub (hub_fcf).
+
+    Cobre YEARS (2025-2029); a parcela recorrente nos anos de extensão (2030+) é
+    imaterial (~€20 k/ano) e omitida do FCF operacional por conservadorismo.
+
+    Retorna ``{ano: {"clearing", "estrutural", "total"}}`` para YEARS.
+    """
+    proj = hub["projeto_hub"]
+
+    inv_cfg = proj.get("inventario_dmi", {})
+    cmvmc_prod = {
+        int(k): float(v)
+        for k, v in inv_cfg.get("cmvmc_prod_base", {}).items()
+    }
+    clearing_dias = float(inv_cfg.get("clearing_dias", 0.0))
+
+    dmi_cfg = proj.get("dmi_reducao_hub", {})
+    ano_inicio = int(dmi_cfg.get("ano_inicio", 9999))
+    dias_estrut = (
+        float(dmi_cfg.get("DMI_PA_reducao_dias", 0.0))
+        + float(dmi_cfg.get("DMI_MP_reducao_dias", 0.0))
+    )
+
+    result: dict[int, dict[str, float]] = {}
+    for y in YEARS:
+        clearing = 0.0
+        estrutural = 0.0
+        if y >= ano_inicio and y in cmvmc_prod:
+            cmvmc_y = cmvmc_prod[y]
+            if y == ano_inicio:
+                clearing = clearing_dias / 365.0 * cmvmc_y
+                estrutural = dias_estrut / 365.0 * cmvmc_y
+            else:
+                cmvmc_prev = cmvmc_prod.get(y - 1, cmvmc_y)
+                estrutural = dias_estrut / 365.0 * (cmvmc_y - cmvmc_prev)
+        result[y] = {
+            "clearing": clearing,
+            "estrutural": estrutural,
+            "total": clearing + estrutural,
+        }
+
+    return result
+
+
 def hub_dr_impact(
     hub: dict,
     crescimento_anual: float | None = None,
@@ -309,9 +376,8 @@ def hub_dr_impact(
 
     subsidio = pt2030_reconhecimento(hub)
 
-    libertacao_cronograma = ben_pontual.get("libertacao_cronograma")
-    inventario_one_time = float(ben_pontual["libertacao_inventario"])
-    ano_inventario = int(ben_pontual["ano"])
+    # Libertação de inventário derivada de dias de DMI × CMVMC_prod (ver helper).
+    inventario_release = hub_inventario_release(hub)
 
     # Benefícios comerciais: acréscimo de VN por canal B2C direto
     ben_com = proj.get("beneficios_comerciais", {})
@@ -341,6 +407,7 @@ def hub_dr_impact(
                 "outros_rend_subsidio": 0.0,
                 "depreciacao_hub": 0.0,
                 "inventario_libertado": 0.0,
+                "inventario_estrutural": 0.0,
                 "vn_incremental": vn_inc,
                 "cmvmc_incremental": cmvmc_inc,
                 "beneficio_liquido": contrib_com - preop_y,
@@ -365,10 +432,9 @@ def hub_dr_impact(
             else 0.0
         )
 
-        if libertacao_cronograma:
-            inventario = float(libertacao_cronograma.get(y, 0.0))
-        else:
-            inventario = inventario_one_time if y == ano_inventario else 0.0
+        rel_y = inventario_release.get(y, {})
+        inventario = rel_y.get("clearing", 0.0)         # consumido pelo consolidado
+        inventario_estrut = rel_y.get("estrutural", 0.0)  # só VAL standalone do hub
 
         beneficio_liq = pessoal_red + fse_red + cmvmc_red - fse_opex
         ebitda_impact = beneficio_liq + subsidio_y + contrib_com
@@ -382,7 +448,8 @@ def hub_dr_impact(
             "gastos_preop_hub": 0.0,
             "outros_rend_subsidio": subsidio_y,
             "depreciacao_hub": dep_hub,
-            "inventario_libertado": inventario,
+            "inventario_libertado": inventario,          # clearing (consolidado + FCF)
+            "inventario_estrutural": inventario_estrut,  # estrutural (só FCF do hub)
             "vn_incremental": vn_inc,
             "cmvmc_incremental": cmvmc_inc,
             "beneficio_liquido": beneficio_liq,
@@ -564,7 +631,12 @@ def hub_fcf(
         ebit_trib_y = ebit_y
         pt2030_cash_y = pt2030_montante if y == pt2030_ano_rec else 0.0
 
-        inventario_y = float(imp["inventario_libertado"]) if incluir_inventario else 0.0
+        # FCF do hub: clearing + estrutural (o consolidado usa só o clearing — ver
+        # hub_inventario_release e balanco.py:_hub_inv_liberation).
+        inventario_y = (
+            float(imp["inventario_libertado"]) + float(imp.get("inventario_estrutural", 0.0))
+            if incluir_inventario else 0.0
+        )
 
         # ΔNFM: saída de caixa real que reduz o FCF (não está na DR)
         delta_nfm_y = nfm_map.get(y, 0.0)

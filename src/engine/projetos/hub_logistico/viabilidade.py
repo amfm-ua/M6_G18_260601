@@ -19,7 +19,7 @@ from .base import (
     _kd_ponderado,
 )
 from .financiamento import hub_financing
-from .impacto import hub_fcf, hub_nfm, hub_rfai
+from .impacto import hub_fcf, hub_inventario_release, hub_nfm, hub_rfai
 from ...inputs import YEARS
 
 
@@ -235,8 +235,9 @@ def ponto_critico_hub(
     _cfg: dict[str, dict] = {
         "pessoal":     {"base": float(proj["beneficios_anuais"]["poupanca_operacional"]),
                         "low": 0.0, "high": float(proj["beneficios_anuais"]["poupanca_operacional"]) * 4},
-        "inventario":  {"base": float(proj["beneficios_pontuais"]["libertacao_inventario"]),
-                        "low": 0.0, "high": float(proj["beneficios_pontuais"]["libertacao_inventario"]) * 4},
+        "dmi_reducao_dias": {"base": float(proj["dmi_reducao_hub"]["DMI_PA_reducao_dias"])
+                                    + float(proj["dmi_reducao_hub"]["DMI_MP_reducao_dias"]),
+                             "low": 0.0, "high": 60.0},
         "capex":       {"base": float(proj["capex"]["base"]),
                         "low": float(proj["capex"]["base"]) * 0.3,
                         "high": float(proj["capex"]["base"]) * 3.0},
@@ -334,6 +335,10 @@ def viabilidade_hub(
 
     horizonte = int(via["horizonte_anos"])
 
+    # Libertação de inventário derivada de dias de DMI (para display em "parametros")
+    inv_release_map = hub_inventario_release(hub)
+    ano_inv = int(proj["beneficios_pontuais"]["ano"])
+
     df_fcf = hub_fcf(
         hub,
         irc_taxa=irc_taxa,
@@ -380,24 +385,39 @@ def viabilidade_hub(
     vida_jc_ext = int(proj["capex"]["pools"]["construcao_civil"]["vida_util_anos"]) if "construcao_civil" in proj["capex"]["pools"] else 25
     dep_jc_anual = jc_total_ext / vida_jc_ext if vida_jc_ext > 0 else 0.0
 
-    # Projeta o EBITDA completo (inclui PT2030 dep_pools) — alinhado com Excel
-    # que cresce [1] EBITDA total × (1+g) sem stripping do accrual subsídio.
-    ebitda_prev = ebitda_ultimo
+    # ── Extrapolação 2030-2034 — só o EBITDA OPERACIONAL cresce a g ──────────────
+    # Mini-correção: o accrual do subsídio PT2030 (NCRF 22) NÃO cresce a g; é
+    # reconhecido ao ritmo da depreciação real dos activos subsidiados
+    # (montante × dep_pools_y / capex_base). Separa-se, por isso, o EBITDA
+    # operacional (que compõe a g) do reconhecimento do subsídio (via depreciação),
+    # ficando a extensão coerente com o tratamento dos anos do motor (2025-2029).
+    pt2030_accrual_2029 = float(
+        df_fcf[df_fcf.ano == ultimo_ano]["pt2030_accrual"].iloc[0]
+    )
+    ebitda_op_prev = ebitda_ultimo - pt2030_accrual_2029  # EBITDA operacional puro
 
     for k in range(1, horizonte - len(anos_modelo) + 1):
         y_ext = ultimo_ano + k
 
-        ebitda_ext = ebitda_prev * (1 + g)
+        ebitda_op_ext = ebitda_op_prev * (1 + g)       # só o operacional cresce a g
         dep_pools_ext = _dep_por_ano(proj, y_ext)
-        dep_total_ext = dep_pools_ext + dep_jc_anual  # inclui dep_jc (NCRF 10)
+        dep_total_ext = dep_pools_ext + dep_jc_anual   # inclui dep_jc (NCRF 10)
+
+        # PT2030 accrual (NCRF 22): reconhecido pela depreciação real dos pools,
+        # não pela taxa de crescimento g (mesma fórmula dos anos 2025-2029).
+        pt2030_accrual_ext = (
+            round(pt2030_montante_ext * dep_pools_ext / capex_base_ext, 0)
+            if capex_base_ext > 0 else 0.0
+        )
+        ebitda_ext = ebitda_op_ext + pt2030_accrual_ext
         ebit_ext = ebitda_ext - dep_total_ext
 
-        # PT2030 [3a] em extensão: dep_total / capex_base × montante (Excel [3a])
+        # PT2030 [3a] base tributável: dep_total / capex_base × montante (Excel [3a])
         pt2030_3a_ext = (
             round(pt2030_montante_ext * dep_total_ext / capex_base_ext, 0)
             if capex_base_ext > 0 else 0.0
         )
-        # PT2030 accrual excluído do FCF operacional — tratado no VALA
+        # ebit já inclui o accrual dep_pools (coerente com hub_fcf dos anos motor)
         ebit_trib_ext = ebit_ext
 
         # Apply RFAI carry-forward in extension years (CFI art. 23.º §6 — 10 year carry-forward)
@@ -420,7 +440,7 @@ def viabilidade_hub(
                 "ano": y_ext,
                 "ebitda_impact": ebitda_ext,
                 "ebit_impact": ebit_ext,
-                "pt2030_accrual": pt2030_3a_ext,  # dep_total em extensão
+                "pt2030_accrual": pt2030_accrual_ext,  # dep_pools (NCRF 22) — não cresce a g
                 "pt2030_3a": pt2030_3a_ext,
                 "ebit_tributavel": ebit_trib_ext,
                 "nopat": nopat_ext,
@@ -435,7 +455,7 @@ def viabilidade_hub(
             }
         )
 
-        ebitda_prev = ebitda_ext
+        ebitda_op_prev = ebitda_op_ext  # acumula só o operacional (accrual via depreciação)
 
     if ext_rows:
         df_fcf = pd.concat(
@@ -569,8 +589,13 @@ def viabilidade_hub(
             ),
             "beneficio_liquido_anual": float(proj["beneficios_anuais"]["beneficio_liquido_anual"]),
             "crescimento_anual": float(proj["beneficios_anuais"]["crescimento_anual"]),
-            "libertacao_inventario": float(proj["beneficios_pontuais"]["libertacao_inventario"]),
-            "ano_inventario": int(proj["beneficios_pontuais"]["ano"]),
+            # Libertação derivada de dias de DMI × CMVMC_prod (já não escalar fixo).
+            "libertacao_inventario": float(inv_release_map.get(ano_inv, {}).get("total", 0.0)),
+            "libertacao_inventario_total": float(sum(d["total"] for d in inv_release_map.values())),
+            "ano_inventario": ano_inv,
+            "dmi_reducao_dias": float(proj["dmi_reducao_hub"]["DMI_PA_reducao_dias"])
+                                + float(proj["dmi_reducao_hub"]["DMI_MP_reducao_dias"]),
+            "dmi_clearing_dias": float(proj.get("inventario_dmi", {}).get("clearing_dias", 0.0)),
             "banco_montante": sum(float(tr["montante"]) for _, tr in _iter_emprestimos(proj)),
             "banco_taxa_juro": _kd_ponderado(proj),
             "emprestimos": {
@@ -654,8 +679,20 @@ def sensibilidade_hub(
 
             continue
 
-        elif driver == "inventario":
-            proj["beneficios_pontuais"]["libertacao_inventario"] = v
+        elif driver == "dmi_reducao_dias":
+            # v = total de dias de redução estrutural de DMI (PA + MP).
+            # Mantém a proporção PA:MP do cenário base; converte-se em € via CMVMC_prod.
+            dmi = proj["dmi_reducao_hub"]
+            base_pa = float(dmi.get("DMI_PA_reducao_dias", 0.0))
+            base_mp = float(dmi.get("DMI_MP_reducao_dias", 0.0))
+            base_total = base_pa + base_mp
+            if base_total > 0:
+                f = v / base_total
+                dmi["DMI_PA_reducao_dias"] = base_pa * f
+                dmi["DMI_MP_reducao_dias"] = base_mp * f
+            else:
+                dmi["DMI_PA_reducao_dias"] = v / 2.0
+                dmi["DMI_MP_reducao_dias"] = v / 2.0
 
         elif driver == "quebras":
             proj["beneficios_anuais"]["reducao_quebras"] = v
@@ -732,12 +769,14 @@ def tornado_hub(
     #   val_low = VAL quando a variável assume o valor vals[0] (pessimista)
     #   val_high = VAL quando a variável assume o valor vals[1] (otimista)
     cfg = {
-        # 1. Inventário — €2,0 M base; 13 M€ imobilizados → meta conservadora de 15 %
-        "inventario": {
-            "vals": [1_000_000.0, 2_500_000.0],
-            "label": "Libertação de inventário (€)",
-            "desc_low": "€1,0 M (pess.)",
-            "desc_high": "€2,5 M (otim.)",
+        # 1. Redução de DMI (dias) — driver físico da libertação de inventário.
+        #    Convertido em € via CMVMC_prod (ver hub_inventario_release).
+        #    Janela VDMA combinada PA+MP: ~10 d (pessimista) a ~28 d (otimista).
+        "dmi_reducao_dias": {
+            "vals": [10.0, 28.0],
+            "label": "Redução de DMI (dias)",
+            "desc_low": "10 d (pess.)",
+            "desc_high": "28 d (otim.)",
         },
         # 2. PT2030 — 20 % (aprovação parcial) vs 45 % (aprovação majorada)
         "pt2030_taxa": {

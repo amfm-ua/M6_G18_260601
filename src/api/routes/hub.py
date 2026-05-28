@@ -92,7 +92,7 @@ def get_hub_tornado(irc_taxa: float = Query(0.245)):
 @router.get("/hub/break-even")
 def get_hub_break_even(
     irc_taxa: float = Query(0.245),
-    drivers: str = Query("pessoal,inventario,capex,wacc,b2c,crescimento,pt2030_taxa"),
+    drivers: str = Query("pessoal,dmi_reducao_dias,capex,wacc,b2c,crescimento,pt2030_taxa"),
 ):
     """Ponto crítico por driver: valor que faz VAL = 0."""
     hub = hub_load()

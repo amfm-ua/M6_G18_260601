@@ -884,7 +884,8 @@ function HubViabilidadeView({ ctx }) {
             <KV k="OPEX incremental" v={"− " + fmt.eurC(p.opex_incremental || 120000) + " / ano"} />
             <KV k="Benefício líquido base" v={fmt.eurC(p.beneficio_liquido_anual || 310000) + " / ano"} />
             <KV k="Crescimento benefícios" v={"+" + fmt.pct(p.crescimento_anual || 0.04, 1) + " / ano"} />
-            <KV k="Libertação inventário 2026" v={fmt.eurC(p.libertacao_inventario || 2000000)} />
+            <KV k="Libertação inventário 2026" v={fmt.eurC(p.libertacao_inventario || 1727000)} />
+            <KV k="Redução de DMI (Hub)" v={fmt.num(p.dmi_reducao_dias || 20, 0) + " dias"} />
             {p.emprestimos
               ? Object.entries(p.emprestimos).map(([nome, tr]) => (
                   <KV key={nome} k={nome.replace(/_/g, " ")} v={fmt.eurC(tr.montante) + " @ " + fmt.pct(tr.taxa_juro, 2)} />
@@ -1395,7 +1396,10 @@ function HubMonteCarloView({ ctx }) {
   const driverLabels = {
     b2c:                   "Crescimento B2C / e-commerce",
     pessoal:               "Custo de pessoal",
-    inventario:            "Libertação de inventário",
+    dmi_pa_reducao:        "Redução DMI · Produtos em curso (dias)",
+    dmi_mp_reducao:        "Redução DMI · Matérias-primas (dias)",
+    dmi_clearing_dias:     "Clearing de inventário (dias)",
+    dmi_reducao_dias:      "Redução de DMI (dias)",
     capex:                 "CAPEX total",
     wacc:                  "WACC",
     pt2030_taxa:           "Co-financiamento PT2030",

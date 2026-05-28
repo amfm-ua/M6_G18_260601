@@ -226,15 +226,39 @@ projeto_hub:
     crescimento_anual: 0.035         # crescimento nominal composto a partir do ano 3 (2 % inflação + 1,5 % real)
 
   beneficios_pontuais:
-    # Libertação de inventário: WMS organiza e liquida stock obsoleto/excessivo acumulado.
-    #   Efeito de transição (one-time): clearing do backlog histórico acima do novo nível eficiente.
-    #   Reduzido de €2,5M para €950k (apenas 2026) para evitar dupla-contagem com dmi_reducao_hub:
-    #   o DMI structuralmente menor (abaixo) já captura a eficiência contínua; a libertação
-    #   capta apenas o excesso de stock existente antes do hub entrar em operação.
-    libertacao_inventario: 950000
+    # [LEGACY/display] A libertação de inventário deixou de ser um escalar fixo:
+    #   é agora derivada de dias de DMI × CMVMC_prod (ver bloco inventario_dmi abaixo
+    #   e impacto.py:hub_inventario_release). Este campo mantém-se apenas para
+    #   referência/retrocompatibilidade do output de display — é IGNORADO pelo motor.
+    libertacao_inventario: 950000   # legacy — ignorado pelo motor; ver inventario_dmi
     ano: 2026
-    libertacao_cronograma:
-      2026: 950000
+
+  # ---------------------------------------------------------------------------
+  # INVENTÁRIO — libertação derivada de dias de DMI × CMVMC_prod
+  # ---------------------------------------------------------------------------
+  # A libertação de capital imobilizado em stock é modelada a partir do driver
+  # físico (dias), não de um valor opaco em euros. Conversão por ano:
+  #     € libertado = dias / 365 × CMVMC_prod(ano)
+  #   • clearing_dias    → libertação PONTUAL (one-time, ano_inicio): liquidação de
+  #     stock-excesso/obsoleto acima do novo nível eficiente (WMS).
+  #   • dmi_reducao_hub  → redução ESTRUTURAL permanente (VLMs + Digital Twin):
+  #     step-down one-time no ano de arranque + libertação recorrente à medida que o
+  #     CMVMC cresce (Σdias/365 × ΔCMVMC_prod).
+  # cmvmc_prod_base: snapshot do custo de produção (CMVMC produtos) do cenário Base
+  #   — fonte: cmvmc.cmvmc_anual(load('Base')) em 2026-05-28; 2030-2034 extrapolados a
+  #   crescimento_anual (3,5 %). Mantém o módulo do hub desacoplado do build consolidado.
+  inventario_dmi:
+    clearing_dias: 24.5             # ≈ €950 k em 2026 (24,5 × 14,17 M / 365): calibra o clearing documentado
+    cmvmc_prod_base:
+      2026: 14166560
+      2027: 15032558
+      2028: 15951497
+      2029: 16926645
+      2030: 17519078
+      2031: 18132245
+      2032: 18766874
+      2033: 19423714
+      2034: 20103544
 
   # ---------------------------------------------------------------------------
   # EFICIÊNCIA ESTRUTURAL DE INVENTÁRIO — redução permanente de DMI via Hub

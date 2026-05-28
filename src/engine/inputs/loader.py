@@ -327,7 +327,7 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
 # Recalibracao M6 do Hub Logistico.
 #
 # Mantem os cenarios do projeto alinhados com o YAML base atual:
-#   Base: poupanca 440k, quebras 65k, OPEX 225k, inventario 1.9M.
+#   Base: poupanca 440k, quebras 65k, OPEX 225k, inventario via dias de DMI.
 # A camada abaixo tambem evita que overrides historicos deixem o Downside
 # artificialmente melhor do que o Base.
 _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
@@ -341,10 +341,9 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
                     "beneficio_liquido_anual": 349000,
                     "crescimento_anual": 0.040,
                 },
-                "beneficios_pontuais": {
-                    "libertacao_inventario": 2200000,
-                    "libertacao_cronograma": {2026: 1100000, 2027: 1100000},
-                },
+                # Inventário via dias de DMI (Upside: automação no topo da janela VDMA)
+                "inventario_dmi": {"clearing_dias": 30.0},
+                "dmi_reducao_hub": {"DMI_PA_reducao_dias": 15, "DMI_MP_reducao_dias": 12},
                 "beneficios_comerciais": {
                     "vn_incremental": {
                         2026: 450000,
@@ -377,10 +376,9 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
                         2029: 1.00,
                     },
                 },
-                "beneficios_pontuais": {
-                    "libertacao_inventario": 1300000,
-                    "libertacao_cronograma": {2026: 650000, 2027: 650000},
-                },
+                # Inventário via dias de DMI (Downside: automação aquém do plano)
+                "inventario_dmi": {"clearing_dias": 16.0},
+                "dmi_reducao_hub": {"DMI_PA_reducao_dias": 9, "DMI_MP_reducao_dias": 6},
                 "beneficios_comerciais": {
                     "vn_incremental": {
                         2026: 250000,
@@ -413,10 +411,9 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
                         2029: 1.00,
                     },
                 },
-                "beneficios_pontuais": {
-                    "libertacao_inventario": 750000,
-                    "libertacao_cronograma": {2026: 400000, 2027: 350000},
-                },
+                # Inventário via dias de DMI (Stress: ganhos estruturais mínimos)
+                "inventario_dmi": {"clearing_dias": 10.0},
+                "dmi_reducao_hub": {"DMI_PA_reducao_dias": 7, "DMI_MP_reducao_dias": 4},
                 "beneficios_comerciais": {
                     "vn_incremental": {
                         2026: 150000,

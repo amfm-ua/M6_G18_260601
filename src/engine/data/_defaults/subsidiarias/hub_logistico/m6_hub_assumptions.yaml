@@ -226,12 +226,32 @@ projeto_hub:
     crescimento_anual: 0.035         # crescimento nominal composto a partir do ano 3 (2 % inflação + 1,5 % real)
 
   beneficios_pontuais:
-    # Libertação de inventário: clearing do backlog histórico acima do novo nível eficiente.
-    #   Reduzido de €1,9M para €950k (apenas 2026) para evitar dupla-contagem com dmi_reducao_hub.
-    libertacao_inventario: 950000
+    # [LEGACY/display] A libertação de inventário deixou de ser um escalar fixo:
+    #   é agora derivada de dias de DMI × CMVMC_prod (ver bloco inventario_dmi abaixo
+    #   e impacto.py:hub_inventario_release). Mantido só para display — IGNORADO pelo motor.
+    libertacao_inventario: 950000   # legacy — ignorado pelo motor; ver inventario_dmi
     ano: 2026
-    libertacao_cronograma:
-      2026: 950000
+
+  # ---------------------------------------------------------------------------
+  # INVENTÁRIO — libertação derivada de dias de DMI × CMVMC_prod
+  # ---------------------------------------------------------------------------
+  # € libertado = dias / 365 × CMVMC_prod(ano).
+  #   • clearing_dias   → libertação pontual one-time (clearing de stock-excesso, WMS).
+  #   • dmi_reducao_hub → redução estrutural permanente (step-down + recorrente).
+  # cmvmc_prod_base: snapshot CMVMC produtos do cenário Base (2026-05-28); 2030-2034
+  #   extrapolados a crescimento_anual (3,5 %).
+  inventario_dmi:
+    clearing_dias: 24.5
+    cmvmc_prod_base:
+      2026: 14166560
+      2027: 15032558
+      2028: 15951497
+      2029: 16926645
+      2030: 17519078
+      2031: 18132245
+      2032: 18766874
+      2033: 19423714
+      2034: 20103544
 
   # ---------------------------------------------------------------------------
   # EFICIÊNCIA ESTRUTURAL DE INVENTÁRIO — redução permanente de DMI via Hub

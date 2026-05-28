@@ -106,15 +106,27 @@ O Hub Logístico 4.0 introduz dois mecanismos distintos de redução de inventá
 
 O WMS (Warehouse Management System) identifica e liquida stock obsoleto ou excessivo acumulado historicamente. Trata-se de um efeito de transição — clearing do backlog acima do novo nível eficiente.
 
+Este componente deixou de ser um **escalar fixo em euros** e passou a derivar do driver
+físico — **dias de clearing × CMVMC_prod** (`€ = clearing_dias/365 × CMVMC_prod`):
+
 ```yaml
 # m6_hub_assumptions.yaml
-beneficios_pontuais:
-  libertacao_inventario: 950000   # €950 k em 2026
-  libertacao_cronograma:
-    2026: 950000
+inventario_dmi:
+  clearing_dias: 24.5             # ≈ €950 k em 2026 (24,5 × CMVMC_prod_2026 / 365)
+  cmvmc_prod_base: { 2026: 14166560, ... }   # snapshot CMVMC produtos (cenário Base)
 ```
 
-Este montante é deduzido diretamente do saldo de inventários no Balanço (`balanco.py:_hub_inv_liberation`), gerando uma entrada de caixa na DFC e melhorando o CCC pontualmente.
+> **Nota:** o escalar legado `beneficios_pontuais.libertacao_inventario` foi mantido só para
+> display e é **ignorado pelo motor**. Anteriormente, o bloco `libertacao_cronograma`
+> sombreava-o, tornando o driver de inventário inerte no VAL e no Monte Carlo (swing 0).
+
+Apenas o **componente de clearing** é deduzido do saldo de inventários no Balanço consolidado
+(`balanco.py:_hub_inv_liberation`, via `impacto.py:hub_inventario_release` → campo
+`inventario_libertado`), gerando uma entrada de caixa na DFC e melhorando o CCC pontualmente.
+A redução estrutural (§5.2) **não** é somada aqui no consolidado — já está embutida no nível
+de stock calculado por `inventarios.py` (DMI reduzido), pelo que duplicá-la seria dupla contagem.
+No VAL standalone do hub (que não corre `inventarios.py`) ambos os componentes entram no FCF
+(`inventario_libertado` + `inventario_estrutural`).
 
 ### 5.2 Redução Estrutural de DMI\_dias (permanente, a partir de 2026)
 

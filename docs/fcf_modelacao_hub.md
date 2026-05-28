@@ -36,7 +36,7 @@ onde:
 | `depreciacao` | D&A (pools + juros capitalizados, NCRF 10) |
 | `capex` | Investimento em ativo fixo |
 | `delta_nfm` | Variação anual do fundo de maneio |
-| `inventario_libertado` | Libertação pontual de inventário (2026) |
+| `inventario_libertado` (+ `inventario_estrutural`) | Libertação de inventário derivada de dias de DMI × CMVMC_prod: clearing one-time (2026) + redução estrutural (step-down + recorrente). Ver `impacto.py:hub_inventario_release` |
 | `terreno_oportunidade` | Custo de oportunidade do terreno |
 | `fcf_livre` | FCF desalavancado final |
 

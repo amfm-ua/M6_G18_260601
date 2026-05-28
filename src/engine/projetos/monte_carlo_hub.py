@@ -13,7 +13,9 @@ Principais saídas:
 
 Distribuições por driver (operacionais simétricas → E[driver] = valor_cenário → E[VAL_MC] ≈
 VAL_determinístico; preço/câmbio log-normais → assimétricas com cauda direita, E[X] > mediana):
-  inventario          Triangular(75 %, 100 %, 125 % do cenário) — simétrica; mean = mode
+  dmi_pa_reducao      Triangular(8, 12, 15 dias)  — VLMs (VDMA); convertido em € via CMVMC_prod
+  dmi_mp_reducao      Triangular(8,  8, 12 dias)  — Digital Twin (VDMA); idem
+  dmi_clearing_dias   Triangular(12, 24, 36 dias) — clearing one-time de stock-excesso (mode≈€950 k)
   pt2030_taxa         Triangular(30 %, 45 %, 60 %)              — simétrica; mean = mode = 45 %
   b2c                 Normal truncada N(1,0; σ=0,20) ∈ [0,3; 2,0] — incerteza de mercado
   pessoal             Triangular(70 %, 100 %, 130 % do cenário) — simétrica; mean = mode
@@ -41,11 +43,28 @@ from .hub_logistico import load, viabilidade_hub, vala_hub
 # ---------------------------------------------------------------------------
 
 DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
-    "inventario": {
+    # Libertação de inventário modelada via dias de DMI (driver físico, VDMA), não €.
+    # Convertido em € por hub_inventario_release (dias/365 × CMVMC_prod).
+    #   dmi_pa_reducao   Triangular(8, 12, 15) — VLMs: redução de PA (VDMA 8-15 d)
+    #   dmi_mp_reducao   Triangular(8,  8, 12) — Digital Twin: redução safety stock MP (VDMA 8-12 d)
+    #   dmi_clearing_dias Triangular(12, 24, 36) — clearing one-time de stock-excesso (mode≈€950 k)
+    "dmi_pa_reducao": {
         "type": "triangular",
-        "min": 1_000_000.0,
-        "mode": 2_000_000.0,
-        "max": 2_500_000.0,
+        "min": 8.0,
+        "mode": 12.0,
+        "max": 15.0,
+    },
+    "dmi_mp_reducao": {
+        "type": "triangular",
+        "min": 8.0,
+        "mode": 8.0,
+        "max": 12.0,
+    },
+    "dmi_clearing_dias": {
+        "type": "triangular",
+        "min": 12.0,
+        "mode": 24.0,
+        "max": 36.0,
     },
     # Triangular simétrica (mean = mode = 45 %): incerteza simétrica em torno
     # do cenário base PT2030 (45 %), range ±15 p.p.
@@ -113,7 +132,8 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
 }
 
 DRIVERS = [
-    "inventario", "pt2030_taxa", "b2c", "pessoal", "wacc", "capex",
+    "dmi_pa_reducao", "dmi_mp_reducao", "dmi_clearing_dias",
+    "pt2030_taxa", "b2c", "pessoal", "wacc", "capex",
     "preco_eletricidade", "eur_usd", "crescimento_logistico",
 ]
 
@@ -252,8 +272,12 @@ def _apply_sample(hub_base: dict, s: dict[str, float]) -> tuple[dict, float]:
     h = copy.deepcopy(hub_base)
     proj = h["projeto_hub"]
 
-    # 1. Libertação de inventário (benefício pontual one-time)
-    proj["beneficios_pontuais"]["libertacao_inventario"] = s["inventario"]
+    # 1. Inventário via dias de DMI (driver físico). hub_inventario_release converte
+    #    estes dias em € de libertação (dias/365 × CMVMC_prod): clearing one-time +
+    #    step-down estrutural + recorrente. Substitui o antigo escalar libertacao_inventario.
+    proj["dmi_reducao_hub"]["DMI_PA_reducao_dias"] = s["dmi_pa_reducao"]
+    proj["dmi_reducao_hub"]["DMI_MP_reducao_dias"] = s["dmi_mp_reducao"]
+    proj.setdefault("inventario_dmi", {})["clearing_dias"] = s["dmi_clearing_dias"]
 
     # 2. CAPEX — escala base + cronograma anual proporcionalmente.
     #    A mesma proporção é aplicada ao capex_elegivel do RFAI para manter
@@ -429,9 +453,9 @@ def monte_carlo_hub(
     # Pessoal e inventário: distribuições simétricas centradas no valor do cenário.
     # Intervalos simétricos garantem E[driver] = valor_cenário → E[VAL_MC] ≈ VAL_determinístico.
     #   pessoal:    Triangular[mode × 0,70 ; mode ; mode × 1,30]  (mean = mode)
-    #   inventario: Triangular[mode × 0,75 ; mode ; mode × 1,25]  (mean = mode)
+    # Os drivers de DMI (dmi_pa_reducao, dmi_mp_reducao, dmi_clearing_dias) usam ranges
+    # fixos em dias (VDMA) — sem recalibração runtime.
     pessoal_cenario = float(proj["beneficios_anuais"].get("poupanca_operacional", 380_000))
-    inventario_cenario = float(proj["beneficios_pontuais"].get("libertacao_inventario", 2_000_000))
 
     if not (distributions and "pessoal" in distributions):
         dist_efetivas["pessoal"] = {
@@ -439,14 +463,6 @@ def monte_carlo_hub(
             "min": pessoal_cenario * 0.70,
             "mode": pessoal_cenario,
             "max": pessoal_cenario * 1.30,
-        }
-
-    if not (distributions and "inventario" in distributions):
-        dist_efetivas["inventario"] = {
-            "type": "triangular",
-            "min": inventario_cenario * 0.75,
-            "mode": inventario_cenario,
-            "max": inventario_cenario * 1.25,
         }
 
     # Calcular limites do CAPEX em runtime (dependem do capex_base do YAML)
@@ -717,7 +733,6 @@ def monte_carlo_vala_hub(
         dist_efetivas["wacc"]["mode"] = wacc_base
 
     pessoal_cenario = float(proj["beneficios_anuais"].get("poupanca_operacional", 380_000))
-    inventario_cenario = float(proj["beneficios_pontuais"].get("libertacao_inventario", 2_000_000))
 
     if not (distributions and "pessoal" in distributions):
         dist_efetivas["pessoal"] = {
@@ -725,13 +740,6 @@ def monte_carlo_vala_hub(
             "min": pessoal_cenario * 0.70,
             "mode": pessoal_cenario,
             "max": pessoal_cenario * 1.30,
-        }
-    if not (distributions and "inventario" in distributions):
-        dist_efetivas["inventario"] = {
-            "type": "triangular",
-            "min": inventario_cenario * 0.75,
-            "mode": inventario_cenario,
-            "max": inventario_cenario * 1.25,
         }
     if dist_efetivas["capex"]["min"] is None:
         dist_efetivas["capex"]["min"] = capex_base * 0.85

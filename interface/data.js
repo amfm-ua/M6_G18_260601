@@ -234,7 +234,7 @@ const GRESTEL = (() => {
     AFT_liquido: 12466455.49, Goodwill: 1701103.8, Intangiveis: 151088.11,
     Subsidiarias: 3062681.47, Ativos_Fin_Justo_Valor: 249000, Outros_Ativos_Fixos: 181793.21,
     Impostos_Diferidos_Ativos: 116.17,
-    Inventarios: 13061556.31, Clientes: 4962136, Outros_AC: 3880444.15, Caixa: 542390.86,
+    Inventarios: 13061556.31, Clientes: 4962136, Outros_AC: 3880444.15, Aplicacoes_Fin_CP: 0, Caixa: 542390.86,
     Capital_Social: 526318, Premios_Emissao: 623684, Outros_IC_Proprio: 1233333.32,
     Reservas_Legais: 144220.69, Ajust_AF: 2114812.59, Resultados_Transitados: 5770439.81,
     Outras_Var_CP: 396649.04, RL: 1390208.75,
@@ -294,7 +294,7 @@ const GRESTEL = (() => {
   }
   function ativos(b) {
     return b.AFT_liquido + b.Goodwill + b.Intangiveis + b.Subsidiarias + b.Ativos_Fin_Justo_Valor +
-           b.Outros_Ativos_Fixos + b.Impostos_Diferidos_Ativos + b.Inventarios + b.Clientes + b.Outros_AC + b.Caixa;
+           b.Outros_Ativos_Fixos + b.Impostos_Diferidos_Ativos + b.Inventarios + b.Clientes + b.Outros_AC + (b.Aplicacoes_Fin_CP || 0) + b.Caixa;
   }
   function passivos(b) {
     return b.Emprestimos_NC + b.Impostos_Diferidos_Passivos + b.Emprestimos_C + b.Fornecedores + b.Outros_PC;
@@ -368,7 +368,7 @@ const GRESTEL = (() => {
         roa: r.rl / b.ativo_total,
         roe: r.rl / b.capital_total,
         autonomia_financeira: b.capital_total / b.ativo_total,
-        liquidez_geral: (b.Inventarios + b.Clientes + b.Outros_AC + b.Caixa) / (b.Emprestimos_C + b.Fornecedores + b.Outros_PC),
+        liquidez_geral: (b.Inventarios + b.Clientes + b.Outros_AC + (b.Aplicacoes_Fin_CP || 0) + b.Caixa) / (b.Emprestimos_C + b.Fornecedores + b.Outros_PC),
         endividamento: (b.Emprestimos_NC + b.Emprestimos_C) / b.ativo_total,
         cobertura_juros: r.ebit / Math.max(r.juros, 1),
         pmr_dias: 45,

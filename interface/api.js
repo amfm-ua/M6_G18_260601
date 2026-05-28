@@ -231,7 +231,8 @@ const API = (() => {
       Impostos_Diferidos_Ativos: r.impostos_dif_ativos        || 0,
       Inventarios:               r.inventarios                || 0,
       Clientes:                  r.clientes                   || 0,
-      Outros_AC:                 (r.outros_ac || 0) + (r.aplicacoes_fin_cp || 0) + (r.eoep_devedor || 0),
+      Outros_AC:                 (r.outros_ac || 0) + (r.eoep_devedor || 0) + (r.hub_nfm || 0),
+      Aplicacoes_Fin_CP:         r.aplicacoes_fin_cp || 0,
       Caixa:                     r.caixa                      || 0,
       Capital_Social:            r.capital_social             || 0,
       Premios_Emissao:           r.premios_emissao            || 0,
@@ -265,6 +266,7 @@ const API = (() => {
       fluxo_investimento: r.fluxo_investimento    || 0,
       rec_emprestimos:    r.rec_emprestimos        || 0,
       pag_emprestimos:    r.pag_emprestimos        || 0,
+      pag_dividendos:     r.pag_dividendos         || 0,
       fluxo_financiamento: r.fluxo_financiamento  || 0,
       variacao_caixa:     r.variacao_caixa         || 0,
     }));

@@ -115,47 +115,67 @@ function BalancoView({ ctx }) {
   const first = bal[0];
 
   const ativoRows = [
-    { label: "Activos Fixos Tangíveis", key: "AFT_liquido" },
-    { label: "Goodwill", key: "Goodwill" },
-    { label: "Intangíveis", key: "Intangiveis" },
-    { label: "Participações em Subsidiárias", key: "Subsidiarias" },
-    { label: "Ativos Financeiros (JV)", key: "Ativos_Fin_Justo_Valor" },
-    { label: "Outros Activos Fixos", key: "Outros_Ativos_Fixos" },
+    { label: "Activos Fixos Tangíveis",                key: "AFT_liquido" },
+    { label: "Goodwill e Activos Intangíveis",         computed: b => b.Goodwill + b.Intangiveis },
+    { label: "Participações Financeiras e Outros ANC", computed: b => b.Subsidiarias + b.Ativos_Fin_Justo_Valor + b.Outros_Ativos_Fixos + b.Impostos_Diferidos_Ativos },
   ];
   const correntesRows = [
-    { label: "Inventários", key: "Inventarios" },
-    { label: "Clientes", key: "Clientes" },
-    { label: "Outros Activos Correntes", key: "Outros_AC" },
-    { label: "Caixa e Equivalentes", key: "Caixa" },
+    { label: "Inventários",               key: "Inventarios" },
+    { label: "Clientes",                  key: "Clientes" },
+    { label: "Estado e Outros Devedores", key: "Outros_AC" },
+    { label: "Aplicações Financeiras CP", key: "Aplicacoes_Fin_CP" },
+    { label: "Caixa e Equivalentes",      key: "Caixa" },
   ];
   const cpRows = [
-    { label: "Capital Social", key: "Capital_Social" },
-    { label: "Prémios de Emissão", key: "Premios_Emissao" },
-    { label: "Outros IC Próprio", key: "Outros_IC_Proprio" },
-    { label: "Reservas Legais", key: "Reservas_Legais" },
-    { label: "Ajustamentos AF", key: "Ajust_AF" },
-    { label: "Resultados Transitados", key: "Resultados_Transitados" },
-    { label: "Outras Var. CP", key: "Outras_Var_CP" },
-    { label: "Resultado Líquido", key: "RL" },
+    { label: "Capital Social",                       key: "Capital_Social" },
+    { label: "Outras Reservas e Instrumentos de CP", computed: b => b.Premios_Emissao + b.Outros_IC_Proprio + b.Reservas_Legais + b.Ajust_AF + b.Outras_Var_CP },
+    { label: "Resultados Transitados",               key: "Resultados_Transitados" },
+    { label: "Resultado do Exercício",               key: "RL" },
   ];
   const passivoRows = [
-    { label: "Empréstimos NC", key: "Emprestimos_NC" },
-    { label: "Impostos Diferidos Passivos", key: "Impostos_Diferidos_Passivos" },
-    { label: "Empréstimos Correntes", key: "Emprestimos_C" },
-    { label: "Fornecedores", key: "Fornecedores" },
-    { label: "Outros Passivos Correntes", key: "Outros_PC" },
+    { section: "Passivo Não Corrente" },
+    { label: "Financiamentos Obtidos NC",          key: "Emprestimos_NC" },
+    { section: "Passivo Corrente" },
+    { label: "Financiamentos Obtidos Correntes",   key: "Emprestimos_C" },
+    { label: "Fornecedores",                       key: "Fornecedores" },
+    { label: "Estado e Outros Passivos Correntes", key: "Outros_PC" },
   ];
 
-  // Stacked bar: Ativo composition over years
+  function renderBRows(rows) {
+    return rows.map((r, idx) => {
+      if (r.section) {
+        return (
+          <tr key={"s_" + idx} className="is-section">
+            <td colSpan={GRESTEL.YEARS.length + 1}>{r.section}</td>
+          </tr>
+        );
+      }
+      return (
+        <tr key={r.key || idx}>
+          <td>{r.label}</td>
+          {bal.map((b, i) => (
+            <td key={i} className="mono num">
+              {fmt.eur(r.computed ? r.computed(b) : (b[r.key] || 0))}
+            </td>
+          ))}
+        </tr>
+      );
+    });
+  }
+
+  const ancTotal = b => b.ativo_total - b.Inventarios - b.Clientes - b.Outros_AC - (b.Aplicacoes_Fin_CP || 0) - b.Caixa;
+  const acTotal  = b => b.Inventarios + b.Clientes + b.Outros_AC + (b.Aplicacoes_Fin_CP || 0) + b.Caixa;
+
   const ativoStack = bal.map(b => ({
     label: String(b.year),
     bars: [
-      { key: "AFT", value: b.AFT_liquido, color: "var(--ink)" },
-      { key: "Intangíveis", value: b.Goodwill + b.Intangiveis + b.Subsidiarias + b.Outros_Ativos_Fixos + b.Ativos_Fin_Justo_Valor, color: "var(--accent)" },
-      { key: "Inventários", value: b.Inventarios, color: "var(--pos)" },
-      { key: "Clientes", value: b.Clientes, color: "var(--muted)" },
-      { key: "Outros AC", value: b.Outros_AC, color: "var(--faint-strong)" },
-      { key: "Caixa", value: b.Caixa, color: "var(--neg)" },
+      { key: "AFT",            value: b.AFT_liquido, color: "var(--ink)" },
+      { key: "Outros ANC",     value: b.Goodwill + b.Intangiveis + b.Subsidiarias + b.Ativos_Fin_Justo_Valor + b.Outros_Ativos_Fixos + b.Impostos_Diferidos_Ativos, color: "var(--accent)" },
+      { key: "Inventários",    value: b.Inventarios, color: "var(--pos)" },
+      { key: "Clientes",       value: b.Clientes, color: "var(--muted)" },
+      { key: "Aplic. Fin. CP", value: b.Aplicacoes_Fin_CP || 0, color: "oklch(0.72 0.10 220)" },
+      { key: "Outros AC",      value: b.Outros_AC, color: "var(--faint-strong)" },
+      { key: "Caixa",          value: b.Caixa, color: "var(--neg)" },
     ]
   }));
 
@@ -171,12 +191,13 @@ function BalancoView({ ctx }) {
         <BarChart groups={ativoStack} stacked height={280} />
         <div className="legend-h" style={{ marginTop: 8 }}>
           {[
-            { label: "AFT", color: "var(--ink)" },
-            { label: "Intangíveis & participações", color: "var(--accent)" },
-            { label: "Inventários", color: "var(--pos)" },
-            { label: "Clientes", color: "var(--muted)" },
-            { label: "Outros AC", color: "var(--faint-strong)" },
-            { label: "Caixa", color: "var(--neg)" },
+            { label: "AFT",            color: "var(--ink)" },
+            { label: "Outros ANC",     color: "var(--accent)" },
+            { label: "Inventários",    color: "var(--pos)" },
+            { label: "Clientes",       color: "var(--muted)" },
+            { label: "Aplic. Fin. CP", color: "oklch(0.72 0.10 220)" },
+            { label: "Outros AC",      color: "var(--faint-strong)" },
+            { label: "Caixa",          color: "var(--neg)" },
           ].map((it, i) => (
             <div key={i} className="legend-h-item">
               <span className="swatch" style={{ background: it.color }} />
@@ -192,13 +213,15 @@ function BalancoView({ ctx }) {
             <thead><tr><th>Rubrica</th>{GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}</tr></thead>
             <tbody>
               <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Activo Não Corrente</td></tr>
-              {ativoRows.map(r => (
-                <tr key={r.key}><td>{r.label}</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b[r.key])}</td>)}</tr>
-              ))}
+              {renderBRows(ativoRows)}
+              <tr className="is-subtotal">
+                <td>Total ANC</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(ancTotal(b))}</td>)}
+              </tr>
               <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Activo Corrente</td></tr>
-              {correntesRows.map(r => (
-                <tr key={r.key}><td>{r.label}</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b[r.key])}</td>)}</tr>
-              ))}
+              {renderBRows(correntesRows)}
+              <tr className="is-subtotal">
+                <td>Total AC</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(acTotal(b))}</td>)}
+              </tr>
               <tr className="is-total">
                 <td>Total Activo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.ativo_total)}</td>)}
               </tr>
@@ -211,18 +234,13 @@ function BalancoView({ ctx }) {
             <thead><tr><th>Rubrica</th>{GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}</tr></thead>
             <tbody>
               <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Capital Próprio</td></tr>
-              {cpRows.map(r => (
-                <tr key={r.key}><td>{r.label}</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b[r.key])}</td>)}</tr>
-              ))}
+              {renderBRows(cpRows)}
               <tr className="is-subtotal">
-                <td>Subtotal CP</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.capital_total)}</td>)}
+                <td>Total Capital Próprio</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.capital_total)}</td>)}
               </tr>
-              <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Passivo</td></tr>
-              {passivoRows.map(r => (
-                <tr key={r.key}><td>{r.label}</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b[r.key])}</td>)}</tr>
-              ))}
+              {renderBRows(passivoRows)}
               <tr className="is-subtotal">
-                <td>Subtotal Passivo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.passivo_total)}</td>)}
+                <td>Total Passivo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.passivo_total)}</td>)}
               </tr>
               <tr className="is-total">
                 <td>Total CP + Passivo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.capital_total + b.passivo_total)}</td>)}
@@ -250,6 +268,7 @@ function DFCView({ ctx }) {
     { label: "Fluxo investimento", value: r.fluxo_investimento, type: "total" },
     { label: "Recebimento emp.", value: r.rec_emprestimos, type: "delta" },
     { label: "Pagamento emp.", value: r.pag_emprestimos, type: "delta" },
+    { label: "Dividendos pagos", value: r.pag_dividendos || 0, type: "delta" },
     { label: "Fluxo financiamento", value: r.fluxo_financiamento, type: "total" },
     { label: "Variação Caixa", value: r.variacao_caixa, type: "total" },
   ];
@@ -294,6 +313,7 @@ function DFCView({ ctx }) {
             <tr className="is-subtotal"><td>Fluxo investimento</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.fluxo_investimento)}</td>)}</tr>
             <FRow label="Recebimentos empréstimos" values={dfc.map(d => d.rec_emprestimos)} />
             <FRow label="Pagamentos empréstimos" values={dfc.map(d => d.pag_emprestimos)} />
+            <FRow label="Dividendos pagos" values={dfc.map(d => d.pag_dividendos || 0)} />
             <tr className="is-subtotal"><td>Fluxo financiamento</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.fluxo_financiamento)}</td>)}</tr>
             <tr className="is-total"><td>Variação Caixa</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.variacao_caixa)}</td>)}</tr>
           </tbody>

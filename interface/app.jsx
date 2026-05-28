@@ -49,7 +49,6 @@ function App() {
     lastRun: null,
     engineVersion: null,
   });
-
   // Health check inicial
   useEffect(() => {
     API.health()
@@ -342,13 +341,10 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, loadi
         </div>
         <Toggle label="Hub Logístico" on={hubOn} onChange={setHubOn} locked={hubLocked} />
         <div className="chip-static" title="Subsidiária — sempre consolidada">
-          <span className="dot dot--ok" /> Ecogres consolidada
+          <span className="dot dot--ok" /> Ecogres
         </div>
-        <button className="btn-ghost" onClick={handleExport} disabled={exporting}>
-          {exporting ? "A exportar…" : "Exportar Excel"}
-        </button>
-        <button className="btn-ghost" onClick={handleExportM3} disabled={exportingM3} title="Tabelas M3 alinhadas ao relatório académico">
-          {exportingM3 ? "A exportar…" : "Exportar M3"}
+        <button className="btn-ghost" disabled style={{ opacity: 0.45, cursor: "not-allowed" }} title="Exportação não disponível">
+          Exportar
         </button>
       </div>
     </header>
@@ -428,6 +424,7 @@ function OverviewView({ ctx }) {
         width: k === ctx.scenario ? 2.4 : 1.4,
         dash: k === ctx.scenario ? null : "3 3",
         name: k,
+        label: k,
       };
     });
   }, [ctx.hubOn, ctx.ecogresOn, ctx.scenario]);
@@ -437,11 +434,12 @@ function OverviewView({ ctx }) {
     values: dr.map(r => r.ebitda),
     color: "var(--accent)",
     fill: true,
+    label: "EBITDA",
   }];
 
   const margemSeries = [
-    { labels: GRESTEL.YEARS.map(String), values: dr.map(r => r.ebitda / r.vn), color: "var(--accent)" },
-    { labels: GRESTEL.YEARS.map(String), values: dr.map(r => r.rl / r.vn), color: "var(--ink)" },
+    { labels: GRESTEL.YEARS.map(String), values: dr.map(r => r.ebitda / r.vn), color: "var(--accent)", label: "Margem EBITDA" },
+    { labels: GRESTEL.YEARS.map(String), values: dr.map(r => r.rl / r.vn), color: "var(--ink)", label: "Margem Líquida" },
   ];
 
   return (

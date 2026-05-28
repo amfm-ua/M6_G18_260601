@@ -1,0 +1,326 @@
+# enquadramento_estrategico.yaml — Framework Estratégico M6 · Grestel / Hub Logístico 4.0
+#
+# Documento de referência para o Relatório M6 (Momento 6 — PEF UC).
+# Integra o posicionamento Ansoff, análise do Marketing-Mix (4Ps),
+# alinhamento ODS e Plano de Ação da ideia inovadora (Indústria 4.0).
+#
+# ┌────────────────────────────────────────────────────────────┐
+# │  REGRA DE INVESTIMENTO M6 (verificação automática)         │
+# │  CAPEX elegível / ATL_operacional = 6 000 / 39 570 = 15,16% │
+# │  Janela admissível: 15 % – 30 % do ATL                    │
+# │  Estado: ✓ CUMPRE (margem sobre piso mínimo: 0,16 pp)      │
+# └────────────────────────────────────────────────────────────┘
+
+enquadramento_m6:
+
+  # ──────────────────────────────────────────────────────────────
+  # 1. REGRA DE INVESTIMENTO (requisito técnico obrigatório M6)
+  # ──────────────────────────────────────────────────────────────
+  regra_investimento:
+    capex_elegivel_k: 6000
+    atl_operacional_k: 39570          # Ativo Total Líquido 2024 excl. EOEP_devedor (NCRF 15 §9)
+    racio_pct: 15.16                   # 6 000 / 39 570 × 100
+    piso_pct: 15.0
+    teto_pct: 30.0
+    estado: cumprido
+    nota: >-
+      O ATL operacional exclui o EOEP_devedor (688,5 k€) por representar
+      timing fiscal (IVA + IRC a reembolsar), não capital produtivo
+      imobilizado — NCRF 15 §9. O CAPEX elegível exclui 45 k€ de honorários
+      afundados (sunk cost — NCRF 7 §7) e 105 k€ de formação (gasto do
+      exercício — NCRF 6 §21).
+
+  # ──────────────────────────────────────────────────────────────
+  # 2. MATRIZ DE ANSOFF — Posicionamento Estratégico
+  # ──────────────────────────────────────────────────────────────
+  ansoff:
+    quadrante: penetracao_mercado
+    label: "Penetração de Mercado"
+    descricao: >-
+      A Grestel aposta em aumentar a quota nos mercados onde já opera
+      (EUA — maior fatia do VN, EU, Portugal) com os produtos existentes.
+      O Hub Logístico 4.0 remove o entrave estrutural de capacidade de
+      armazenamento e resposta, habilitando maior volume sem diversificação
+      de risco para novos mercados ou produtos.
+    justificacao_empirica:
+      - "R&C 2024: logística identificada como área mais relevante para o futuro da Grestel"
+      - "USA representa a maior fatia do VN (≈35%); mercado já conquistado mas com subentrega"
+      - "Canal hotelaria e B2C com procura reprimida por rotura de stock e lead times longos"
+      - "Capacidade de armazenamento insuficiente obrigou à redução do período de cobertura"
+    alternativas_consideradas:
+      - quadrante: desenvolvimento_produto
+        descricao: "Lançamento de nova linha premium para hotelaria"
+        razao_exclusao: "Já em curso via mix premium; Hub não é driver desta alavanca"
+      - quadrante: desenvolvimento_mercado
+        descricao: "Expansão para novos mercados geográficos (MENA, Ásia)"
+        razao_exclusao: "Exige investimento comercial separado; não resolveria o entrave logístico"
+      - quadrante: diversificacao
+        descricao: "Entrada em logística 3PL para terceiros"
+        razao_exclusao: "Incluída como receita incremental secundária (3PL), não o core do projeto"
+
+  # ──────────────────────────────────────────────────────────────
+  # 3. IDEIA INOVADORA — Indústria 4.0
+  # ──────────────────────────────────────────────────────────────
+  ideia_inovadora:
+    conceito: "Hub Logístico 4.0 — Automação Inteligente da Cadeia de Abastecimento"
+    enquadramento: "Indústria 4.0 / Transformação Digital"
+    descricao: >-
+      O Hub Logístico 4.0 integra seis vetores tecnológicos complementares
+      (VLMs, AMRs, WMS/MES, Digital Twin, Box-on-Demand e Energia Solar)
+      numa arquitetura de dados unificada. O Digital Twin permite simulação
+      em tempo real dos fluxos logísticos; o WMS com ML otimiza rotas de
+      picking e antecipa roturas; os AMRs eliminam movimentações manuais
+      redundantes. A camada de IA/MLOps (1 FTE sénior) gere modelos preditivos
+      de stock, reduzindo o DMI em ~30 dias e libertando 1,9 M€ de capital.
+    vetores_tecnologicos:
+      - codigo: VLM
+        nome: "Vertical Lift Modules (6 módulos 14m)"
+        capex_k: 1305
+        beneficio: "Densificação vertical — 3× mais capacidade na mesma área"
+      - codigo: AMR
+        nome: "Autonomous Mobile Robots (5 unidades)"
+        capex_k: 625
+        beneficio: "Eliminação de movimentações manuais; picking accuracy +99,9%"
+      - codigo: WMS_MES
+        nome: "WMS + MES + Digital Twin + Analytics"
+        capex_k: 600
+        beneficio: "Visibilidade em tempo real; previsão de rotura; integração ERP"
+      - codigo: BOD
+        nome: "Box-on-Demand (corte e embalagem automatizados)"
+        capex_k: 350
+        beneficio: "Embalagem à medida; -25% volume expedição; menos danos"
+      - codigo: SOLAR
+        nome: "Energia Solar 200 kWp + bateria 50 kWh"
+        capex_k: 270
+        beneficio: "Autoconsumo 60%; -50 k€/ano custo líquido eletricidade"
+      - codigo: SW_INT
+        nome: "Software de Integração (WMS/MES config.)"
+        capex_k: 195
+        beneficio: "Interface ERP-chão-de-fábrica; dados em tempo real"
+    inovacao_incremental_vs_disruptiva: incremental
+    nota: >-
+      A inovação é incremental (tecnologias maduras aplicadas em PME industrial)
+      mas disruptiva para a Grestel: primeiro armazém automatizado da empresa,
+      transformando um entrave operacional numa vantagem competitiva sustentável.
+
+  # ──────────────────────────────────────────────────────────────
+  # 4. MARKETING-MIX (4Ps) — Papel no Projeto
+  # ──────────────────────────────────────────────────────────────
+  marketing_mix:
+    nota_metodologica: >-
+      O marketing é um vetor acessório neste projeto de infraestrutura.
+      O driver principal é a eficiência operacional (Place/Distribuição).
+      Os 4Ps são analisados por ordem de relevância para o Hub.
+
+    place:
+      peso_relativo: alto
+      descricao: "Motor do projeto — resolução do entrave estrutural de distribuição"
+      problemas_atuais:
+        - "Falta de espaço → redução forçada do período de cobertura de stock"
+        - "Impactos negativos nas movimentações (R&C 2024)"
+        - "Rotura de stock em pico de encomendas hotelaria (set-dez)"
+        - "Lead time de entrega elevado: canal B2C 5-7 dias → target 2-3 dias"
+      solucao_hub:
+        - "Novo edifício logístico G1 reabilitado: +40% área útil armazenamento"
+        - "VLMs: 3× densidade; stock de segurança adequado hotelaria e B2C"
+        - "WMS: nível de serviço OTIF ≥ 97% (on-time in-full)"
+        - "Despacho B2C same-day para Portugal; 48h para UE"
+      kpis_place:
+        - "DMI: 320 dias → ≤290 dias (2026), ≤260 dias (2027)"
+        - "Rotura de stock: redução estimada 80% vs. 2024"
+        - "OTIF: de ~85% → ≥97%"
+
+    product:
+      peso_relativo: medio
+      descricao: "Melhoria do nível de serviço como diferenciador do produto"
+      alavancas:
+        - "Hotelaria: capacidade de resposta em 48h como fator diferenciador contratual"
+        - "B2C D2C: personalização Box-on-Demand (embalagem à medida da encomenda)"
+        - "3PL: serviço de logística para terceiros (receita incremental €180-950 k/ano)"
+      novos_atributos_servico:
+        - "Rastreabilidade em tempo real (track-and-trace WMS → app cliente)"
+        - "Taxa de devolução reduzida (embalagem protegida BOD)"
+        - "Certificação ISO 14001 logística (meta 2027)"
+
+    price:
+      peso_relativo: baixo
+      descricao: "Sem alteração de preço base; efeito indireto via mix premium"
+      nota: >-
+        O Hub não justifica subida de preço isolada. O efeito preço ocorre
+        indiretamente: a capacidade de resposta imediata em hotelaria permite
+        negociar preços de contrato mais altos (+3-5% vs. canal spot).
+        O B2C D2C elimina margem de intermediário (vs. marketplace 15-20%).
+
+    promotion:
+      peso_relativo: baixo
+      descricao: "Comunicação modesta e focada nas melhorias de serviço"
+      racional: >-
+        A Grestel já reforçou a equipa com um Marketing Manager (R&C 2024)
+        para liderar campanhas focadas no consumidor final. A comunicação
+        da nova capacidade logística é incremental ao plano de marketing
+        existente — não requer investimento em construção de marca.
+      acoes:
+        - tipo: "Campanha digital B2B"
+          descricao: "Email + LinkedIn para clientes hotelaria: nova capacidade OTIF 97%"
+          orcamento_k: 25
+          timing: "Q3 2026 (pós-arranque do Hub)"
+        - tipo: "Update loja online Grestel"
+          descricao: "Badge 'Entrega 48h' no checkout; rastreio em tempo real"
+          orcamento_k: 15
+          timing: "Q4 2026"
+        - tipo: "Press release trade media"
+          descricao: "Ceramics Today, HotelTechReport: Grestel Hub 4.0 case study"
+          orcamento_k: 5
+          timing: "Q1 2027"
+      orcamento_total_k: 45
+      nota: "IA aplicada ao marketing (já identificada pela Grestel no R&C) potencia ROI desta verba"
+
+  # ──────────────────────────────────────────────────────────────
+  # 5. SUSTENTABILIDADE — ODS (requisito M6)
+  # ──────────────────────────────────────────────────────────────
+  ods:
+    nota: >-
+      O M6 exige Opções de Desenvolvimento Sustentável no plano de ação.
+      O Hub Logístico 4.0 alinha com quatro ODS, com evidência quantitativa.
+
+    objetivos:
+      - numero: 9
+        nome: "Indústria, Inovação e Infraestruturas"
+        meta_onu: "9.2 — Promover industrialização inclusiva e sustentável"
+        link_projeto: >-
+          Investimento em automação industrial (VLMs, AMRs, WMS/MES) em PME
+          de cerâmica gres. Primeira infraestrutura logística automatizada
+          no cluster cerâmico de Vagos (Centro de Portugal).
+        indicadores:
+          - "CAPEX em I&D/automação: 6 000 k€ (15,2% do ATL)"
+          - "SIFIDE II elegível: ~400 k€/ano (laser + WMS/IA)"
+          - "Produtividade laboral: elasticidade 0,85 → 0,65 (sem/com Hub)"
+
+      - numero: 12
+        nome: "Produção e Consumo Responsáveis"
+        meta_onu: "12.5 — Reduzir substancialmente a geração de resíduos"
+        link_projeto: >-
+          WMS com ML reduz stock obsoleto e quebras de produto (estimativa:
+          -80% roturas). Box-on-Demand elimina embalagens sobredimensionadas
+          (-25% volume de expedição). Rastreio de lote integrado reduz
+          devoluções e refugo.
+        indicadores:
+          - "Redução quebras produto: €65 k/ano (Cenário Base)"
+          - "Libertação stock obsoleto: €1,9 M (2026-2027)"
+          - "Volume embalagem: -25% por expedição (BOD)"
+
+      - numero: 13
+        nome: "Ação Climática"
+        meta_onu: "13.2 — Integrar medidas climáticas nas políticas empresariais"
+        link_projeto: >-
+          Painel solar 200 kWp + bateria 50 kWh cobre ~60% do consumo do Hub.
+          Substituição de equipamentos hidráulicos por elétricos (já em
+          curso na Grestel — R&C 2024). Redução CO₂ via rotas de picking
+          otimizadas (AMR vs. empilhadores a combustível).
+        indicadores:
+          - "Autoconsumo solar: ~240 MWh/ano; poupança €29 k/ano @ 0,12 €/kWh"
+          - "Emissões evitadas: ~55 tCO₂/ano (gás natural via H2/gás + solar)"
+          - "Objetivo gás/peça: -10% até 2026 vs. 2024 (SMART id: gas_peca_2026)"
+          - "Alinhamento: Taxonomia UE Art.10 regulamento 2020/852"
+
+      - numero: 17
+        nome: "Parcerias para a Implementação dos Objetivos"
+        meta_onu: "17.3 — Mobilizar recursos financeiros adicionais"
+        link_projeto: >-
+          Co-financiamento PT2030 (45% CAPEX; €2 700 k não reembolsável),
+          linha BEI/PME (€1 500 k a taxa preferencial 3,75%) e RFAI
+          (€600 k crédito fiscal). Parceria público-privada com CGD/BPI.
+        indicadores:
+          - "PT2030: €2 700 k (45% CAPEX) — aprovação esperada 2027"
+          - "BEI/PME: €1 500 k @ 3,75% (vs. 4,15% mercado)"
+          - "RFAI: €600 k crédito fiscal (10% CAPEX elegível €6 000 k)"
+          - "Alavancagem pública: €4 800 k público / €1 500 k capital próprio = 3,2×"
+
+  # ──────────────────────────────────────────────────────────────
+  # 6. PLANO DE AÇÃO (síntese executiva)
+  # ──────────────────────────────────────────────────────────────
+  plano_acao:
+    pilares:
+      - ordem: 1
+        designacao: "Investimento & Construção"
+        periodo: "2025 (Q1–Q4)"
+        capex_k: 2850
+        acoes:
+          - "Reabilitação estrutural G1 + cais de carga + infraestrutura elétrica/PV"
+          - "Instalação painel solar 200 kWp + bateria 50 kWh"
+          - "Software de integração WMS/MES (configuração base + interface ERP)"
+          - "Formação equipa logística (105 k€ — gasto do exercício)"
+        responsavel: "Direção Industrial + Departamento de Projetos"
+        entregavel: "Edifício G1 pronto para equipamentos; rede elétrica e dados instalada"
+
+      - ordem: 2
+        designacao: "Equipamentos & Automação"
+        periodo: "2026 (Q1–Q2)"
+        capex_k: 3150
+        acoes:
+          - "Instalação 6 módulos VLM 14m (Modula / Hänel)"
+          - "Instalação 5 AMRs (Locus Robotics / MiR)"
+          - "WMS enterprise + MES + Digital Twin + Analytics (SAP EWM ou equiv.)"
+          - "Box-on-Demand (Packsize / CMC Machinery)"
+          - "Testes integrados (UAT) e go-live"
+        responsavel: "Projeto Manager Hub + IT/OT"
+        entregavel: "Hub 4.0 operacional; OTIF ≥ 95% no arranque"
+
+      - ordem: 3
+        designacao: "Operações & Otimização"
+        periodo: "2026 (Q3) – 2027"
+        capex_k: 0
+        acoes:
+          - "Ramp-up para 100% (Cenário Base) ou escalonado 75-100% (Downside)"
+          - "Ativação modelo ML de previsão de stock (engenheiro MLOps)"
+          - "Libertação inventários obsoletos (€950 k em 2026 + €950 k em 2027)"
+          - "Integração 3PL para clientes terceiros (receita incremental €350-650 k)"
+          - "Auditoria ISO 14001 logística (Q4 2027)"
+        responsavel: "Direção Logística + Engenheiro IA/MLOps"
+        entregavel: "DMI ≤ 290 dias; OTIF ≥ 97%; rotura stock -80%"
+
+      - ordem: 4
+        designacao: "Marketing & Comunicação"
+        periodo: "2026 (Q3) – 2027 (Q1)"
+        capex_k: 0
+        opex_k: 45
+        acoes:
+          - "Campanha B2B hotelaria: nova capacidade OTIF (email + LinkedIn)"
+          - "Update loja online: badge 'Entrega 48h' + track-and-trace B2C"
+          - "Press release media trade (Ceramics Today, HotelTechReport)"
+        responsavel: "Marketing Manager (contratação 2024)"
+        entregavel: "Aumento mix hotelaria +5pp; penetração B2C +2pp quota"
+
+  # ──────────────────────────────────────────────────────────────
+  # 7. FATORES CRÍTICOS DE SUCESSO
+  # ──────────────────────────────────────────────────────────────
+  fatores_criticos_sucesso:
+    - id: fcs_1
+      fator: "Aprovação PT2030"
+      probabilidade: 0.75             # Bernoulli MC: p=0,75
+      impacto_val_k: 2700             # redução direta do capital inicial
+      mitigacao: "CAPEX estruturado em 2 fases — Fase 1 (2025) não depende de PT2030"
+
+    - id: fcs_2
+      fator: "Execução CAPEX dentro do orçamento (±15%)"
+      probabilidade: 0.85
+      impacto_val_k: 900              # 15% × 6 000 k€
+      mitigacao: "Empreitada de preço fixo + contingência 10% no CAPEX base"
+
+    - id: fcs_3
+      fator: "Adoção canal hotelaria (OTIF 97%)"
+      probabilidade: 0.80
+      impacto_val_k: 1200             # VN incremental Hotelaria 2027 (Base)
+      mitigacao: "Contratos hotelaria com cláusula de exclusividade de entrega 48h"
+
+    - id: fcs_4
+      fator: "Retenção engenheiro IA/MLOps (1 FTE sénior)"
+      probabilidade: 0.70
+      impacto_val_k: 300              # perda de 50% da poupança operacional ML
+      mitigacao: "Plano de retenção: salário sénior €50 k + ESOP Grestel"
+
+    - id: fcs_5
+      fator: "Compliance Autonomia Financeira (≥35% BPI covenant)"
+      probabilidade: 0.90
+      impacto_val_k: 0                # qualitativo — exigibilidade antecipada
+      mitigacao: "Payout 20% só arranca em 2026; retenção resultados 2025 total"

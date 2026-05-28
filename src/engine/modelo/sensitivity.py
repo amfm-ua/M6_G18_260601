@@ -7,7 +7,7 @@ from typing import Sequence
 
 import pandas as pd
 
-from ..inputs import load as _inputs_load
+from ..inputs import Assumptions, Schedules, load as _inputs_load
 from ..demonstracoes import statements
 
 
@@ -25,7 +25,7 @@ def _block(a, key: str) -> dict:
     cb = a.cenario_block()
     block = cb.get(key)
 
-    if isinstance(block, dict) and "annual_2025" in block:
+    if isinstance(block, dict) and ("annual_2025" in block or "base_2025" in block):
         return block
 
     raw_key = aliases.get(key, key)
@@ -39,12 +39,18 @@ def _block(a, key: str) -> dict:
     return block
 
 
+def _key_2025(block: dict) -> str:
+    """Devolve a chave de 2025 que o bloco usa (base_2025 tem prioridade sobre annual_2025)."""
+    return "base_2025" if "base_2025" in block else "annual_2025"
+
+
 def _apply_volume_vn(a, b, s, delta):
     """Aplica choque ao crescimento de volume de vendas."""
     _ = b, s
 
     block = _block(a, "volume_vendas")
-    block["annual_2025"] = float(block.get("annual_2025", 0.0)) + float(delta)
+    k = _key_2025(block)
+    block[k] = float(block.get(k, 0.0)) + float(delta)
 
     for y in [2026, 2027, 2028, 2029]:
         block[y] = float(block.get(y, 0.0)) + float(delta)
@@ -76,7 +82,8 @@ def _apply_cmvmc_pct(a, b, s, delta):
     _ = b, s
 
     block = _block(a, "custo_mercadorias")
-    block["annual_2025"] = float(block.get("annual_2025", 0.0)) + float(delta)
+    k = _key_2025(block)
+    block[k] = float(block.get(k, 0.0)) + float(delta)
 
     for y in [2026, 2027, 2028, 2029]:
         block[y] = float(block.get(y, 0.0)) + float(delta)
@@ -87,7 +94,8 @@ def _apply_fse_pct(a, b, s, delta):
     _ = b, s
 
     block = _block(a, "fse")
-    block["annual_2025"] = float(block.get("annual_2025", 0.0)) + float(delta)
+    k = _key_2025(block)
+    block[k] = float(block.get(k, 0.0)) + float(delta)
 
     for y in [2026, 2027, 2028, 2029]:
         block[y] = float(block.get(y, 0.0)) + float(delta)
@@ -181,7 +189,8 @@ def _apply_margem_bruta(a, b, s, delta):
     _ = b, s
 
     block = _block(a, "custo_mercadorias")
-    block["annual_2025"] = float(block.get("annual_2025", 0.0)) - float(delta)
+    k = _key_2025(block)
+    block[k] = float(block.get(k, 0.0)) - float(delta)
 
     for y in [2026, 2027, 2028, 2029]:
         block[y] = float(block.get(y, 0.0)) - float(delta)
@@ -263,7 +272,8 @@ def _apply_preco_vendas(a, b, s, delta):
     _ = b, s
 
     block = _block(a, "preco_vendas")
-    block["annual_2025"] = float(block.get("annual_2025", 0.0)) + float(delta)
+    k = _key_2025(block)
+    block[k] = float(block.get(k, 0.0)) + float(delta)
 
     for y in [2026, 2027, 2028, 2029]:
         block[y] = float(block.get(y, 0.0)) + float(delta)
@@ -375,6 +385,53 @@ DRIVERS = {
 }
 
 
+def _run_with_loaded(
+    a_raw_copy: dict,
+    b,
+    s_raw_copy: dict,
+    driver_key: str,
+    delta: float,
+    year: int,
+    metric: str,
+    *,
+    cenario: str,
+    produtos_raw,
+    mercadorias_raw,
+) -> float:
+    """Executa o modelo com um choque a partir de cópias já carregadas dos dados."""
+    a_local = Assumptions(
+        a_raw_copy,
+        cenario=cenario,
+        produtos_raw=produtos_raw,
+        mercadorias_raw=mercadorias_raw,
+    )
+    s_local = Schedules(s_raw_copy)
+
+    apply_fn = DRIVERS[driver_key][2]
+    apply_fn(a_local, b, s_local, delta)
+
+    dr = statements.build_dr(a_local, b, s_local)
+    bal = statements.build_balanco(a_local, b, s_local, dr)
+    dfc = statements.build_dfc(a_local, dr, bal, s_local, b)
+
+    row = dr[dr.ano == year]
+
+    if not row.empty and metric in row.iloc[0].index:
+        return float(row.iloc[0][metric])
+
+    bal_row = bal[bal.ano == year]
+
+    if not bal_row.empty and metric in bal_row.columns:
+        return float(bal_row.iloc[0][metric])
+
+    dfc_row = dfc[dfc.ano == year]
+
+    if not dfc_row.empty and metric in dfc_row.columns:
+        return float(dfc_row.iloc[0][metric])
+
+    return float("nan")
+
+
 def _run_with_delta(
     cenario: str,
     driver_key: str,
@@ -384,36 +441,18 @@ def _run_with_delta(
 ) -> float:
     """Executa o modelo com um choque e devolve uma métrica."""
     a, b, s = _inputs_load(cenario=cenario)
-    a_backup = copy.deepcopy(a.raw)
-    s_backup = copy.deepcopy(s.raw) if hasattr(s, 'raw') else None
-    try:
-        apply_fn = DRIVERS[driver_key][2]
-        apply_fn(a, b, s, delta)
-
-        dr = statements.build_dr(a, b, s)
-        bal = statements.build_balanco(a, b, s, dr)
-        dfc = statements.build_dfc(a, dr, bal, s, b)
-
-        row = dr[dr.ano == year]
-
-        if not row.empty and metric in row.iloc[0].index:
-            return float(row.iloc[0][metric])
-
-        bal_row = bal[bal.ano == year]
-
-        if not bal_row.empty and metric in bal_row.columns:
-            return float(bal_row.iloc[0][metric])
-
-        dfc_row = dfc[dfc.ano == year]
-
-        if not dfc_row.empty and metric in dfc_row.columns:
-            return float(dfc_row.iloc[0][metric])
-
-        return float("nan")
-    finally:
-        a.raw = a_backup
-        if s_backup is not None:
-            s.raw = s_backup
+    return _run_with_loaded(
+        copy.deepcopy(a.raw),
+        b,
+        copy.deepcopy(s.raw),
+        driver_key,
+        delta,
+        year,
+        metric,
+        cenario=a.cenario,
+        produtos_raw=a.produtos_raw,
+        mercadorias_raw=a.mercadorias_raw,
+    )
 
 
 def one_at_a_time(
@@ -431,10 +470,23 @@ def one_at_a_time(
 
     d_list = deltas if deltas is not None else DRIVERS[driver_key][1]
 
+    a, b, s = _inputs_load(cenario=cenario)
+
     rows = []
 
     for d in d_list:
-        val = _run_with_delta(cenario, driver_key, float(d), year, metric)
+        val = _run_with_loaded(
+            copy.deepcopy(a.raw),
+            b,
+            copy.deepcopy(s.raw),
+            driver_key,
+            float(d),
+            year,
+            metric,
+            cenario=a.cenario,
+            produtos_raw=a.produtos_raw,
+            mercadorias_raw=a.mercadorias_raw,
+        )
 
         rows.append(
             {
@@ -507,7 +559,23 @@ def tornado(
     swing: float | None = None,
 ) -> pd.DataFrame:
     """Dados para gráfico tornado."""
-    base_val = _run_with_delta(cenario, "volume_vn", 0.0, year, metric)
+    a, b, s = _inputs_load(cenario=cenario)
+
+    def _run(dk: str, d: float) -> float:
+        return _run_with_loaded(
+            copy.deepcopy(a.raw),
+            b,
+            copy.deepcopy(s.raw),
+            dk,
+            d,
+            year,
+            metric,
+            cenario=a.cenario,
+            produtos_raw=a.produtos_raw,
+            mercadorias_raw=a.mercadorias_raw,
+        )
+
+    base_val = _run("volume_vn", 0.0)
 
     rows = []
 
@@ -517,8 +585,8 @@ def tornado(
         low_d = -abs(float(swing)) if swing is not None else min(deltas)
         high_d = abs(float(swing)) if swing is not None else max(deltas)
 
-        low_val = _run_with_delta(cenario, key, low_d, year, metric)
-        high_val = _run_with_delta(cenario, key, high_d, year, metric)
+        low_val = _run(key, low_d)
+        high_val = _run(key, high_d)
 
         rows.append(
             {
@@ -559,18 +627,26 @@ def sensitivity_2d(
     dx = deltas_x if deltas_x is not None else DRIVERS[driver_x][1]
     dy = deltas_y if deltas_y is not None else DRIVERS[driver_y][1]
 
+    a, b, s = _inputs_load(cenario=cenario)
+
     rows = []
 
     for d_x in dx:
         for d_y in dy:
-            a, b, s = _inputs_load(cenario=cenario)
+            a_local = Assumptions(
+                copy.deepcopy(a.raw),
+                cenario=a.cenario,
+                produtos_raw=a.produtos_raw,
+                mercadorias_raw=a.mercadorias_raw,
+            )
+            s_local = Schedules(copy.deepcopy(s.raw))
 
-            DRIVERS[driver_x][2](a, b, s, float(d_x))
-            DRIVERS[driver_y][2](a, b, s, float(d_y))
+            DRIVERS[driver_x][2](a_local, b, s_local, float(d_x))
+            DRIVERS[driver_y][2](a_local, b, s_local, float(d_y))
 
-            dr = statements.build_dr(a, b, s)
-            bal = statements.build_balanco(a, b, s, dr)
-            dfc = statements.build_dfc(a, dr, bal, s, b)
+            dr = statements.build_dr(a_local, b, s_local)
+            bal = statements.build_balanco(a_local, b, s_local, dr)
+            dfc = statements.build_dfc(a_local, dr, bal, s_local, b)
 
             if metric in dr.columns:
                 val = float(dr[dr.ano == year].iloc[0][metric])
@@ -667,22 +743,35 @@ _STEPS_STD = [-0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03]
 _STEPS_HUB = [-0.30, -0.15, 0.0, 0.15, 0.30]
 
 
-def _run_metrics_2025(
-    cenario: str,
+def _run_metrics_year_loaded(
+    a_raw_copy: dict,
+    b,
+    s_raw_copy: dict,
     driver_key: str | None,
     delta: float,
-    hub_on: bool = False,
+    hub_on: bool,
+    year: int,
+    *,
+    cenario: str,
+    produtos_raw,
+    mercadorias_raw,
 ) -> dict:
-    """Executa o modelo e devolve {vn, ebitda, margem_ebitda, rl} para 2025."""
-    a, b, s = _inputs_load(cenario=cenario)
+    """Executa o modelo a partir de cópias já carregadas e devolve métricas do ano."""
+    a_local = Assumptions(
+        a_raw_copy,
+        cenario=cenario,
+        produtos_raw=produtos_raw,
+        mercadorias_raw=mercadorias_raw,
+    )
+    s_local = Schedules(s_raw_copy)
 
-    a.raw.setdefault("hub_logistico", {})["incluir_hub"] = hub_on
+    a_local.raw.setdefault("hub_logistico", {})["incluir_hub"] = hub_on
 
     if driver_key is not None:
-        DRIVERS[driver_key][2](a, b, s, delta)
+        DRIVERS[driver_key][2](a_local, b, s_local, delta)
 
-    dr = statements.build_dr(a, b, s)
-    row = dr[dr.ano == 2025]
+    dr = statements.build_dr(a_local, b, s_local)
+    row = dr[dr.ano == year]
 
     if row.empty:
         return {"vn": 0.0, "ebitda": 0.0, "margem_ebitda": 0.0, "rl": 0.0}
@@ -702,9 +791,62 @@ def _run_metrics_2025(
     }
 
 
+def _run_metrics_year(
+    cenario: str,
+    driver_key: str | None,
+    delta: float,
+    hub_on: bool = False,
+    year: int = 2025,
+) -> dict:
+    """Executa o modelo e devolve {vn, ebitda, margem_ebitda, rl} para o ano indicado."""
+    a, b, s = _inputs_load(cenario=cenario)
+    return _run_metrics_year_loaded(
+        copy.deepcopy(a.raw),
+        b,
+        copy.deepcopy(s.raw),
+        driver_key,
+        delta,
+        hub_on,
+        year,
+        cenario=a.cenario,
+        produtos_raw=a.produtos_raw,
+        mercadorias_raw=a.mercadorias_raw,
+    )
+
+
+def _run_metrics_2025(
+    cenario: str,
+    driver_key: str | None,
+    delta: float,
+    hub_on: bool = False,
+) -> dict:
+    """Atalho para _run_metrics_year com ano=2025."""
+    return _run_metrics_year(cenario, driver_key, delta, hub_on, year=2025)
+
+
 def sensitivity_ui(cenario: str = "Base", hub_on: bool = False) -> dict:
-    """Análise de sensibilidade completa para a UI — executa tudo no backend."""
-    base = _run_metrics_2025(cenario, None, 0.0, hub_on)
+    """Análise de sensibilidade completa para a UI — executa tudo no backend.
+
+    Variáveis operacionais (vol, preço, FSE, CMVMC, pessoal) usam EBITDA 2025.
+    Variáveis hub usam EBITDA 2026 (primeiro ano de benefícios do hub).
+    """
+    a, b, s = _inputs_load(cenario=cenario)
+
+    def _run(driver_key: str | None, delta: float, year: int) -> dict:
+        return _run_metrics_year_loaded(
+            copy.deepcopy(a.raw),
+            b,
+            copy.deepcopy(s.raw),
+            driver_key,
+            delta,
+            hub_on,
+            year,
+            cenario=a.cenario,
+            produtos_raw=a.produtos_raw,
+            mercadorias_raw=a.mercadorias_raw,
+        )
+
+    base = _run(None, 0.0, 2025)
 
     all_vars = list(_UI_VARS_STD)
     if hub_on:
@@ -714,15 +856,18 @@ def sensitivity_ui(cenario: str = "Base", hub_on: bool = False) -> dict:
     for fe_key, be_key, label, unit, base_rate in all_vars:
         is_hub = fe_key in ("hub_poupanca", "hub_quebras")
         steps_list = _STEPS_HUB if is_hub else _STEPS_STD
+        # Hub benefits start in 2026; use year 2026 for hub sensitivity steps
+        year = 2026 if is_hub else 2025
         steps = []
         for delta in steps_list:
-            m = _run_metrics_2025(cenario, be_key, delta, hub_on)
+            m = _run(be_key, delta, year)
             steps.append({"delta": delta, **m})
         variables[fe_key] = {
             "label": label,
             "unit": unit,
             "base_rate": base_rate,
             "steps": steps,
+            "ano": year,
         }
 
     return {"base": base, "variables": variables}

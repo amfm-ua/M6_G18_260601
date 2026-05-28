@@ -853,6 +853,29 @@ function HubViabilidadeView({ ctx }) {
   );
 }
 
+// Delta com % por defeito; hover mostra o valor EUR
+function DeltaCell({ delta, base, className, style }) {
+  const [hovered, setHovered] = React.useState(false);
+  const pct = (delta != null && base != null && base !== 0)
+    ? delta / Math.abs(base)
+    : null;
+  const eurStr = delta != null
+    ? (delta >= 0 ? "+" : "") + fmt.eur(delta)
+    : "—";
+  const pctStr = pct != null ? fmt.pctSigned(pct, 1) : eurStr;
+  return (
+    <td
+      className={className}
+      style={{ ...style, cursor: "default" }}
+      title={pct != null ? eurStr : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {hovered && pct != null ? eurStr : pctStr}
+    </td>
+  );
+}
+
 // Sub-componente: tabela DR comparativa sem vs. com Hub
 function HubComparativoDR({ sem, com }) {
   const years = GRESTEL.YEARS;
@@ -911,9 +934,12 @@ function HubComparativoDR({ sem, com }) {
                   <React.Fragment key={y}>
                     <td className="mono num" style={{ fontSize: 11, color: "var(--muted)" }}>{s != null ? fmt.eur(s) : "—"}</td>
                     <td className="mono num" style={{ fontSize: 11 }}>{c != null ? fmt.eur(c) : "—"}</td>
-                    <td className={"mono num " + (delta > 0 ? "pos" : delta < 0 ? "neg" : "")} style={{ fontSize: 11, fontWeight: 600 }}>
-                      {delta != null ? (delta >= 0 ? "+" : "") + fmt.eur(delta) : "—"}
-                    </td>
+                    <DeltaCell
+                      delta={delta}
+                      base={s}
+                      className={"mono num " + (delta > 0 ? "pos" : delta < 0 ? "neg" : "")}
+                      style={{ fontSize: 11, fontWeight: 600 }}
+                    />
                   </React.Fragment>
                 );
               })}
@@ -999,6 +1025,8 @@ function HubConsolidadoView({ consol }) {
 
   const deltaEbitda = grupo.delta_ebitda_hub || [];
   const deltaRL     = grupo.delta_rl_hub     || [];
+  const ebitdaSem   = grupo.ebitda_sem_hub   || [];
+  const rlSem       = grupo.rl_sem_hub       || [];
 
   return (
     <>
@@ -1058,8 +1086,16 @@ function HubConsolidadoView({ consol }) {
               {anos.map((ano, i) => (
                 <tr key={ano}>
                   <td className="mono">{ano}</td>
-                  <td className={"mono num " + ((deltaEbitda[i] || 0) >= 0 ? "pos" : "neg")}>{fmt.eur(deltaEbitda[i] || 0)}</td>
-                  <td className={"mono num " + ((deltaRL[i] || 0) >= 0 ? "pos" : "neg")}>{fmt.eur(deltaRL[i] || 0)}</td>
+                  <DeltaCell
+                    delta={deltaEbitda[i] || 0}
+                    base={ebitdaSem[i]}
+                    className={"mono num " + ((deltaEbitda[i] || 0) >= 0 ? "pos" : "neg")}
+                  />
+                  <DeltaCell
+                    delta={deltaRL[i] || 0}
+                    base={rlSem[i]}
+                    className={"mono num " + ((deltaRL[i] || 0) >= 0 ? "pos" : "neg")}
+                  />
                 </tr>
               ))}
             </tbody>
@@ -2474,8 +2510,8 @@ function EcogresView({ ctx }) {
       </div>
 
       <Panel
-        title="Ecogres · subsidiária · Demonstração de Resultados"
-        sub="modelo independente · IRC 21%"
+        title="Ecogres · Subsidiária · Demonstração dos Resultados"
+        sub="-"
         right={<Legend items={[{ label: "Receitas", color: "var(--ink)" }, { label: "EBITDA", color: "var(--accent)" }, { label: "RL", color: "var(--pos)" }]} />}
       >
         <LineChart series={lines} height={280} />
@@ -2497,7 +2533,7 @@ function EcogresView({ ctx }) {
             <tr className="is-subtotal"><td>EBITDA</td>{eco.map((r, i) => <td key={i} className="mono num">{fmt.eur(r.ebitda)}</td>)}</tr>
             <FRow label="Depreciações" values={eco.map(r => -r.dep)} />
             <tr className="is-subtotal"><td>EBIT</td>{eco.map((r, i) => <td key={i} className="mono num">{fmt.eur(r.ebit)}</td>)}</tr>
-            <FRow label="IRC (21%)" values={eco.map(r => -r.irc)} />
+            <FRow label="IRC" values={eco.map(r => -r.irc)} />
             <tr className="is-total"><td>Resultado Líquido</td>{eco.map((r, i) => <td key={i} className="mono num">{fmt.eur(r.rl)}</td>)}</tr>
           </tbody>
         </table>
@@ -3480,14 +3516,16 @@ function SensibilidadeView({ ctx }) {
     return (d > 0 ? "+" : "") + val + " " + (unit || "pp");
   };
 
-  // Tornado: impacto no EBITDA 2025 em M€ (low = pior, high = melhor)
+  // Tornado: impacto no EBITDA em M€ (low = pior, high = melhor).
+  // Usa o step delta=0 de cada variável como referência (correcto para hub, ano=2026).
   const tornadoRows = VARS_CONFIG
     .filter(v => data.variables[v.key])
     .map(v => {
-      const steps      = data.variables[v.key].steps;
-      const baseEbitda = data.base.ebitda;
-      const low        = (Math.min(...steps.map(s => s.ebitda)) - baseEbitda) / 1e6;
-      const high       = (Math.max(...steps.map(s => s.ebitda)) - baseEbitda) / 1e6;
+      const steps    = data.variables[v.key].steps;
+      const baseStep = steps.find(s => s.delta === 0) || { ebitda: data.base.ebitda };
+      const baseRef  = baseStep.ebitda;
+      const low      = (Math.min(...steps.map(s => s.ebitda)) - baseRef) / 1e6;
+      const high     = (Math.max(...steps.map(s => s.ebitda)) - baseRef) / 1e6;
       return {
         variavel:      data.variables[v.key].label,
         low,
@@ -3499,16 +3537,19 @@ function SensibilidadeView({ ctx }) {
   const selData  = data.variables[selVar] || data.variables["vol"];
   const selSteps = selData.steps;
   const selUnit  = selData.unit || "pp";
+  const selAno   = selData.ano || 2025;
+  const selBase  = (selSteps.find(s => s.delta === 0) || {}).ebitda ?? data.base.ebitda;
+  const selBaseRl = (selSteps.find(s => s.delta === 0) || {}).rl ?? data.base.rl;
 
   const ebitdaSeries = [{
-    key: "ebitda", label: "EBITDA 2025",
+    key: "ebitda", label: `EBITDA ${selAno}`,
     labels: selSteps.map(s => deltaLabel(s.delta, selUnit)),
     values: selSteps.map(s => s.ebitda),
     color: "var(--accent)",
     fill: true,
   }];
   const vnSeries = [{
-    key: "vn", label: "VN 2025",
+    key: "vn", label: `VN ${selAno}`,
     labels: selSteps.map(s => deltaLabel(s.delta, selUnit)),
     values: selSteps.map(s => s.vn),
     color: "var(--ink)",
@@ -3553,7 +3594,7 @@ function SensibilidadeView({ ctx }) {
         </table>
       </Panel>
 
-      <Panel title={"Detalhe · " + selData.label} sub="impacto no VN e EBITDA 2025 ao variar a taxa de crescimento">
+      <Panel title={"Detalhe · " + selData.label} sub={`impacto no VN e EBITDA ${selAno} ao variar a taxa de crescimento`}>
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
           {VARS_CONFIG.map(v => (
             <button
@@ -3577,11 +3618,11 @@ function SensibilidadeView({ ctx }) {
 
         <div className="grid-2" style={{ marginBottom: "1rem" }}>
           <div>
-            <div className="sub-label" style={{ marginBottom: 6 }}>EBITDA 2025</div>
+            <div className="sub-label" style={{ marginBottom: 6 }}>EBITDA {selAno}</div>
             <LineChart series={ebitdaSeries} height={200} padding={{ top: 16, right: 16, bottom: 28, left: 64 }} yFormat={fmt.eurC} />
           </div>
           <div>
-            <div className="sub-label" style={{ marginBottom: 6 }}>Volume de Negócios 2025</div>
+            <div className="sub-label" style={{ marginBottom: 6 }}>Volume de Negócios {selAno}</div>
             <LineChart series={vnSeries} height={200} padding={{ top: 16, right: 16, bottom: 28, left: 64 }} yFormat={fmt.eurC} />
           </div>
         </div>
@@ -3589,12 +3630,12 @@ function SensibilidadeView({ ctx }) {
         <table className="ftable ftable--dense">
           <thead>
             <tr>
-              <th>{selUnit === "%" ? "Δ Valor" : "Δ Taxa 2025"}</th>
+              <th>{selUnit === "%" ? "Δ Valor" : `Δ Taxa ${selAno}`}</th>
               <th className="mono num">{selUnit === "%" ? "Valor (€)" : "Taxa efetiva"}</th>
-              <th className="mono num">VN 2025</th>
-              <th className="mono num">EBITDA 2025</th>
+              <th className="mono num">VN {selAno}</th>
+              <th className="mono num">EBITDA {selAno}</th>
               <th className="mono num">Margem EBITDA</th>
-              <th className="mono num">RL 2025</th>
+              <th className="mono num">RL {selAno}</th>
             </tr>
           </thead>
           <tbody>
@@ -3603,9 +3644,9 @@ function SensibilidadeView({ ctx }) {
                 <td className="mono">{deltaLabel(s.delta, selUnit)}</td>
                 <td className="mono num">{selUnit === "%" ? fmt.eurC(s.rate || selData.base_rate * (1 + s.delta)) : fmt.pct(s.rate)}</td>
                 <td className="mono num">{fmt.eurC(s.vn)}</td>
-                <td className={"mono num " + (s.ebitda > data.base.ebitda ? "pos" : s.ebitda < data.base.ebitda ? "neg" : "")}>{fmt.eurC(s.ebitda)}</td>
+                <td className={"mono num " + (s.ebitda > selBase ? "pos" : s.ebitda < selBase ? "neg" : "")}>{fmt.eurC(s.ebitda)}</td>
                 <td className="mono num">{fmt.pct(s.margem_ebitda)}</td>
-                <td className={"mono num " + (s.rl > data.base.rl ? "pos" : s.rl < data.base.rl ? "neg" : "")}>{fmt.eurC(s.rl)}</td>
+                <td className={"mono num " + (s.rl > selBaseRl ? "pos" : s.rl < selBaseRl ? "neg" : "")}>{fmt.eurC(s.rl)}</td>
               </tr>
             ))}
           </tbody>
@@ -3617,15 +3658,10 @@ function SensibilidadeView({ ctx }) {
 
 // ---- Análise de Cenários ----------------------------------------------------
 // Comparação side-by-side de Base, Upside, Downside, Stress.
-function CenariosView({ ctx }) {
-  const SC_LIST = ["Base", "Upside", "Downside", "Stress"];
-  const SC_COLORS = [
-    "var(--accent)",
-    "var(--pos)",
-    "var(--neg)",
-    "oklch(0.42 0.100 40)",
-  ];
+const CENARIOS_SC_LIST   = ["Base", "Upside", "Downside", "Stress"];
+const CENARIOS_SC_COLORS = ["var(--accent)", "var(--pos)", "var(--neg)", "oklch(0.42 0.100 40)"];
 
+function CenariosView({ ctx }) {
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
   const [hubDelta, setHubDelta] = useState(null);
@@ -3659,94 +3695,76 @@ function CenariosView({ ctx }) {
   function getDR(sc, year)  { return (data[sc]?.dr  || []).find(r => r.year === year) || {}; }
   function getKPI(sc, year) { return (data[sc]?.kpis || []).find(r => r.year === year) || {}; }
 
-  // Multi-line VN chart (2024–2029)
-  const vnSeries = SC_LIST.map((sc, i) => ({
-    key:    sc,
-    label:  sc,
+  const vnSeries = CENARIOS_SC_LIST.map((sc, i) => ({
+    key: sc, label: sc,
     labels: GRESTEL.YEARS.map(String),
     values: GRESTEL.YEARS.map(y => getDR(sc, y).vn || 0),
-    color:  SC_COLORS[i],
+    color: CENARIOS_SC_COLORS[i],
   }));
-
-  // EBITDA margin chart
-  const mgmSeries = SC_LIST.map((sc, i) => ({
-    key:    sc,
-    label:  sc,
+  const mgmSeries = CENARIOS_SC_LIST.map((sc, i) => ({
+    key: sc, label: sc,
     labels: GRESTEL.YEARS.map(String),
     values: GRESTEL.YEARS.map(y => getKPI(sc, y).margem_ebitda || 0),
-    color:  SC_COLORS[i],
+    color: CENARIOS_SC_COLORS[i],
+  }));
+  const rlSeries = CENARIOS_SC_LIST.map((sc, i) => ({
+    key: sc, label: sc,
+    labels: GRESTEL.YEARS.map(String),
+    values: GRESTEL.YEARS.map(y => getDR(sc, y).rl || 0),
+    color: CENARIOS_SC_COLORS[i],
   }));
 
-  const scLegend = SC_LIST.map((sc, i) => ({ label: sc, color: SC_COLORS[i] }));
+  const vnUpside2029 = getDR("Upside", 2029).vn || 0;
+  const vnStress2029 = getDR("Stress", 2029).vn || 0;
+  const spread2029   = vnUpside2029 - vnStress2029;
 
   return (
     <>
       <div className="grid-4">
-        {SC_LIST.map((sc, i) => {
-          const r25   = getDR(sc, 2025);
-          const vn25  = r25.vn   || 0;
-          const eb25  = r25.ebitda || 0;
-          const cagr  = (() => {
-            const v1 = getDR(sc, 2025).vn || 0;
-            const v5 = getDR(sc, 2029).vn || 0;
-            return v1 > 0 ? Math.pow(v5 / v1, 0.25) - 1 : 0;
-          })();
+        {CENARIOS_SC_LIST.map((sc, i) => {
+          const r25  = getDR(sc, 2025);
+          const vn25 = r25.vn || 0;
+          const eb25 = r25.ebitda || 0;
+          const mgm25 = getKPI(sc, 2025).margem_ebitda || 0;
+          const vn29 = getDR(sc, 2029).vn || 0;
+          const cagr = vn25 > 0 ? Math.pow(vn29 / vn25, 0.25) - 1 : 0;
+          const desc = GRESTEL.SCENARIOS[sc]?.desc || "";
           return (
             <KPI
               key={sc}
               label={sc + " · VN 2025"}
               value={fmt.eurC(vn25)}
-              sub={"EBITDA " + fmt.eurC(eb25) + " · CAGR " + fmt.pctSigned(cagr)}
+              sub={"EBITDA " + fmt.eurC(eb25) + " · Mg " + fmt.pct(mgm25, 1) + " · CAGR " + fmt.pctSigned(cagr)}
+              hint={desc}
               tone={i === 1 ? "pos" : i >= 2 ? "neg" : null}
             />
           );
         })}
       </div>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 20, padding: "2px 0 6px", flexWrap: "wrap" }}>
+        {CENARIOS_SC_LIST.map((sc, i) => (
+          <div key={sc} className="legend-h-item">
+            <span className="swatch" style={{ background: CENARIOS_SC_COLORS[i] }} />
+            <span>{sc}</span>
+          </div>
+        ))}
+        <div style={{ marginLeft: "auto", fontSize: "0.78rem", color: "var(--muted)" }}>
+          Amplitude Upside–Stress 2029:&nbsp;<strong style={{ color: "var(--ink)" }}>{fmt.eurC(spread2029)}</strong>
+        </div>
+      </div>
+
       <Panel title="Volume de Negócios · 4 cenários" sub="€ · projeção 2024–2029">
         <LineChart series={vnSeries} height={280} showDots={false} />
-        <div className="legend-h" style={{ marginTop: 8 }}>
-          {scLegend.map(l => (
-            <div key={l.label} className="legend-h-item">
-              <span className="swatch" style={{ background: l.color }} />
-              <span>{l.label}</span>
-            </div>
-          ))}
-        </div>
       </Panel>
 
       <div className="grid-2">
         <Panel title="Margem EBITDA · 4 cenários" sub="% · 2024–2029">
           <LineChart series={mgmSeries} height={240} showDots={false} yFormat={v => fmt.pct(v, 1)} />
-          <div className="legend-h" style={{ marginTop: 8 }}>
-            {scLegend.map(l => (
-              <div key={l.label} className="legend-h-item">
-                <span className="swatch" style={{ background: l.color }} />
-                <span>{l.label}</span>
-              </div>
-            ))}
-          </div>
         </Panel>
 
         <Panel title="Resultado Líquido · 4 cenários" sub="€ · 2024–2029">
-          <LineChart
-            series={SC_LIST.map((sc, i) => ({
-              key: sc, label: sc,
-              labels: GRESTEL.YEARS.map(String),
-              values: GRESTEL.YEARS.map(y => getDR(sc, y).rl || 0),
-              color: SC_COLORS[i],
-            }))}
-            height={240}
-            showDots={false}
-          />
-          <div className="legend-h" style={{ marginTop: 8 }}>
-            {scLegend.map(l => (
-              <div key={l.label} className="legend-h-item">
-                <span className="swatch" style={{ background: l.color }} />
-                <span>{l.label}</span>
-              </div>
-            ))}
-          </div>
+          <LineChart series={rlSeries} height={240} showDots={false} yFormat={v => fmt.eurC(v)} />
         </Panel>
       </div>
 
@@ -3757,18 +3775,18 @@ function CenariosView({ ctx }) {
               <th>Cenário</th>
               <th>Métrica</th>
               {GRESTEL.YEARS.slice(1).map(y => <th key={y} className="mono num">{y}</th>)}
-              <th className="mono num">CAGR 25–29</th>
+              <th className="mono num">CAGR '25→'29</th>
             </tr>
           </thead>
           <tbody>
-            {SC_LIST.map((sc, si) => {
+            {CENARIOS_SC_LIST.map((sc, si) => {
               const rows = data[sc]?.dr || [];
               const desc = GRESTEL.SCENARIOS[sc]?.desc || "";
               return (
                 <React.Fragment key={sc}>
                   <tr className="is-section">
                     <td colSpan={2 + GRESTEL.YEARS.slice(1).length + 1}>
-                      <span style={{ color: SC_COLORS[si], fontWeight: 700 }}>●</span>{" "}
+                      <span style={{ color: CENARIOS_SC_COLORS[si], fontWeight: 700 }}>●</span>{" "}
                       <strong>{sc}</strong>
                       {desc && <span className="muted"> — {desc}</span>}
                     </td>
@@ -3808,14 +3826,14 @@ function CenariosView({ ctx }) {
               </tr>
             </thead>
             <tbody>
-              {SC_LIST.map((sc, si) => {
+              {CENARIOS_SC_LIST.map((sc, si) => {
                 const rows = hubDelta[sc] || [];
                 const getD = (field, y) => (rows.find(r => r.ano === y) || {})[field] || 0;
                 return (
                   <React.Fragment key={sc}>
                     <tr className="is-section">
                       <td colSpan={2 + GRESTEL.YEARS.slice(1).length + 1}>
-                        <span style={{ color: SC_COLORS[si], fontWeight: 700 }}>●</span>{" "}
+                        <span style={{ color: CENARIOS_SC_COLORS[si], fontWeight: 700 }}>●</span>{" "}
                         <strong>{sc}</strong>
                       </td>
                     </tr>

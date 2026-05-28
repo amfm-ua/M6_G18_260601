@@ -42,3 +42,6 @@ python/
 
 # Build/Cache
 *.cache
+
+# Claude Code (configuração local da máquina)
+.claude/

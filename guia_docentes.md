@@ -6,7 +6,11 @@
 
 ## 1. Iniciar o servidor
 
-**Windows (sem Python instalado):** `SETUP.bat` uma vez → `start.bat`
+**Windows (sem Python instalado):** `setup-win.bat` uma vez → `start-win.bat`
+
+**Mac (sem Python instalado):** `./setup-mac.sh` uma vez → `./start-mac.sh`
+
+> Mac: na primeira vez pode ser necessário: `chmod +x setup-mac.sh start-mac.sh`
 
 **Com Python instalado:**
 

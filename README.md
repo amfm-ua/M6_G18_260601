@@ -8,7 +8,11 @@ Cobre M3 (Planeamento Financeiro) e M6 (Plano de Negócios), expondo todos os ou
 
 ## Arranque rápido
 
-**Windows (sem Python instalado):** executar `SETUP.bat` uma vez → `start.bat`
+**Windows (sem Python instalado):** executar `setup-win.bat` uma vez → `start-win.bat`
+
+**Mac (sem Python instalado):** executar `./setup-mac.sh` uma vez → `./start-mac.sh`
+
+> Mac: pode ser necessário dar permissão de execução na primeira vez: `chmod +x setup-mac.sh start-mac.sh`
 
 **Com Python instalado:**
 

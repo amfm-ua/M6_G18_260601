@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 title GrestelPy - Configuracao Inicial
 echo ============================================
-echo  GrestelPy - Configuracao Inicial
+echo  GrestelPy - Configuracao Inicial (Windows)
 echo ============================================
 echo.
 
@@ -55,7 +55,7 @@ if errorlevel 1 (
 echo.
 echo ============================================
 echo  Configuracao concluida!
-echo  Execute start.bat para abrir o GrestelPy.
+echo  Execute start-win.bat para abrir o GrestelPy.
 echo ============================================
 echo.
 pause

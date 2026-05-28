@@ -4,7 +4,7 @@ title GrestelPy
 
 if not exist "python\python.exe" (
     echo ERRO: Python portatil nao encontrado.
-    echo Execute SETUP.bat primeiro.
+    echo Execute setup-win.bat primeiro.
     echo.
     pause
     exit /b 1

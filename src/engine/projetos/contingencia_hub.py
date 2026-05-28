@@ -156,6 +156,7 @@ def _aplicar_estrutura_capital(hub: dict, equity: float, divida: float) -> dict[
         "divida": divida,
         "de_ratio": de_ratio,
         "beta_l": beta_l,
+        "ke": ke_lev,      # alias → Ke alavancado (reporte); lido por _avaliar e cenário base
         "ke_lev": ke_lev,
         "ku": ku,
         "kd": kd,
@@ -260,7 +261,9 @@ def _avaliar(hub: dict, irc_taxa: float, params_cap: dict | None = None) -> dict
             "divida": params_cap["divida"],
             "de_ratio": params_cap["de_ratio"],
             "beta_l": params_cap["beta_l"],
-            "ke": params_cap["ke"],
+            "ke": params_cap.get("ke", params_cap.get("ke_lev")),   # Ke alavancado (reporte)
+            "ke_lev": params_cap.get("ke_lev", params_cap.get("ke")),
+            "ku": params_cap.get("ku"),                              # Ku desalavancado (APV)
             "wacc": params_cap["wacc"],
         })
     return out
@@ -305,15 +308,25 @@ def plano_contingencia_hub(
     cenarios: dict[str, dict] = {}
 
     # ── 1. Base (com apoios) ─────────────────────────────────────────────────
+    _beta_u0 = float(via0.get("beta_u", 0.71))
+    _rf0     = float(via0.get("rf",     0.0310))
+    _erp0    = float(via0.get("erp",    0.0578))
+    _t0      = float(via0.get("irc_taxa", 0.235))
+    _ku0     = _rf0 + _beta_u0 * _erp0                       # 7.20 % — Ku base
+    _ke_lev0 = float(via0.get("ke",   0.166))                # Ke alavancado YAML
+    _beta_l0 = _beta_u0 * (1.0 + (1.0 - _t0) * (divida_full / equity_full))  # ≈ 2.34
     h = copy.deepcopy(hub)
     cenarios["base"] = {
         "label": "Base — com PT2030 + RFAI (25/75)",
         **_avaliar(h, irc_taxa, {
-            "equity": equity_full, "divida": divida_full,
+            "equity":   equity_full,
+            "divida":   divida_full,
             "de_ratio": divida_full / equity_full,
-            "beta_l": float(via0.get("ke", 0.166)) and 2.34,
-            "ke": float(via0.get("ke", 0.166)),
-            "wacc": float(via0.get("wacc", 0.0646)),
+            "beta_l":   _beta_l0,
+            "ke":       _ke_lev0,
+            "ke_lev":   _ke_lev0,
+            "ku":       _ku0,
+            "wacc":     float(via0.get("wacc", 0.0646)),
         }),
     }
 
@@ -401,14 +414,20 @@ if __name__ == "__main__":
 
     res = plano_contingencia_hub()
     print(f"IRC: {res['irc_taxa']:.1%}\n")
-    hdr = f"{'Cenário':<42}{'VALA':>10}{'VAL_base':>11}{'Escudo':>9}{'RFAI':>8}{'VAL(WACC)':>11}{'TIR':>8}{'DSCR':>7}{'Ke':>7}{'WACC':>7}"
+    # Ku é constante para todos os cenários (APV — VAL_base descontado a Ku)
+    hdr = (
+        f"{'Cenário':<42}{'VALA':>10}{'VAL_base':>11}{'Escudo':>9}"
+        f"{'RFAI':>8}{'VAL(WACC)':>11}{'TIR':>8}{'DSCR':>7}"
+        f"{'Ku':>7}{'Ke_l':>7}{'WACC':>7}"
+    )
     print(hdr)
     print("-" * len(hdr))
     for nome, c in res["cenarios"].items():
-        tir = f"{c['tir']:.1%}" if c.get("tir") is not None else "n.a."
+        tir  = f"{c['tir']:.1%}"      if c.get("tir")     is not None else "n.a."
         dscr = f"{c['dscr_min']:.2f}" if c.get("dscr_min") is not None else "n.a."
-        ke = f"{c['ke']:.1%}" if c.get("ke") is not None else "—"
-        wacc = f"{c['wacc']:.2%}" if c.get("wacc") is not None else "—"
+        ku   = f"{c['ku']:.2%}"       if c.get("ku")       is not None else "—"
+        ke_l = f"{c['ke_lev']:.1%}"   if c.get("ke_lev")  is not None else "—"
+        wacc = f"{c['wacc']:.2%}"     if c.get("wacc")     is not None else "—"
         print(
             f"{c['label']:<42}"
             f"{c['vala']/1e3:>9.0f}k"
@@ -418,6 +437,7 @@ if __name__ == "__main__":
             f"{c['val_wacc']/1e3:>10.0f}k"
             f"{tir:>8}"
             f"{dscr:>7}"
-            f"{ke:>7}"
+            f"{ku:>7}"
+            f"{ke_l:>7}"
             f"{wacc:>7}"
         )

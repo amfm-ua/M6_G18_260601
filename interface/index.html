@@ -236,6 +236,19 @@
     color: var(--surface);
   }
   .seg--sm .seg-btn { padding: 3px 8px; font-size: 11px; }
+  .seg-btn--add { color: var(--ink-2); opacity: 0.7; font-size: 15px; padding: 2px 8px; }
+  .seg-btn--add:hover { opacity: 1; color: var(--ink); }
+  .seg-btn--custom { border-left: 1px solid var(--rule); }
+  .seg-btn--custom.is-on { background: var(--accent); color: var(--surface); }
+  .seg-btn-del {
+    appearance: none; background: none; border: 0;
+    font-size: 13px; line-height: 1; padding: 0 4px 0 0;
+    color: var(--ink-2); cursor: pointer; opacity: 0;
+    transition: opacity 0.15s;
+    align-self: center;
+  }
+  span:hover > .seg-btn-del { opacity: 0.6; }
+  .seg-btn-del:hover { opacity: 1 !important; color: var(--neg); }
 
   .toggle {
     appearance: none;

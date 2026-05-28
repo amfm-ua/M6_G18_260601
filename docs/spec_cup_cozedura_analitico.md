@@ -1,7 +1,7 @@
 # Spec de implementação futura — Coluna analítica "CUP c/ cozedura" na vista de Produção
 
-> **Estado:** por implementar. Este ficheiro é um *prompt auto-contido* — uma sessão futura deve conseguir
-> implementar a partir daqui sem o histórico de conversa. Escrito em pt-PT.
+> **Estado:** **implementado** — sessão 2026-05-28. Ver documentação final em [`cup_cozedura_analitico.md`](cup_cozedura_analitico.md).  
+> Este ficheiro é o *prompt auto-contido* original (conservado para referência histórica).
 
 ## 1. Objetivo
 

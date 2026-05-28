@@ -147,12 +147,17 @@ def producao_anual(
     a: Assumptions,
     base: Base2024,
     sched: Schedules,
+    coz_fse_reducao: "dict[int, float] | None" = None,
 ) -> pd.DataFrame:
     """Produção anual por produto 2024-2029 (CIIP = MPSC+MOD+GGF).
 
     cup representa o custo industrial completo por unidade, calibrado ao
     CIIP_Produtos_2024 auditado. NÃO confundir com CMVMC_prod da DR
     (que inclui apenas MPSC — calculado em cmvmc.py).
+
+    coz_fse_reducao: quando fornecido (toggle cozedura_on ativo), adiciona
+    colunas analíticas delta_energia_unit, delta_materia_unit, cup_cozedura.
+    Estas colunas são display-only; não alimentam a DR/CMVMC/EBITDA.
     """
     from .vendas import vendas_anuais
 
@@ -256,7 +261,38 @@ def producao_anual(
                 }
             )
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+
+    if coz_fse_reducao is not None:
+        from ..projetos.cozedura.impacto import _ramp
+        coz = a.raw.get("cozedura_baixa_temp", {})
+        cmvmc_pct = float(coz.get("cmvmc_incremento_pct", 0.0))
+        mp_pct = _mp_fraction_per_produto(a)
+
+        # Alocação uniforme da poupança de energia por unidade produzida.
+        # Premissa ilustrativa: €/peça = FSE_saving_total_ano / qty_total_ano.
+        qty_per_year = df.groupby("ano")["qty_produzida"].sum().to_dict()
+
+        d_en, d_mat, cup_coz = [], [], []
+        for _, row in df.iterrows():
+            y = int(row["ano"])
+            p = row["produto"]
+            qty_y = qty_per_year.get(y, 0.0)
+            fse_red = float(coz_fse_reducao.get(y, 0.0))
+            ramp = _ramp(coz, y)
+
+            delta_en = fse_red / qty_y if qty_y > 0 else 0.0
+            cup_mpsc = cips[p] * mp_pct[p] * factors[y]
+            delta_mat = ramp * cmvmc_pct * cup_mpsc
+            d_en.append(delta_en)
+            d_mat.append(delta_mat)
+            cup_coz.append(row["cup"] - delta_en + delta_mat)
+
+        df["delta_energia_unit"] = d_en
+        df["delta_materia_unit"] = d_mat
+        df["cup_cozedura"] = cup_coz
+
+    return df
 
 
 def producao_mensal_2025(

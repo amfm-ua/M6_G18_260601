@@ -350,7 +350,7 @@ objetivos:
       Alinhado com Taxonomia UE (Art. 10 regulamento 2020/852 — manufacturing with GHG reduction).
     kpi_field: var_vs_2024
     fonte: gas
-    anos_alvo: [2026]
+    anos_alvo: [2026,2027,2028,2029]
     alvo: -0.10
     operador: lte
     unidade: pct

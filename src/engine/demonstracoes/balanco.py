@@ -201,9 +201,14 @@ def build_balanco(
     # Imparidades acumuladas — NCRF 27 §41: activos financeiros apresentados pelo
     # valor líquido (bruto − imparidade acumulada). O gasto anual passa pela DR;
     # aqui acumula-se para que o saldo de Clientes no Balanço seja líquido.
+    # 2024: Clientes em base.balanco já é líquido (valor auditado R&C) — não deduzir.
+    # 2025+: clientes_anual() devolve valor bruto; deduz-se acumulado a partir de 2025.
     imparidades_acum: dict[int, float] = {}
     _cumul_imp = 0.0
     for _y_imp in ALL_YEARS:
+        if _y_imp == 2024:
+            imparidades_acum[2024] = 0.0
+            continue
         _dr_row = df_dr[df_dr.ano == _y_imp]
         if not _dr_row.empty:
             _cumul_imp += abs(float(_dr_row["imparidades"].iloc[0]))

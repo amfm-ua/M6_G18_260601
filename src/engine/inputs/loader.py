@@ -250,6 +250,61 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
             },
         },
     },
+    "Stress_Volume": {
+        # Volume: dobro da contracção do Stress (choque de procura sem descida de preços)
+        "crescimento_volume_vendas": {
+            "base_2025": -0.04,
+            2026: -0.01,
+            2027:  0.01,
+            2028:  0.02,
+            2029:  0.02,
+        },
+        # PVU: sem redução — a empresa mantém preços, perde volume
+        "crescimento_pvu_vendas": {
+            "base_2025":  0.000,
+            2026:  0.000,
+            2027:  0.000,
+            2028:  0.000,
+            2029:  0.000,
+        },
+        # FSE e Pessoal: iguais ao Stress (choque de custos mantém-se)
+        "crescimento_fse": {
+            "base_2025": 0.037,
+            2026: 0.029,
+            2027: 0.031,
+            2028: 0.042,
+            2029: 0.043,
+        },
+        "crescimento_pessoal": {
+            "base_2025": 0.027,
+            2026: 0.029,
+            2027: 0.022,
+            2028: 0.023,
+            2029: 0.033,
+        },
+        # Diferenciais geográficos/canal: volume dobrado, PVU sem desconto
+        "crescimento_volume_por_mercado": {"PT": -0.02, "UE": -0.06, "USA": -0.24, "ROW": -0.10},
+        "crescimento_volume_por_canal": {"Private_Label": -0.10, "Hotelaria": -0.20, "Retalho": -0.04, "E_Commerce": -0.04},
+        "crescimento_pvu_por_mercado": {"PT": 0.0, "UE": 0.0, "USA": 0.0, "ROW": 0.0},
+        "crescimento_pvu_por_canal": {"Private_Label": 0.0, "Hotelaria": 0.0, "Retalho": 0.0, "E_Commerce": 0.0},
+        # Hub: mesmos haircuts do Stress
+        "hub_logistico": {
+            "projeto_hub": {
+                "beneficios_anuais": {
+                    "poupanca_operacional":    336000,
+                    "reducao_quebras":          16000,
+                    "opex_incremental":        200000,
+                    "beneficio_liquido_anual": 152000,
+                    "ramp_up_por_ano": {
+                        2026: 0.60,
+                        2027: 0.80,
+                        2028: 1.00,
+                        2029: 1.00,
+                    },
+                },
+            },
+        },
+    },
     "OE5": {
         "impostos": {
             "IRC_taxa_geral": 0.21,

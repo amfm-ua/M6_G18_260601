@@ -189,7 +189,15 @@ def run_model(
 
     # Orçamento de produção anual (por produto, 2024-2029)
     try:
-        dfs["producao_anual"] = producao_mod.producao_anual(a, base, sched)
+        coz_fse_red_by_year = None
+        if cozedura_on and "dr" in dfs:
+            dr_df = dfs["dr"]
+            if "cozedura_fse_reducao" in dr_df.columns:
+                coz_fse_red_by_year = {
+                    int(r["ano"]): float(r["cozedura_fse_reducao"])
+                    for _, r in dr_df.iterrows()
+                }
+        dfs["producao_anual"] = producao_mod.producao_anual(a, base, sched, coz_fse_red_by_year)
     except Exception as exc:
         logger.warning("producao_anual falhou: %s", exc)
         dfs["producao_anual"] = pd.DataFrame(

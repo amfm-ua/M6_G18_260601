@@ -34,8 +34,38 @@ function App() {
   const [scenario, setScenario] = useState("Base");
   const [hubOn, setHubOn] = useState(false);
   const [cozeduraOn, setCozeduraOn] = useState(false);
+  const [customScenarios, setCustomScenarios] = useState([]);
+  const [showScenarioModal, setShowScenarioModal] = useState(false);
   // Ecogres é subsidiária — sempre consolidada
   const ecogresOn = true;
+
+  // Stress usa sempre a variante de volume
+  const effectiveCenario = scenario === "Stress" ? "Stress_Volume" : scenario;
+
+  useEffect(() => {
+    API.listCustomScenarios()
+      .then(list => setCustomScenarios(list))
+      .catch(() => {});
+  }, []);
+
+  function handleAddCustomScenario(sc) {
+    setCustomScenarios(prev => {
+      const idx = prev.findIndex(s => s.name === sc.name);
+      if (idx >= 0) { const next = [...prev]; next[idx] = sc; return next; }
+      return [...prev, sc];
+    });
+    setScenario(sc.name);
+    setShowScenarioModal(false);
+  }
+
+  function handleDeleteCustomScenario(name) {
+    API.deleteCustomScenario(name)
+      .then(() => {
+        setCustomScenarios(prev => prev.filter(s => s.name !== name));
+        if (scenario === name) setScenario("Base");
+      })
+      .catch(e => alert("Erro ao eliminar: " + e.message));
+  }
 
   // Hub Logístico está sempre ativo quando a sua vista está selecionada
   const hubLocked = view === "hub";
@@ -69,10 +99,10 @@ function App() {
     setLoading(true);
     setError(null);
     Promise.all([
-      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn }),
+      API.projecao({ cenario: effectiveCenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn }),
       // Taxa de IRC efetiva da API (fonte de verdade única, C-1). Fallback
       // silencioso para o default offline se a chamada falhar.
-      API.assumptions({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn })
+      API.assumptions({ cenario: effectiveCenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn })
         .catch(() => ({})),
     ])
       .then(([data, assum]) => {
@@ -85,7 +115,7 @@ function App() {
           fse: data.fse,
           pessoal: data.pessoal,
           ircTaxaEfetiva: assum.irc_taxa_efetiva ?? GRESTEL.IRC_TAXA_EFETIVA,
-          scenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn,
+          scenario: effectiveCenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn,
         });
         setLoading(false);
       })
@@ -95,7 +125,7 @@ function App() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [scenario, effectiveHubOn, ecogresOn, cozeduraOn]);
+  }, [effectiveCenario, effectiveHubOn, ecogresOn, cozeduraOn]);
 
   return (
     <div className="app">
@@ -112,7 +142,16 @@ function App() {
           setCozeduraOn={setCozeduraOn}
           loading={loading}
           ecogresOn={ecogresOn}
+          customScenarios={customScenarios}
+          onAddScenario={() => setShowScenarioModal(true)}
+          onDeleteScenario={handleDeleteCustomScenario}
         />
+        {showScenarioModal && (
+          <CustomScenarioModal
+            onClose={() => setShowScenarioModal(false)}
+            onSave={handleAddCustomScenario}
+          />
+        )}
         <div className="content">
           {view === "yaml_editor" ? (
             <YamlEditorView />
@@ -295,11 +334,13 @@ function fmtIsoDate(iso) {
   } catch { return "—"; }
 }
 
-function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozeduraOn, setCozeduraOn, loading, ecogresOn }) {
+function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozeduraOn, setCozeduraOn, loading, ecogresOn, customScenarios = [], onAddScenario, onDeleteScenario }) {
   const [exporting, setExporting] = useState(false);
   const [exportingM3, setExportingM3] = useState(false);
   const title = NAV.find(n => n.id === view)?.label || "";
-  const desc = GRESTEL.SCENARIOS[scenario].desc;
+  const builtinDesc = GRESTEL.SCENARIOS[scenario]?.desc;
+  const customDesc = customScenarios.find(s => s.name === scenario)?.description;
+  const desc = builtinDesc || customDesc || "";
 
   async function handleExport() {
     setExporting(true);
@@ -339,13 +380,32 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozed
           <span className="dot dot--ok" /> Ecogres
         </div>
         <div className="seg">
-          {Object.keys(GRESTEL.SCENARIOS).map(k => (
+          {Object.keys(GRESTEL.SCENARIOS).filter(k => k !== "Stress_Volume").map(k => (
             <button
               key={k}
               className={"seg-btn " + (scenario === k ? "is-on" : "")}
               onClick={() => setScenario(k)}
             >{GRESTEL.SCENARIOS[k].label}</button>
           ))}
+          {customScenarios.map(sc => (
+            <span key={sc.name} style={{ position: "relative", display: "inline-flex" }}>
+              <button
+                className={"seg-btn seg-btn--custom " + (scenario === sc.name ? "is-on" : "")}
+                onClick={() => setScenario(sc.name)}
+                title={sc.description || sc.label}
+              >{sc.label || sc.name}</button>
+              <button
+                className="seg-btn-del"
+                onClick={e => { e.stopPropagation(); onDeleteScenario(sc.name); }}
+                title={"Eliminar " + (sc.label || sc.name)}
+              >×</button>
+            </span>
+          ))}
+          <button
+            className="seg-btn seg-btn--add"
+            onClick={onAddScenario}
+            title="Criar cenário personalizado"
+          >+</button>
         </div>
         <Toggle label="Hub Logístico" on={hubOn} onChange={setHubOn} locked={hubLocked} />
         <Toggle label="Cozedura BT" on={cozeduraOn} onChange={setCozeduraOn} />
@@ -652,4 +712,160 @@ function LoadingOverlay({ hubOn, scenario }) {
   );
 }
 
-Object.assign(window, { App, Sidebar, Topbar, Toggle, KPI, Panel, FRow, Legend, Skeleton, SkeletonKPI, SkeletonPanel, LoadingShell, LoadingOverlay, ErrorBanner });
+// -----------------------------------------------------------------------------
+// CustomScenarioModal
+// -----------------------------------------------------------------------------
+const DRIVER_YEARS = [2025, 2026, 2027, 2028, 2029];
+
+function CustomScenarioModal({ onClose, onSave }) {
+  const emptyRow = () => ({ vol: "", preco: "", fse: "" });
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [rows, setRows] = useState(Object.fromEntries(DRIVER_YEARS.map(y => [y, emptyRow()])));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  function setCell(year, field, value) {
+    setRows(prev => ({ ...prev, [year]: { ...prev[year], [field]: value } }));
+  }
+
+  function parsePct(v) {
+    const n = parseFloat(String(v).replace(",", "."));
+    return isNaN(n) ? null : n / 100;
+  }
+
+  async function handleSave() {
+    const trimName = name.trim();
+    if (!trimName) { setErr("O nome do cenário é obrigatório."); return; }
+    if (!/^[A-Za-z0-9_\- ]+$/.test(trimName)) { setErr("Nome apenas pode conter letras, números, espaços, - e _."); return; }
+
+    const volOverrides = {}, pvuOverrides = {}, fseOverrides = {};
+    for (const y of DRIVER_YEARS) {
+      const r = rows[y];
+      const key = y === 2025 ? "base_2025" : String(y);
+      const vol = parsePct(r.vol);
+      const pvu = parsePct(r.preco);
+      const fse = parsePct(r.fse);
+      if (vol != null) volOverrides[key] = vol;
+      if (pvu != null) pvuOverrides[key] = pvu;
+      if (fse != null) fseOverrides[key] = fse;
+    }
+
+    const overrides = {};
+    if (Object.keys(volOverrides).length) overrides.crescimento_volume_vendas = volOverrides;
+    if (Object.keys(pvuOverrides).length) overrides.crescimento_pvu_vendas    = pvuOverrides;
+    if (Object.keys(fseOverrides).length) overrides.crescimento_fse           = fseOverrides;
+
+    setSaving(true);
+    setErr(null);
+    try {
+      await API.createCustomScenario(trimName, { label: trimName, description: desc.trim(), overrides });
+      onSave({ name: trimName, label: trimName, description: desc.trim(), overrides });
+    } catch (e) {
+      setErr(e.message);
+      setSaving(false);
+    }
+  }
+
+  const overlayStyle = {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
+  };
+  const cardStyle = {
+    background: "var(--surface)", borderRadius: 8, padding: "24px 28px",
+    width: 520, maxWidth: "95vw", boxShadow: "0 8px 32px rgba(0,0,0,0.28)",
+    display: "flex", flexDirection: "column", gap: 16,
+  };
+  const labelStyle = { fontSize: 12, color: "var(--ink-2)", marginBottom: 4, display: "block" };
+  const inputStyle = {
+    width: "100%", background: "var(--surface-2)", border: "1px solid var(--rule)",
+    borderRadius: 4, padding: "6px 9px", fontSize: 13, color: "var(--ink)", outline: "none",
+    boxSizing: "border-box",
+  };
+  const cellInputStyle = {
+    width: 72, background: "var(--surface-2)", border: "1px solid var(--rule)",
+    borderRadius: 4, padding: "4px 6px", fontSize: 12, color: "var(--ink)",
+    textAlign: "right", outline: "none",
+  };
+
+  return (
+    <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={cardStyle}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Novo cenário personalizado</div>
+          <button className="btn-ghost" style={{ padding: "2px 8px" }} onClick={onClose}>×</button>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Nome do cenário *</label>
+          <input
+            style={inputStyle}
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="ex: Tarifa_Alta"
+            maxLength={40}
+          />
+        </div>
+        <div>
+          <label style={labelStyle}>Descrição (opcional)</label>
+          <input
+            style={inputStyle}
+            value={desc}
+            onChange={e => setDesc(e.target.value)}
+            placeholder="Breve descrição do cenário"
+            maxLength={120}
+          />
+        </div>
+
+        <div>
+          <div style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 8 }}>
+            Crescimento por ano (em %; deixar em branco = herdar do Base)
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "4px 6px", color: "var(--ink-2)", fontWeight: 500 }}>Ano</th>
+                <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--ink-2)", fontWeight: 500 }}>Vol %</th>
+                <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--ink-2)", fontWeight: 500 }}>PVU %</th>
+                <th style={{ textAlign: "right", padding: "4px 6px", color: "var(--ink-2)", fontWeight: 500 }}>FSE %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DRIVER_YEARS.map(y => (
+                <tr key={y} style={{ borderTop: "1px solid var(--rule)" }}>
+                  <td style={{ padding: "5px 6px", fontWeight: 500 }}>{y}</td>
+                  {["vol", "preco", "fse"].map(f => (
+                    <td key={f} style={{ padding: "4px 6px", textAlign: "right" }}>
+                      <input
+                        style={cellInputStyle}
+                        type="number"
+                        step="0.1"
+                        value={rows[y][f]}
+                        onChange={e => setCell(y, f, e.target.value)}
+                        placeholder="—"
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {err && <div style={{ fontSize: 12, color: "var(--neg)", padding: "6px 8px", background: "var(--neg-soft)", borderRadius: 4 }}>{err}</div>}
+
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className="btn-ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button
+            className="btn-ghost"
+            style={{ background: "var(--accent)", color: "var(--surface)", border: "none" }}
+            onClick={handleSave}
+            disabled={saving}
+          >{saving ? "A guardar…" : "Criar cenário"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { App, Sidebar, Topbar, Toggle, KPI, Panel, FRow, Legend, Skeleton, SkeletonKPI, SkeletonPanel, LoadingShell, LoadingOverlay, ErrorBanner, CustomScenarioModal });

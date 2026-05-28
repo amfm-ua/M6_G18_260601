@@ -54,9 +54,10 @@ def get_producao(
     cenario: str = Query("Base"),
     hub_on: bool = Query(False),
     ecogres_on: bool = Query(True),
+    cozedura_on: bool = Query(False),
 ):
     """Orçamento de produção anual e mensal (2024-2029) com custos unitários reais do YAML."""
-    dfs = run_model(cenario=cenario, hub_on=hub_on, ecogres_on=ecogres_on)
+    dfs = run_model(cenario=cenario, hub_on=hub_on, ecogres_on=ecogres_on, cozedura_on=cozedura_on)
     rec = dataframe_to_records(dfs)
 
     return {

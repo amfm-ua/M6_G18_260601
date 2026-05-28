@@ -42,7 +42,7 @@ const API = (() => {
   }
 
   // ─── projecao ──────────────────────────────────────────────────────────────
-  async function projecao({ cenario, hub_on, ecogres_on, cozedura_on = false }) {
+  async function projecao({ cenario, hub_on, ecogres_on, cozedura_on = false, assumptions = null }) {
     if (useMock) {
       const dr   = GRESTEL.projectDR(cenario, { hubOn: hub_on, ecogresOn: ecogres_on });
       const bal  = GRESTEL.projectBalanco(dr, { hubOn: hub_on });
@@ -52,10 +52,12 @@ const API = (() => {
       return { dr, balanco: bal, dfc, kpis, fse };
     }
     // Live: POST /api/run — executa um único cenário
+    const body = { cenario, hub_on, ecogres_on, cozedura_on };
+    if (assumptions) body.assumptions = assumptions;
     const r = await fetch(BACKEND_URL + "/api/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cenario, hub_on, ecogres_on, cozedura_on }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: r.statusText }));
@@ -708,9 +710,9 @@ const API = (() => {
   }
 
   // ─── producaoAnalise ───────────────────────────────────────────────────────
-  async function producaoAnalise({ cenario, hub_on, ecogres_on }) {
+  async function producaoAnalise({ cenario, hub_on, ecogres_on, cozedura_on = false }) {
     if (useMock) return { anual: [], mensal: [] };
-    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on) });
+    const params = new URLSearchParams({ cenario, hub_on: String(hub_on), ecogres_on: String(ecogres_on), cozedura_on: String(cozedura_on) });
     const r = await fetch(BACKEND_URL + "/api/producao?" + params);
     if (!r.ok) {
       const err = await r.json().catch(() => ({ detail: r.statusText }));
@@ -822,6 +824,35 @@ const API = (() => {
     return await r.json();
   }
 
+  // ─── customScenarios ───────────────────────────────────────────────────────
+  async function listCustomScenarios() {
+    const r = await fetch(BACKEND_URL + "/api/custom-scenarios");
+    if (!r.ok) throw new Error("Erro /api/custom-scenarios: " + r.status);
+    const d = await r.json();
+    return d.scenarios || [];
+  }
+
+  async function createCustomScenario(name, { label, description, overrides }) {
+    const r = await fetch(BACKEND_URL + "/api/custom-scenarios/" + encodeURIComponent(name), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: label || name, description: description || "", overrides: overrides || {} }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(err.detail || "Erro ao criar cenário");
+    }
+    return await r.json();
+  }
+
+  async function deleteCustomScenario(name) {
+    const r = await fetch(BACKEND_URL + "/api/custom-scenarios/" + encodeURIComponent(name), {
+      method: "DELETE",
+    });
+    if (!r.ok) throw new Error("Erro ao eliminar cenário: " + r.status);
+    return await r.json();
+  }
+
   // ─── exportExcel ───────────────────────────────────────────────────────────
   async function exportExcel({ cenario, hub_on, ecogres_on }) {
     const params = new URLSearchParams({
@@ -862,5 +893,5 @@ const API = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, valuationMCOperacional, valuationMCComparativo, FSE_RUBRICAS };
+  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, valuationMCOperacional, valuationMCComparativo, FSE_RUBRICAS, listCustomScenarios, createCustomScenario, deleteCustomScenario };
 })();

@@ -285,8 +285,11 @@ def build_dr(
 
         ecogres_subc = subc_map.get(y, 0.0)
 
-        c_adj = c_base + ecogres_subc
-        f_adj = f_base - ecogres_subc
+        # A subcontratação Ecogres já está reflectida nos valores auditados 2024
+        # (FSE e CMVMC). Reclassificar criaria double-counting: ecogres_subc (~8.26M)
+        # é maior que o FSE total (~7.5M), tornando f_adj negativo.
+        c_adj = c_base
+        f_adj = f_base
 
         hub_pessoal_red = 0.0
         hub_fse_red = 0.0

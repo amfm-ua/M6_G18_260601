@@ -19,6 +19,21 @@ const MIX_PALETTE_7 = [
   "oklch(0.87 0.022 80)",
 ];
 
+// Heat-map cell style: green for positive, red for negative, intensity ∝ |v|/absMax.
+function heatStyle(v, absMax) {
+  if (v == null || isNaN(v) || !absMax) return {};
+  const t = Math.min(Math.abs(v) / absMax, 1);
+  if (t < 0.03) return {};
+  if (v > 0) {
+    const L = 0.93 - t * 0.30;
+    const C = 0.03 + t * 0.11;
+    return { background: `oklch(${L.toFixed(3)} ${C.toFixed(3)} 145)`, color: L < 0.70 ? "oklch(0.97 0.010 145)" : undefined };
+  }
+  const L = 0.95 - t * 0.32;
+  const C = 0.03 + t * 0.14;
+  return { background: `oklch(${L.toFixed(3)} ${C.toFixed(3)} 30)`, color: L < 0.72 ? "oklch(0.97 0.010 30)" : undefined };
+}
+
 // ---- Demonstração de Resultados ---------------------------------------------
 function DRView({ ctx }) {
   const { dr } = ctx;
@@ -82,7 +97,7 @@ function DRView({ ctx }) {
                   {vals.map((v, ix) => (
                     <td key={ix} className="mono num">{r.neg ? "(" + fmt.eur(Math.abs(v)).replace("€", "€") + ")" : fmt.eur(v)}</td>
                   ))}
-                  <td className="mono num">{fmt.pctSigned(cagr)}</td>
+                  <td className="mono num" style={heatStyle(cagr, 0.25)}>{fmt.pctSigned(cagr)}</td>
                 </tr>
               );
             })}
@@ -289,44 +304,207 @@ function DFCView({ ctx }) {
 }
 
 // ---- KPIs / Rácios ---------------------------------------------------------
-function KPIView({ ctx }) {
-  const { kpis } = ctx;
-  const rows = [
-    { label: "Margem EBITDA",      key: "margem_ebitda",       fmt: v => fmt.pct(v) },
-    { label: "Margem EBIT",        key: "margem_ebit",         fmt: v => fmt.pct(v) },
-    { label: "Margem Líquida",     key: "margem_liquida",      fmt: v => fmt.pct(v) },
-    { label: "ROA",                key: "roa",                 fmt: v => fmt.pct(v) },
-    { label: "ROE",                key: "roe",                 fmt: v => fmt.pct(v) },
-    { label: "Autonomia Financeira", key: "autonomia_financeira", fmt: v => fmt.pct(v) },
-    { label: "Endividamento",      key: "endividamento",       fmt: v => fmt.pct(v) },
-    { label: "Liquidez Geral",     key: "liquidez_geral",      fmt: v => fmt.ratio(v) },
-    { label: "Cobertura de Juros", key: "cobertura_juros",     fmt: v => fmt.ratio(v) },
-    { label: "PMR (dias)",         key: "pmr_dias",            fmt: v => fmt.num(v) + " d" },
-    { label: "PMP (dias)",         key: "pmp_dias",            fmt: v => fmt.num(v) + " d" },
-  ];
+const COMPARE_COL_A = "var(--accent)";
+const COMPARE_COL_B = "oklch(0.45 0.12 255)";
+
+function ScenPicker({ value, onChange, color, label }) {
   return (
-    <Panel title="KPIs & rácios financeiros" sub="evolução 2024–2029">
-      <table className="ftable">
-        <thead>
-          <tr>
-            <th>Rácio</th>
-            <th className="num">Tendência</th>
-            {GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            const vals = kpis.map(k => k[r.key]);
-            return (
-              <tr key={r.key}>
-                <td>{r.label}</td>
-                <td className="num"><Sparkline values={vals} width={80} height={24} color="var(--accent)" /></td>
-                {vals.map((v, ix) => <td key={ix} className="mono num">{r.fmt(v)}</td>)}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+      padding: "10px 14px", border: `1.5px solid ${color}`, borderRadius: 10,
+      background: "var(--surface)",
+    }}>
+      <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 11, fontWeight: 800, color, letterSpacing: "0.05em" }}>{label}</span>
+      <select
+        value={value.scenario}
+        onChange={e => onChange({ ...value, scenario: e.target.value })}
+        style={{
+          padding: "3px 8px", border: "1px solid var(--rule)", borderRadius: 6,
+          background: "var(--surface)", color: "var(--ink)", fontSize: 12,
+        }}
+      >
+        {Object.keys(GRESTEL.SCENARIOS).map(k => <option key={k} value={k}>{k}</option>)}
+      </select>
+      {[["hubOn", "Hub"], ["cozeduraOn", "Cozedura"]].map(([key, lbl]) => (
+        <button
+          key={key}
+          onClick={() => onChange({ ...value, [key]: !value[key] })}
+          style={{
+            padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+            cursor: "pointer", transition: "all 0.15s",
+            border: `1.5px solid ${value[key] ? color : "var(--rule)"}`,
+            background: value[key] ? color : "transparent",
+            color: value[key] ? "var(--surface)" : "var(--muted)",
+          }}
+        >{lbl}</button>
+      ))}
+    </div>
+  );
+}
+
+function KPIView({ ctx }) {
+  const [compareMode, setCompareMode] = React.useState(false);
+  const [pickA, setPickA] = React.useState({ scenario: ctx.scenario, hubOn: ctx.hubOn, cozeduraOn: ctx.cozeduraOn });
+  const [pickB, setPickB] = React.useState({ scenario: ctx.scenario, hubOn: !ctx.hubOn, cozeduraOn: ctx.cozeduraOn });
+  const [kpisA, setKpisA] = React.useState(null);
+  const [kpisB, setKpisB] = React.useState(null);
+  const [loadA, setLoadA] = React.useState(false);
+  const [loadB, setLoadB] = React.useState(false);
+
+  const rows = [
+    { label: "Margem EBITDA",        key: "margem_ebitda",        fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
+    { label: "Margem EBIT",          key: "margem_ebit",          fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
+    { label: "Margem Líquida",       key: "margem_liquida",       fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
+    { label: "ROA",                  key: "roa",                  fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
+    { label: "ROE",                  key: "roe",                  fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
+    { label: "Autonomia Financeira", key: "autonomia_financeira", fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
+    { label: "Endividamento",        key: "endividamento",        fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: false },
+    { label: "Liquidez Geral",       key: "liquidez_geral",       fmt: v => fmt.ratio(v),      dfmt: d => (d >= 0 ? "+" : "") + d.toFixed(2) + "×",   up: true  },
+    { label: "Cobertura de Juros",   key: "cobertura_juros",      fmt: v => fmt.ratio(v),      dfmt: d => (d >= 0 ? "+" : "") + d.toFixed(2) + "×",   up: true  },
+    { label: "PMR (dias)",           key: "pmr_dias",             fmt: v => fmt.num(v) + " d", dfmt: d => (d >= 0 ? "+" : "") + Math.round(d) + " d", up: false },
+    { label: "PMP (dias)",           key: "pmp_dias",             fmt: v => fmt.num(v) + " d", dfmt: d => (d >= 0 ? "+" : "") + Math.round(d) + " d", up: true  },
+  ];
+
+  React.useEffect(() => {
+    if (!compareMode) return;
+    let cancel = false;
+    setLoadA(true);
+    setKpisA(null);
+    API.projecao({ cenario: pickA.scenario, hub_on: pickA.hubOn, ecogres_on: true, cozedura_on: pickA.cozeduraOn })
+      .then(d => { if (!cancel) { setKpisA(d.kpis); setLoadA(false); } })
+      .catch(() => { if (!cancel) setLoadA(false); });
+    return () => { cancel = true; };
+  }, [compareMode, pickA.scenario, pickA.hubOn, pickA.cozeduraOn]);
+
+  React.useEffect(() => {
+    if (!compareMode) return;
+    let cancel = false;
+    setLoadB(true);
+    setKpisB(null);
+    API.projecao({ cenario: pickB.scenario, hub_on: pickB.hubOn, ecogres_on: true, cozedura_on: pickB.cozeduraOn })
+      .then(d => { if (!cancel) { setKpisB(d.kpis); setLoadB(false); } })
+      .catch(() => { if (!cancel) setLoadB(false); });
+    return () => { cancel = true; };
+  }, [compareMode, pickB.scenario, pickB.hubOn, pickB.cozeduraOn]);
+
+  function scenLabel(p) {
+    return [p.scenario, p.hubOn && "+Hub", p.cozeduraOn && "+Cozedura"].filter(Boolean).join(" ");
+  }
+
+  return (
+    <Panel
+      title="KPIs & rácios financeiros"
+      sub={compareMode ? `${scenLabel(pickA)}  ·vs·  ${scenLabel(pickB)}` : "evolução 2024–2029"}
+      right={
+        <button
+          className={"seg-btn " + (compareMode ? "is-on" : "")}
+          onClick={() => setCompareMode(m => !m)}
+          style={{ fontSize: 12 }}
+        >
+          Comparar cenários
+        </button>
+      }
+    >
+      {!compareMode ? (
+        <table className="ftable">
+          <thead>
+            <tr>
+              <th>Rácio</th>
+              <th className="num">Tendência</th>
+              {GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => {
+              const vals = ctx.kpis.map(k => k[r.key]);
+              const absMax = Math.max(...vals.map(v => Math.abs(v)));
+              return (
+                <tr key={r.key}>
+                  <td>{r.label}</td>
+                  <td className="num"><Sparkline values={vals} width={80} height={24} color="var(--accent)" /></td>
+                  {vals.map((v, ix) => (
+                    <td key={ix} className="mono num" style={heatStyle(v, absMax)}>{r.fmt(v)}</td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <>
+          {/* Pickers */}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+            <ScenPicker value={pickA} onChange={setPickA} color={COMPARE_COL_A} label="A" />
+            <span style={{ color: "var(--muted)", fontWeight: 700, fontSize: 14 }}>vs</span>
+            <ScenPicker value={pickB} onChange={setPickB} color={COMPARE_COL_B} label="B" />
+            {(loadA || loadB) && <span className="loading-dot" style={{ marginLeft: 4 }} title="A calcular…" />}
+            <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", fontSize: 11, color: "var(--muted)" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 14, height: 3, borderRadius: 2, background: COMPARE_COL_A, display: "inline-block" }} /> A
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 14, height: 3, borderRadius: 2, background: COMPARE_COL_B, display: "inline-block" }} /> B
+              </span>
+              <span>· Δ = B − A</span>
+            </div>
+          </div>
+
+          {/* Table or loading placeholder */}
+          {(!kpisA || !kpisB) ? (
+            <div style={{ padding: "36px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+              A calcular cenários…
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table className="ftable">
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 155 }}>Rácio</th>
+                    <th className="num" style={{ minWidth: 90 }}>Tend.</th>
+                    {GRESTEL.YEARS.map(y => <th key={y} className="mono num" style={{ minWidth: 94 }}>{y}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => {
+                    const vA = kpisA.map(k => k[r.key]);
+                    const vB = kpisB.map(k => k[r.key]);
+                    return (
+                      <tr key={r.key}>
+                        <td style={{ verticalAlign: "middle" }}>{r.label}</td>
+                        <td className="num" style={{ verticalAlign: "middle" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <Sparkline values={vA} width={80} height={18} color={COMPARE_COL_A} />
+                            <Sparkline values={vB} width={80} height={18} color={COMPARE_COL_B} />
+                          </div>
+                        </td>
+                        {GRESTEL.YEARS.map((y, ix) => {
+                          const a = vA[ix], b = vB[ix];
+                          const d = b - a;
+                          const good = r.up ? d > 5e-5 : d < -5e-5;
+                          const bad  = r.up ? d < -5e-5 : d > 5e-5;
+                          return (
+                            <td key={ix} className="mono num" style={{ padding: "5px 8px" }}>
+                              <div style={{ lineHeight: 1.4 }}>
+                                <div style={{ color: COMPARE_COL_A, fontWeight: 600, fontSize: "0.83em" }}>{r.fmt(a)}</div>
+                                <div style={{ color: COMPARE_COL_B, fontSize: "0.83em" }}>{r.fmt(b)}</div>
+                                <div style={{
+                                  fontSize: "0.72em", fontWeight: 700, marginTop: 1,
+                                  color: good ? "var(--pos)" : bad ? "var(--neg)" : "var(--muted)",
+                                }}>{r.dfmt(d)}</div>
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </Panel>
   );
 }
@@ -773,6 +951,10 @@ function HubViabilidadeView({ ctx }) {
                   <th className="mono num">Índice Rend.</th>
                 </tr>
               </thead>
+              {(() => {
+                const veVplMax  = viabCenarios ? Math.max(...SC_LIST.map(sc => Math.abs((viabCenarios[sc] || {}).vpl || 0))) : null;
+                const veIrMax   = viabCenarios ? Math.max(...SC_LIST.map(sc => Math.abs((viabCenarios[sc] || {}).indice_rendibilidade || 0))) : null;
+                return (
               <tbody>
                 {SC_LIST.map(sc => {
                   const d = viabCenarios ? (viabCenarios[sc] || {}) : {};
@@ -781,7 +963,8 @@ function HubViabilidadeView({ ctx }) {
                     <tr key={sc}>
                       <td><span style={{ color: SC_COLORS[sc], fontWeight: 700 }}>●</span> {sc}</td>
                       <td className="mono num">{probs[sc]} %</td>
-                      <td className={"mono num " + (d.vpl == null ? "" : d.vpl >= 0 ? "pos" : "neg")}>
+                      <td className={"mono num " + (d.vpl == null ? "" : d.vpl >= 0 ? "pos" : "neg")}
+                          style={veVplMax && d.vpl != null ? { background: heatStyle(d.vpl, veVplMax).background } : undefined}>
                         {d.vpl == null ? (viabCenarios ? "erro" : "…") : fmt.eurC(d.vpl)}
                       </td>
                       <td className={"mono num " + (d.tir == null ? "" : d.tir >= wacc_v ? "pos" : "neg")}>
@@ -789,7 +972,8 @@ function HubViabilidadeView({ ctx }) {
                       </td>
                       <td className="mono num">{fmtPb(d.payback_simples)}</td>
                       <td className="mono num">{fmtPb(d.payback_atualizado)}</td>
-                      <td className={"mono num " + (d.indice_rendibilidade == null ? "" : d.indice_rendibilidade >= 1 ? "pos" : "neg")}>
+                      <td className={"mono num " + (d.indice_rendibilidade == null ? "" : d.indice_rendibilidade >= 1 ? "pos" : "neg")}
+                          style={veIrMax && d.indice_rendibilidade != null ? { background: heatStyle(d.indice_rendibilidade, veIrMax).background } : undefined}>
                         {d.indice_rendibilidade == null ? "—" : d.indice_rendibilidade.toFixed(2) + "×"}
                       </td>
                     </tr>
@@ -817,6 +1001,8 @@ function HubViabilidadeView({ ctx }) {
                   </tr>
                 )}
               </tbody>
+              );
+            })()}
             </table>
             {!probsValid && (
               <p style={{ marginTop: 8, fontSize: "0.78rem", color: "var(--neg)" }}>
@@ -854,7 +1040,7 @@ function HubViabilidadeView({ ctx }) {
 }
 
 // Delta com % por defeito; hover mostra o valor EUR
-function DeltaCell({ delta, base, className, style }) {
+function DeltaCell({ delta, base, className, style, heatMax }) {
   const [hovered, setHovered] = React.useState(false);
   const pct = (delta != null && base != null && base !== 0)
     ? delta / Math.abs(base)
@@ -863,10 +1049,11 @@ function DeltaCell({ delta, base, className, style }) {
     ? (delta >= 0 ? "+" : "") + fmt.eur(delta)
     : "—";
   const pctStr = pct != null ? fmt.pctSigned(pct, 1) : eurStr;
+  const hsBg = heatMax != null && delta != null ? heatStyle(delta, heatMax).background : undefined;
   return (
     <td
       className={className}
-      style={{ ...style, cursor: "default" }}
+      style={{ background: hsBg, ...style, cursor: "default" }}
       title={pct != null ? eurStr : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -923,7 +1110,14 @@ function HubComparativoDR({ sem, com }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ label, field, bold }) => (
+          {rows.map(({ label, field, bold }) => {
+            const rowDeltas = years.map(y => {
+              const s = val(semByYear, y, field);
+              const c = val(comByYear, y, field);
+              return (s != null && c != null) ? c - s : null;
+            }).filter(d => d != null);
+            const rowHeatMax = rowDeltas.length > 0 ? Math.max(...rowDeltas.map(Math.abs)) : null;
+            return (
             <tr key={field} className={bold ? "is-subtotal" : ""}>
               <td style={{ fontWeight: bold ? 600 : undefined }}>{label}</td>
               {years.map(y => {
@@ -939,12 +1133,14 @@ function HubComparativoDR({ sem, com }) {
                       base={s}
                       className={"mono num " + (delta > 0 ? "pos" : delta < 0 ? "neg" : "")}
                       style={{ fontSize: 11, fontWeight: 600 }}
+                      heatMax={rowHeatMax}
                     />
                   </React.Fragment>
                 );
               })}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -995,22 +1191,34 @@ function HubComparativoKPIs({ sem, com }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map(({ label, field, fmt: ftype }) => (
+        {rows.map(({ label, field, fmt: ftype }) => {
+          const rowDeltas = years.map(y => {
+            const s = (semByYear[y] || {})[field];
+            const c = (comByYear[y] || {})[field];
+            return (s != null && c != null) ? c - s : null;
+          }).filter(d => d != null);
+          const rowDeltaHeatMax = rowDeltas.length > 0 ? Math.max(...rowDeltas.map(Math.abs)) : null;
+          return (
           <tr key={field}>
             <td style={{ fontSize: 11 }}>{label}</td>
             {years.map(y => {
               const s = (semByYear[y] || {})[field];
               const c = (comByYear[y] || {})[field];
               const better = c != null && s != null && c > s;
+              const delta = (s != null && c != null) ? c - s : null;
               return (
                 <React.Fragment key={y}>
                   <td className="mono num" style={{ fontSize: 11, color: "var(--muted)" }}>{fmtKPI(s, ftype)}</td>
-                  <td className={"mono num " + (better ? "pos" : "")} style={{ fontSize: 11, fontWeight: better ? 600 : undefined }}>{fmtKPI(c, ftype)}</td>
+                  <td className={"mono num " + (better ? "pos" : "")} style={{
+                    fontSize: 11, fontWeight: better ? 600 : undefined,
+                    background: rowDeltaHeatMax != null && delta != null ? heatStyle(delta, rowDeltaHeatMax).background : undefined,
+                  }}>{fmtKPI(c, ftype)}</td>
                 </React.Fragment>
               );
             })}
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );
@@ -1074,6 +1282,10 @@ function HubConsolidadoView({ consol }) {
         </div>
         <div>
           <div className="sub-label" style={{ marginBottom: 8, fontWeight: 600 }}>Impacto Incremental Hub no Grupo</div>
+          {(() => {
+            const ebitdaHeatMax = deltaEbitda.length > 0 ? Math.max(...deltaEbitda.map(d => Math.abs(d || 0))) : null;
+            const rlHeatMax = deltaRL.length > 0 ? Math.max(...deltaRL.map(d => Math.abs(d || 0))) : null;
+            return (
           <table className="ftable ftable--dense">
             <thead>
               <tr>
@@ -1090,16 +1302,20 @@ function HubConsolidadoView({ consol }) {
                     delta={deltaEbitda[i] || 0}
                     base={ebitdaSem[i]}
                     className={"mono num " + ((deltaEbitda[i] || 0) >= 0 ? "pos" : "neg")}
+                    heatMax={ebitdaHeatMax}
                   />
                   <DeltaCell
                     delta={deltaRL[i] || 0}
                     base={rlSem[i]}
                     className={"mono num " + ((deltaRL[i] || 0) >= 0 ? "pos" : "neg")}
+                    heatMax={rlHeatMax}
                   />
                 </tr>
               ))}
             </tbody>
           </table>
+            );
+          })()}
         </div>
       </div>
     </>
@@ -1243,16 +1459,21 @@ function HubMonteCarloView({ ctx }) {
           />
         </Panel>
         <Panel title="Percentis" sub="VAL e TIR · 7 pontos">
+          {(() => {
+            const pKeys = ["p5", "p10", "p25", "p50", "p75", "p90", "p95"];
+            const valPctMax = Math.max(...pKeys.map(k => Math.abs(v[k] || 0)));
+            const tirPctMax = Math.max(...pKeys.map(k => Math.abs(t[k] || 0)));
+            return (
           <table className="ftable ftable--dense">
             <thead>
               <tr><th>Percentil</th><th className="mono num">VAL</th><th className="mono num">TIR</th></tr>
             </thead>
             <tbody>
-              {["p5", "p10", "p25", "p50", "p75", "p90", "p95"].map(k => (
+              {pKeys.map(k => (
                 <tr key={k} className={k === "p50" ? "is-subtotal" : ""}>
                   <td>{k.toUpperCase()}</td>
-                  <td className="mono num">{fmt.eurC(v[k])}</td>
-                  <td className="mono num">{fmt.pct(t[k], 1)}</td>
+                  <td className="mono num" style={{ background: heatStyle(v[k], valPctMax).background }}>{fmt.eurC(v[k])}</td>
+                  <td className="mono num" style={{ background: heatStyle(t[k], tirPctMax).background }}>{fmt.pct(t[k], 1)}</td>
                 </tr>
               ))}
               <tr>
@@ -1261,6 +1482,8 @@ function HubMonteCarloView({ ctx }) {
               </tr>
             </tbody>
           </table>
+            );
+          })()}
         </Panel>
       </div>
 
@@ -1497,6 +1720,7 @@ function HubOE4View({ ctx }) {
 
   const dscrPostCar = ds.rows.filter(r => !r.periodo_carencia).map(r => r.dscr_hub);
   const dscrMinObs  = dscrPostCar.length ? Math.min(...dscrPostCar) : null;
+  const dscrMaxObs  = dscrPostCar.length ? Math.max(...dscrPostCar) : null;
 
   return (
     <>
@@ -1668,7 +1892,8 @@ function HubOE4View({ ctx }) {
                   <td className="mono num">{r.amortizacao_capital > 0 ? fmt.eur(r.amortizacao_capital) : "—"}</td>
                   <td className="mono num" style={{ fontWeight: 500 }}>{fmt.eur(r.servico_total_divida)}</td>
                   <td className="mono num">{r.ebitda_hub_incremental > 0 ? fmt.eur(r.ebitda_hub_incremental) : "—"}</td>
-                  <td className={"mono num " + (dscrBad ? "neg" : (!isCar && r.dscr_hub >= dscrMin ? "pos" : ""))} style={{ fontWeight: 600 }}>
+                  <td className={"mono num " + (dscrBad ? "neg" : (!isCar && r.dscr_hub >= dscrMin ? "pos" : ""))}
+                      style={{ fontWeight: 600, background: !isCar && r.dscr_hub > 0 && dscrMaxObs ? heatStyle(r.dscr_hub, dscrMaxObs).background : undefined }}>
                     {r.dscr_hub > 0 ? r.dscr_hub.toFixed(2).replace(".", ",") + "×" : <span className="muted">n/a</span>}
                   </td>
                   <td>{dscrChip(r)}</td>
@@ -2041,6 +2266,14 @@ function HubVALAView({ ctx }) {
               <th className="mono num">Δ vs Base</th>
             </tr>
           </thead>
+          {(() => {
+            const allSensDeltas = sensList.map(({ key }) => {
+              const sc = cenarios[key];
+              if (!sc || key === "base") return null;
+              return Math.abs(sc.vala - baseVala);
+            }).filter(d => d != null);
+            const sensHeatMax = allSensDeltas.length > 0 ? Math.max(...allSensDeltas) : null;
+            return (
           <tbody>
             {sensList.map(({ key, label }) => {
               const sc = cenarios[key];
@@ -2055,13 +2288,16 @@ function HubVALAView({ ctx }) {
                   <td className="mono num pos">{fmt.eurC(sc.pv_pt2030)}</td>
                   <td className="mono num pos">{fmt.eurC(sc.pv_rfai)}</td>
                   <td className="mono num pos">{fmt.eurC(sc.escudo_fiscal)}</td>
-                  <td className={"mono num " + (isBase ? "muted" : delta >= 0 ? "pos" : "neg")}>
+                  <td className={"mono num " + (isBase ? "muted" : delta >= 0 ? "pos" : "neg")}
+                      style={!isBase && sensHeatMax != null ? { background: heatStyle(delta, sensHeatMax).background } : undefined}>
                     {isBase ? "base" : fmt.eurC(delta)}
                   </td>
                 </tr>
               );
             })}
           </tbody>
+            );
+          })()}
         </table>
       </Panel>
 
@@ -2443,6 +2679,10 @@ function HubContingenciaView({ ctx }) {
               <th>Nota</th>
             </tr>
           </thead>
+          {(() => {
+            const valHeatMax = viabCenarios ? Math.max(...SC_LIST.map(sc => Math.abs(viabCenarios[sc.id]?.vpl || 0))) : null;
+            const irHeatMax  = viabCenarios ? Math.max(...SC_LIST.map(sc => Math.abs(viabCenarios[sc.id]?.indice_rendibilidade || 0))) : null;
+            return (
           <tbody>
             {SC_LIST.map(sc => {
               const d = viabCenarios?.[sc.id];
@@ -2460,10 +2700,16 @@ function HubContingenciaView({ ctx }) {
                     <span style={{ color: sc.color, fontWeight: 600 }}>{sc.label}</span>
                     {isActive && <span className="chip-static" style={{ marginLeft: 6, fontSize: 9.5, padding: "1px 6px" }}>atual</span>}
                   </td>
-                  <td className={"mono num " + (d?.vpl >= 0 ? "pos" : "neg")}>{d ? fmt.eur(d.vpl) : "—"}</td>
+                  <td className={"mono num " + (d?.vpl >= 0 ? "pos" : "neg")}
+                      style={valHeatMax && d ? { background: heatStyle(d.vpl, valHeatMax).background } : undefined}>
+                    {d ? fmt.eur(d.vpl) : "—"}
+                  </td>
                   <td className={"mono num " + (d?.tir != null && d.tir >= 0.073 ? "pos" : "neg")}>{d?.tir != null ? fmt.pct(d.tir, 1) : "—"}</td>
                   <td className="mono num">{d?.payback_simples != null ? d.payback_simples.toFixed(1) + " a" : "—"}</td>
-                  <td className={"mono num " + (d?.indice_rendibilidade >= 1 ? "pos" : "neg")}>{d?.indice_rendibilidade != null ? fmt.ratio(d.indice_rendibilidade, 2) : "—"}</td>
+                  <td className={"mono num " + (d?.indice_rendibilidade >= 1 ? "pos" : "neg")}
+                      style={irHeatMax && d ? { background: heatStyle(d.indice_rendibilidade, irHeatMax).background } : undefined}>
+                    {d?.indice_rendibilidade != null ? fmt.ratio(d.indice_rendibilidade, 2) : "—"}
+                  </td>
                   <td className={"mono num " + (vnPct >= 0 ? "pos" : "neg")}>
                     {fmt.eurC(vnAcum)}
                     <span style={{ fontSize: 10, marginLeft: 4, opacity: 0.75 }}>{fmt.pctSigned(vnPct)}</span>
@@ -2478,6 +2724,8 @@ function HubContingenciaView({ ctx }) {
               );
             })}
           </tbody>
+            );
+          })()}
         </table>
         <div style={{ marginTop: 10, fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5 }}>
           VN Hub 2026–2029 = acumulado de benefícios comerciais (B2C + Horeca + logística a terceiros).
@@ -3672,16 +3920,21 @@ function SensibilidadeView({ ctx }) {
             </tr>
           </thead>
           <tbody>
-            {selSteps.map((s, i) => (
-              <tr key={i} className={s.delta === 0 ? "is-highlight" : ""}>
-                <td className="mono">{deltaLabel(s.delta, selUnit)}</td>
-                <td className="mono num">{selUnit === "%" ? fmt.eurC(s.rate || selData.base_rate * (1 + s.delta)) : fmt.pct(s.rate)}</td>
-                <td className="mono num">{fmt.eurC(s.vn)}</td>
-                <td className={"mono num " + (s.ebitda > selBase ? "pos" : s.ebitda < selBase ? "neg" : "")}>{fmt.eurC(s.ebitda)}</td>
-                <td className="mono num">{fmt.pct(s.margem_ebitda)}</td>
-                <td className={"mono num " + (s.rl > selBaseRl ? "pos" : s.rl < selBaseRl ? "neg" : "")}>{fmt.eurC(s.rl)}</td>
-              </tr>
-            ))}
+            {(() => {
+              const ebitdaAbsMax = Math.max(...selSteps.map(s => Math.abs(s.ebitda - selBase))) || 1;
+              const rlAbsMax     = Math.max(...selSteps.map(s => Math.abs(s.rl - selBaseRl)))  || 1;
+              const mgmAbsMax    = Math.max(...selSteps.map(s => Math.abs(s.margem_ebitda)))   || 1;
+              return selSteps.map((s, i) => (
+                <tr key={i} className={s.delta === 0 ? "is-highlight" : ""}>
+                  <td className="mono">{deltaLabel(s.delta, selUnit)}</td>
+                  <td className="mono num">{selUnit === "%" ? fmt.eurC(s.rate || selData.base_rate * (1 + s.delta)) : fmt.pct(s.rate)}</td>
+                  <td className="mono num">{fmt.eurC(s.vn)}</td>
+                  <td className="mono num" style={heatStyle(s.ebitda - selBase, ebitdaAbsMax)}>{fmt.eurC(s.ebitda)}</td>
+                  <td className="mono num" style={heatStyle(s.margem_ebitda, mgmAbsMax)}>{fmt.pct(s.margem_ebitda)}</td>
+                  <td className="mono num" style={heatStyle(s.rl - selBaseRl, rlAbsMax)}>{fmt.eurC(s.rl)}</td>
+                </tr>
+              ));
+            })()}
           </tbody>
         </table>
       </Panel>
@@ -3828,12 +4081,17 @@ function CenariosView({ ctx }) {
                     const vals = GRESTEL.YEARS.slice(1).map(y => (rows.find(r => r.year === y) || {})[field] || 0);
                     const cagr = vals.length >= 2 && vals[0] > 0 ? Math.pow(vals[vals.length - 1] / vals[0], 1 / (vals.length - 1)) - 1 : 0;
                     const labels = { vn: "VN", ebitda: "EBITDA", rl: "RL" };
+                    const valsAbsMax = Math.max(...vals.map(v => Math.abs(v)));
                     return (
                       <tr key={field} className={sc === ctx.scenario ? "is-highlight" : ""}>
                         <td />
                         <td style={{ paddingLeft: 16 }}>{labels[field]}</td>
-                        {vals.map((v, j) => <td key={j} className="mono num">{fmt.eurC(v)}</td>)}
-                        <td className="mono num">{fmt.pctSigned(cagr)}</td>
+                        {vals.map((v, j) => (
+                          <td key={j} className="mono num" style={field === "rl" ? heatStyle(v, valsAbsMax) : undefined}>
+                            {fmt.eurC(v)}
+                          </td>
+                        ))}
+                        <td className="mono num" style={heatStyle(cagr, 0.25)}>{fmt.pctSigned(cagr)}</td>
                       </tr>
                     );
                   })}
@@ -3874,16 +4132,18 @@ function CenariosView({ ctx }) {
                       const vals = GRESTEL.YEARS.slice(1).map(y => getD(field, y));
                       const acum = vals.reduce((s, v) => s + v, 0);
                       const labels = { delta_ebitda: "Δ EBITDA", delta_rl: "Δ RL" };
+                      const allVals = [...vals, acum];
+                      const rowAbsMax = Math.max(...allVals.map(v => Math.abs(v))) || 1;
                       return (
                         <tr key={field}>
                           <td />
                           <td style={{ paddingLeft: 16 }}>{labels[field]}</td>
                           {vals.map((v, j) => (
-                            <td key={j} className={"mono num " + (v > 0 ? "pos" : v < 0 ? "neg" : "")}>
+                            <td key={j} className="mono num" style={heatStyle(v, rowAbsMax)}>
                               {v >= 0 ? "+" : ""}{fmt.eurC(v)}
                             </td>
                           ))}
-                          <td className={"mono num " + (acum > 0 ? "pos" : acum < 0 ? "neg" : "")} style={{ fontWeight: 600 }}>
+                          <td className="mono num" style={{ fontWeight: 600, ...heatStyle(acum, rowAbsMax) }}>
                             {acum >= 0 ? "+" : ""}{fmt.eurC(acum)}
                           </td>
                         </tr>
@@ -3911,11 +4171,11 @@ function ProducaoView({ ctx }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    API.producaoAnalise({ cenario: ctx.scenario, hub_on: ctx.hubOn, ecogres_on: ctx.ecogresOn })
+    API.producaoAnalise({ cenario: ctx.scenario, hub_on: ctx.hubOn, ecogres_on: ctx.ecogresOn, cozedura_on: ctx.cozeduraOn })
       .then(data => { if (!cancelled) { setPa(data); setLoading(false); } })
       .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [ctx.scenario, ctx.hubOn, ctx.ecogresOn]);
+  }, [ctx.scenario, ctx.hubOn, ctx.ecogresOn, ctx.cozeduraOn]);
 
   if (loading && !pa) return <LoadingShell />;
   if (error && !pa) return <ErrorBanner message={error} onRetry={() => { setPa(null); setLoading(true); setError(null); }} />;
@@ -4014,6 +4274,8 @@ function ProducaoView({ ctx }) {
                 <th className="mono num">Qty Prod.</th>
                 <th className="mono num">PVU (€/un.)</th>
                 <th className="mono num">CUP (€/un.)</th>
+                {ctx.cozeduraOn && <th className="mono num" title="Vista analítica de absorção total; a poupança de energia já está refletida nas FSE/EBITDA — não é somada duas vezes">CUP c/ cozedura (€/un.) ⓘ</th>}
+                {ctx.cozeduraOn && <th className="mono num" title="Poupança de energia alocada por unidade (via FSE); líquida da cozedura BT">Δ energia €/peça</th>}
                 <th className="mono num">Margem (€/un.)</th>
                 <th className="mono num">Margem (%)</th>
                 <th className="mono num">CMVMC Prod.</th>
@@ -4025,6 +4287,7 @@ function ProducaoView({ ctx }) {
               {rows2025.map(r => {
                 const pvu = r.pvu || 0;
                 const cup = r.cup || 0;
+                const cupCoz = r.cup_cozedura != null ? r.cup_cozedura : cup;
                 const margem_val = pvu - cup;
                 const margem_pct = pvu > 0 ? margem_val / pvu : null;
                 return (
@@ -4033,6 +4296,8 @@ function ProducaoView({ ctx }) {
                     <td className="mono num">{fmt.num(Math.round(r.qty_produzida || 0))}</td>
                     <td className="mono num">{fmt.eur2(pvu)}</td>
                     <td className="mono num">{fmt.eur2(cup)}</td>
+                    {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(cupCoz)}</td>}
+                    {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(r.delta_energia_unit || 0)}</td>}
                     <td className={"mono num " + (margem_val >= 0 ? "pos" : "neg")}>{fmt.eur2(margem_val)}</td>
                     <td className={"mono num " + (margem_pct != null && margem_pct >= 0 ? "pos" : "neg")}>
                       {margem_pct != null ? fmt.pct(margem_pct, 1) : "—"}
@@ -4088,6 +4353,8 @@ function ProducaoView({ ctx }) {
               <th className="mono num">Qty Produzida</th>
               <th className="mono num">PVU (€/un.)</th>
               <th className="mono num">CUP (€/un.)</th>
+              {ctx.cozeduraOn && <th className="mono num" title="Vista analítica de absorção total; a poupança de energia já está refletida nas FSE/EBITDA — não é somada duas vezes">CUP c/ cozedura (€/un.) ⓘ</th>}
+              {ctx.cozeduraOn && <th className="mono num" title="Poupança de energia alocada uniformemente por unidade produzida; faseada pelo ramp-up">Δ energia €/peça ⓘ</th>}
               <th className="mono num">Margem (€/un.)</th>
               <th className="mono num">Margem (%)</th>
               <th className="mono num">CMVMC Vendas</th>
@@ -4101,6 +4368,7 @@ function ProducaoView({ ctx }) {
             {rowsYear.map(r => {
               const pvu = r.pvu || 0;
               const cup = r.cup || 0;
+              const cupCoz = r.cup_cozedura != null ? r.cup_cozedura : cup;
               const margem_val = pvu - cup;
               const margem_pct = pvu > 0 ? margem_val / pvu : null;
               return (
@@ -4110,6 +4378,8 @@ function ProducaoView({ ctx }) {
                   <td className="mono num">{fmt.num(Math.round(r.qty_produzida || 0))}</td>
                   <td className="mono num">{fmt.eur2(pvu)}</td>
                   <td className="mono num">{fmt.eur2(cup)}</td>
+                  {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(cupCoz)}</td>}
+                  {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(r.delta_energia_unit || 0)}</td>}
                   <td className={"mono num " + (margem_val >= 0 ? "pos" : "neg")}>{fmt.eur2(margem_val)}</td>
                   <td className={"mono num " + (margem_pct != null && margem_pct >= 0 ? "pos" : "neg")}>
                     {margem_pct != null ? fmt.pct(margem_pct, 1) : "—"}

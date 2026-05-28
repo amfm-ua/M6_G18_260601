@@ -576,6 +576,31 @@ def _pvu_factor_mercado_canal(a: Assumptions, produto: str, mercado: str) -> flo
     return (1.0 + mkt_rate) * (1.0 + canal_rate)
 
 
+def _cup_growth_factors(a: Assumptions) -> dict[int, float]:
+    """Fatores de crescimento do CUP por ano — inline de producao._cost_growth_factors.
+
+    Evita importação circular (producao.py já importa de vendas.py).
+    Usado exclusivamente para o floor PVU ≥ CUP quando pvu_floor_at_cup=True.
+    """
+    block = a.cenario_block()
+    cost_block = (
+        block.get("custo_mercadorias")
+        or a.raw.get("crescimento_custo_mercadorias", {})
+    )
+    cum = _monthly_cum_index(
+        _monthly_rates(cost_block, inflation_monthly=a.inflacao_mensal_2025())
+    )
+    saz = _saz_to_dict(a.sazonalidade.get("PT", []))
+    f_2025 = sum(saz[m] * cum[m] for m in MESES)
+    g_yr = a.cresc_2026_2029("custo_mercadorias")
+    factors: dict[int, float] = {2025: f_2025}
+    f = f_2025
+    for y in YEARS[1:]:
+        f *= 1 + g_yr[y]
+        factors[y] = f
+    return factors
+
+
 def vendas_anuais(
     a: Assumptions,
     base: Base2024,
@@ -597,6 +622,14 @@ def vendas_anuais(
         factors_2025_price[(r["produto"], r["mercado"])] = p
 
     g_vol_yr = a.cresc_2026_2029("volume_vendas")
+
+    floor_active = bool(a.raw.get("pvu_floor_at_cup", False))
+    if floor_active:
+        cips = {
+            p: float((a.product_families.get(p) or {}).get("cip_unitario", 0.0))
+            for p in PRODUTOS
+        }
+        cup_factors = _cup_growth_factors(a)
 
     rows = []
 
@@ -629,6 +662,9 @@ def vendas_anuais(
         qty_2025 = qty24 * vf
         pvu_2025 = pvu24 * pf
 
+        if floor_active:
+            pvu_2025 = max(pvu_2025, cips[prod] * cup_factors[2025])
+
         fx_2025 = _eur_usd_factor(a, 2025) if merc in ("EXT", "EXTERNO") else 1.0
 
         rows.append(
@@ -648,6 +684,9 @@ def vendas_anuais(
         for y in YEARS[1:]:
             prev_qty *= 1 + g_vol_yr[y]
             prev_pvu *= 1 + g_price_yr[y]
+
+            if floor_active:
+                prev_pvu = max(prev_pvu, cips[prod] * cup_factors[y])
 
             fx = _eur_usd_factor(a, y) if merc in ("EXT", "EXTERNO") else 1.0
 

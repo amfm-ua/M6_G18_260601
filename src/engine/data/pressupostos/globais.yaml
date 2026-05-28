@@ -111,8 +111,12 @@ prazos:
   # Custo de oportunidade: ~1,1 M€ extra de fundo de maneio vs. 63 dias
   # (8 dias × ~40 M€ CMVMC / 365 × 1,23 IVA). Ver pmp_2025 em smart_objetivos.yaml.
   PMP_Inventarios_dias: 55
-  DMI_PA_dias: 160
-  DMI_MP_dias: 160
+  # DMI calibrados ao inventário auditado 2024 (€13,06M):
+  #   PA+MP implícitos = (13.06M - merc_1.37M) / (CMVMC_prod_12.24M/365) = 348,6 dias
+  #   Arredondado: 175 PA + 174 MP = 349 dias → formula 2025 reproduz ~€13,7M de stock
+  #   (vs. €12,1M com os antigos 160+160=320 dias, que causavam uma queda fictícia de ~23d DMI).
+  DMI_PA_dias: 175
+  DMI_MP_dias: 174
   DMI_Mercadorias_dias: 60
   Caixa_Dias: 15
 

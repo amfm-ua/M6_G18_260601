@@ -286,6 +286,7 @@ const API = (() => {
       endividamento:        r.endividamento        || 0,
       cobertura_juros:      r.cobertura_juros      || 0,
       pmr_dias:             r.pmr_dias             || 45,
+      dmi_dias:             r.dmi_dias             || 0,
       pmp_dias:             r.pmp_dias             || 63,
     }));
   }

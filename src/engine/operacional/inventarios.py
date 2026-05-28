@@ -107,9 +107,18 @@ def inventarios_anual(
     inv_2024 = float(base.balanco["ativo_corrente"]["Inventarios"])
     merc_2024 = float(base.totais["Inventario_Final_Merc_2024"])
 
-    dmi_pa = float(a.prazos["DMI_PA_dias"])
-    dmi_mp = float(a.prazos["DMI_MP_dias"])
+    dmi_pa_base = float(a.prazos["DMI_PA_dias"])
+    dmi_mp_base = float(a.prazos["DMI_MP_dias"])
     dmi_merc = float(a.prazos["DMI_Mercadorias_dias"])
+
+    # Hub logístico: redução estrutural de DMI a partir do ano de arranque.
+    # VLMs reduzem PA necessário; Digital Twin reduz safety stock de MP.
+    hub_raw = a.raw.get("hub_logistico", {})
+    hub_ativo = hub_raw.get("incluir_hub", False)
+    hub_dmi_cfg = hub_raw.get("projeto_hub", {}).get("dmi_reducao_hub", {})
+    hub_dmi_inicio = int(hub_dmi_cfg.get("ano_inicio", 9999))
+    hub_dmi_pa_red = float(hub_dmi_cfg.get("DMI_PA_reducao_dias", 0.0))
+    hub_dmi_mp_red = float(hub_dmi_cfg.get("DMI_MP_reducao_dias", 0.0))
 
     cmvmc_idx = df_cmvmc.set_index("ano")
 
@@ -156,6 +165,14 @@ def inventarios_anual(
         else:
             cmvmc_merc = cmvmc_total * merc_share
             cmvmc_prod = cmvmc_total - cmvmc_merc
+
+        # Redução estrutural de DMI quando hub ativo (VLMs + Digital Twin)
+        if hub_ativo and y >= hub_dmi_inicio:
+            dmi_pa = max(0.0, dmi_pa_base - hub_dmi_pa_red)
+            dmi_mp = max(0.0, dmi_mp_base - hub_dmi_mp_red)
+        else:
+            dmi_pa = dmi_pa_base
+            dmi_mp = dmi_mp_base
 
         pa = (cmvmc_prod / 365.0) * dmi_pa
         mp = (cmvmc_prod / 365.0) * dmi_mp

@@ -383,6 +383,7 @@ function KPIView({ ctx }) {
     { label: "Liquidez Geral",       key: "liquidez_geral",       fmt: v => fmt.ratio(v),      dfmt: d => (d >= 0 ? "+" : "") + d.toFixed(2) + "×",   up: true  },
     { label: "Cobertura de Juros",   key: "cobertura_juros",      fmt: v => fmt.ratio(v),      dfmt: d => (d >= 0 ? "+" : "") + d.toFixed(2) + "×",   up: true  },
     { label: "PMR (dias)",           key: "pmr_dias",             fmt: v => fmt.num(v) + " d", dfmt: d => (d >= 0 ? "+" : "") + Math.round(d) + " d", up: false },
+    { label: "DMI (dias)",           key: "dmi_dias",             fmt: v => fmt.num(v) + " d", dfmt: d => (d >= 0 ? "+" : "") + Math.round(d) + " d", up: false },
     { label: "PMP (dias)",           key: "pmp_dias",             fmt: v => fmt.num(v) + " d", dfmt: d => (d >= 0 ? "+" : "") + Math.round(d) + " d", up: true  },
   ];
 

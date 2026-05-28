@@ -372,6 +372,7 @@ const GRESTEL = (() => {
         endividamento: (b.Emprestimos_NC + b.Emprestimos_C) / b.ativo_total,
         cobertura_juros: r.ebit / Math.max(r.juros, 1),
         pmr_dias: 45,
+        dmi_dias: 0,
         pmp_dias: 63,
       };
     });

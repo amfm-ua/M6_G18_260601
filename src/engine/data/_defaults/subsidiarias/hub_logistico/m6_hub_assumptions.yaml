@@ -226,17 +226,20 @@ projeto_hub:
     crescimento_anual: 0.035         # crescimento nominal composto a partir do ano 3 (2 % inflação + 1,5 % real)
 
   beneficios_pontuais:
-    # Libertação de inventário ajustada de €2,5 M para €1,9 M:
-    #   Stock 2024: €13,06 M → meta de redução de 14,5 % (vs. 19,1 % anterior)
-    #   Benchmark GS1/VDMA para implementações WMS em PMEs industriais: 10-15 % de redução típica
-    #   A redução de 14,5 % é defensável mas exige WMS+Digital Twin plenamente operacional
-    #   e disciplina de reordenamento baseada em previsão de procura (ML/IA)
-    libertacao_inventario: 1900000  # WMS+Digital Twin; 13 M€ em stock → meta de 14,5 % (benchmark PME industrial)
+    # Libertação de inventário: clearing do backlog histórico acima do novo nível eficiente.
+    #   Reduzido de €1,9M para €950k (apenas 2026) para evitar dupla-contagem com dmi_reducao_hub.
+    libertacao_inventario: 950000
     ano: 2026
-    # Cronograma faseado: WMS básico liberta €950 k em 2026; Digital Twin optimization liberta €950 k em 2027
     libertacao_cronograma:
       2026: 950000
-      2027: 950000
+
+  # ---------------------------------------------------------------------------
+  # EFICIÊNCIA ESTRUTURAL DE INVENTÁRIO — redução permanente de DMI via Hub
+  # ---------------------------------------------------------------------------
+  dmi_reducao_hub:
+    ano_inicio: 2026
+    DMI_PA_reducao_dias: 12   # VLMs: throughput automático → menos produtos-em-curso em espera
+    DMI_MP_reducao_dias: 8    # Digital Twin: previsão de procura → safety stock MP menor
 
   # ---------------------------------------------------------------------------
   # BENEFÍCIOS COMERCIAIS — Acréscimo de VN por canais diretos habilitados pelo Hub

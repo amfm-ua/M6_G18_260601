@@ -52,6 +52,8 @@ def build_statements(
     df_prod: "pd.DataFrame | None" = None,
     df_merc: "pd.DataFrame | None" = None,
     df_total: "pd.DataFrame | None" = None,
+    horizonte_maturidade: bool = False,
+    g_maturidade: "float | None" = None,
 ) -> dict[str, pd.DataFrame]:
     """
     Constrói as três demonstrações financeiras consolidadas.
@@ -148,11 +150,20 @@ def build_statements(
 
     df_dfc = build_dfc(a, df_dr, df_balanco, sched, base)
 
-    return {
+    dfs = {
         "dr": df_dr,
         "balanco": df_balanco,
         "dfc": df_dfc,
     }
+
+    # Extensão opt-in para a fase de maturidade (2030-2034) — abordagem B.
+    # Quando desligada (default), as demonstrações terminam em 2029 como sempre.
+    if horizonte_maturidade:
+        from .extensao_maturidade import estender_maturidade, G_MATURIDADE_DEFAULT
+        g = G_MATURIDADE_DEFAULT if g_maturidade is None else float(g_maturidade)
+        dfs = estender_maturidade(dfs, a, base, sched, g=g)
+
+    return dfs
 
 
 __all__ = [

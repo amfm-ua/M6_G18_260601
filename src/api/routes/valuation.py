@@ -208,19 +208,50 @@ def _build_mc_params_from_run(
     hub_on: bool,
     params_financeiros: dict,
 ) -> dict:
-    """Encadeia run_model → extração FCF → parâmetros completos para GrestelModel."""
+    """Encadeia run_model → extração FCF → parâmetros completos para GrestelModel.
+
+    Usa o horizonte de 10 anos (2025-2034): a extensão de maturidade prolonga a
+    série de FCF até 2034, ancorando o valor terminal (Gordon) no último ano da
+    vida útil do projeto em vez de 2029 — ver docs/horizonte_10anos_extensao_motor.md.
+    """
     try:
-        dfs = run_model(cenario=cenario, hub_on=hub_on, ecogres_on=True)
+        dfs = run_model(
+            cenario=cenario, hub_on=hub_on, ecogres_on=True,
+            horizonte_maturidade=True,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro modelo operacional: {exc}") from exc
 
     dr = dfs["dr"]
     dfc = dfs.get("dfc")
+    bal = dfs.get("balanco")
     tax_rate = float(params_financeiros.get("tax_rate", 0.245))
 
     dr_proj = dr[dr["ano"] >= 2025]
-    has_capex = dfc is not None and "capex" in dfc.columns
-    has_nwc   = dfc is not None and "variacao_nwc" in dfc.columns
+
+    # Colunas reais da DFC (build_dfc): capex em activos fixos/intangíveis e
+    # ΔNFM operacional. A depreciação na DR está guardada NEGATIVA, pelo que o
+    # add-back de D&A no FCFF é -depreciacoes (positivo).
+    dfc_cols = set(dfc.columns) if dfc is not None else set()
+    capex_cols = [c for c in ("capex_aft", "pag_intang", "hub_capex") if c in dfc_cols]
+    has_var_nfm = "var_nfm" in dfc_cols
+
+    # Dívida financeira e caixa por ano (do balanço do próprio run) — usados para
+    # o net borrowing do FCFE e para o net_debt à data de avaliação (fim de 2024).
+    debt_by_year: dict[int, float] = {}
+    cash_by_year: dict[int, float] = {}
+    if bal is not None:
+        for _, br in bal.iterrows():
+            yb = int(br["ano"])
+            debt_by_year[yb] = (
+                float(br.get("emprestimos_nc", 0) or 0)
+                + float(br.get("emprestimos_c", 0) or 0)
+                + float(br.get("linha_credito_cp", 0) or 0)
+            )
+            cash_by_year[yb] = (
+                float(br.get("caixa", 0) or 0)
+                + float(br.get("aplicacoes_fin_cp", 0) or 0)
+            )
 
     projected_revenue: dict[int, float] = {}
     projected_FCFF:    dict[int, float] = {}
@@ -230,41 +261,62 @@ def _build_mc_params_from_run(
         ano   = int(row["ano"])
         vn    = float(row.get("vn",     0) or 0)
         ebit  = float(row.get("ebit",   0) or 0)
-        dep   = float(row.get("dep",    0) or row.get("depreciacoes", 0) or 0)
+        da    = -float(row.get("depreciacoes", 0) or 0)   # add-back (depreciacoes < 0)
         juros = float(row.get("juros",  0) or 0)
 
         projected_revenue[ano] = vn
 
-        if has_capex and has_nwc:
-            dfc_row   = dfc[dfc["ano"] == ano]
-            capex     = abs(float(dfc_row["capex"].iloc[0]))        if not dfc_row.empty else 0.0
-            delta_nwc = float(dfc_row["variacao_nwc"].iloc[0])      if not dfc_row.empty else 0.0
-            fcff = ebit * (1 - tax_rate) + dep - capex - delta_nwc
+        dfc_row = dfc[dfc["ano"] == ano] if dfc is not None else None
+        if dfc_row is not None and not dfc_row.empty:
+            # capex_aft/pag_intang/hub_capex são saídas de caixa (negativas na DFC).
+            capex = sum(abs(float(dfc_row[c].iloc[0])) for c in capex_cols)
+            # var_nfm = efeito de caixa do fundo de maneio (positivo = libertação).
+            # FCFF = NOPAT + D&A − Capex − ΔNFM; como ΔNFM = −var_nfm, soma-se var_nfm.
+            var_nfm_cash = float(dfc_row["var_nfm"].iloc[0]) if has_var_nfm else 0.0
         else:
-            fcff = ebit * (1 - tax_rate) + dep
+            capex = 0.0
+            var_nfm_cash = 0.0
+
+        fcff = ebit * (1 - tax_rate) + da - capex + var_nfm_cash
+
+        # FCFE = FCFF − juro líquido de imposto + net borrowing (ΔDívida financeira).
+        # net borrowing > 0 (novos empréstimos) acresce caixa disponível ao acionista.
+        net_borrowing = debt_by_year.get(ano, 0.0) - debt_by_year.get(ano - 1, 0.0)
+        fcfe = fcff - abs(juros) * (1 - tax_rate) + net_borrowing
 
         projected_FCFF[ano] = round(fcff, 1)
-        projected_FCFE[ano] = round(fcff - abs(juros) * (1 - tax_rate), 1)
+        projected_FCFE[ano] = round(fcfe, 1)
 
-    rows_vals = [
-        (
-            float(r.get("ebit",    0) or 0),
-            float(r.get("ebitda",  0) or 0),
-            float(r.get("dep",     0) or r.get("depreciacoes", 0) or 0),
-        )
-        for _, r in dr_proj.iterrows()
-    ]
-    n_rows = len(rows_vals) or 1
+    # Múltiplos: âncora forward (1.º ano projetado = 2025), não a média do
+    # horizonte. Aplicar o múltiplo de sector a um EBITDA/EBIT forward é a
+    # convenção (NTM); a média de uma série crescente enviesava para meados de
+    # 2029-2030 e sobreavaliava o método dos Múltiplos.
+    fwd = dr_proj.sort_values("ano").iloc[0] if not dr_proj.empty else None
+    ebit_fwd   = float(fwd.get("ebit", 0) or 0) if fwd is not None else 0.0
+    ebitda_fwd = float(fwd.get("ebitda", 0) or 0) if fwd is not None else 0.0
+    da_fwd     = -float(fwd.get("depreciacoes", 0) or 0) if fwd is not None else 0.0
 
     params = dict(params_financeiros)
     params.update({
-        "EBIT_base":         round(sum(v[0] for v in rows_vals) / n_rows, 1),
-        "EBITDA_base":       round(sum(v[1] for v in rows_vals) / n_rows, 1),
-        "DA_base":           round(sum(v[2] for v in rows_vals) / n_rows, 1),
+        "EBIT_base":         round(ebit_fwd, 1),
+        "EBITDA_base":       round(ebitda_fwd, 1),
+        "DA_base":           round(da_fwd, 1),
         "projected_FCFF":    projected_FCFF,
         "projected_FCFE":    projected_FCFE,
         "projected_revenue": projected_revenue,
     })
+
+    # net_debt e book equity à data de avaliação (fim de 2024 — primeiro FCF em
+    # t=1 corresponde a 2025), derivados do balanço do run em vez do valor
+    # estático do Excel. Garante coerência entre EV e dívida líquida e, no
+    # comparativo com/sem Hub, ambos partem da mesma dívida real de 2024.
+    if 2024 in debt_by_year:
+        params["net_debt"] = round(debt_by_year[2024] - cash_by_year.get(2024, 0.0), 1)
+    if bal is not None:
+        bal_2024 = bal[bal["ano"] == 2024]
+        if not bal_2024.empty and "total_cp" in bal_2024.columns:
+            params["E_equity"] = round(float(bal_2024["total_cp"].iloc[0]), 1)
+
     return params
 
 

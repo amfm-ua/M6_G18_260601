@@ -1,4 +1,7 @@
 # Síntese de Pressupostos — Modelo Financeiro GrestelPy
+
+> ⚠️ **Nota de coerência (ver `_INDICE_RELATORIO.md`):** os parâmetros de custo do capital e fiscais aqui tabelados (WACC 6,3%, Ke 16,18%, IRC 24,5%) estão **desatualizados**. Valores canónicos do modelo atual: **WACC 6,46% · Ke 16,62% · IRC 23,5%**. Os restantes pressupostos (vendas, consumos, FSE, pessoal) mantêm-se válidos e estão refletidos no Cap. 7.1 e no Anexo I do relatório.
+
 **Horizonte:** 2024 (histórico auditado) · 2025–2029 (projeção)  
 **Entidades:** Grestel (matriz) · Ecogres (subsidiária) · Hub Logístico 4.0 (projeto)
 

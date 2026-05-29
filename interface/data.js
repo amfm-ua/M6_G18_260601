@@ -103,17 +103,6 @@ const GRESTEL = (() => {
       pessoal:[null,  0.050,  0.050, 0.040, 0.040, 0.050],
       cmvmc:  [null,  0.030,  0.030, 0.030, 0.030, 0.030],
     },
-    Stress_Volume: {
-      label: "Stress Vol.",
-      prob:  0.05,
-      desc: "Choque de procura severo sem descida de preços: volume colapsa (−4%/−1%) mas margens unitárias mantidas. FSE e pessoal com mesmos choques do Stress.",
-      // volume dobrado vs Stress; PVU sem redução
-      vol:    [null, -0.040, -0.010, 0.010, 0.020, 0.020],
-      preco:  [null,  0.030,  0.030, 0.030, 0.030, 0.030],
-      fse:    [null,  0.060,  0.050, 0.050, 0.056, 0.057],
-      pessoal:[null,  0.050,  0.050, 0.040, 0.040, 0.050],
-      cmvmc:  [null,  0.030,  0.030, 0.030, 0.030, 0.030],
-    },
   };
 
   // Hub commercial VN increment (beneficios_comerciais in m6_hub_assumptions.yaml)

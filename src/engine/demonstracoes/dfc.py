@@ -237,21 +237,28 @@ def build_dfc(
         d_ida = row_y["impostos_dif_ativos"] - row_p["impostos_dif_ativos"]
 
         # op_pre_nfm:
-        #   + imp: Clientes no Balanço é líquido (imparidades acumuladas deduzidas,
-        #     NCRF 27 §41). A variação d_cli já absorve o gasto anual de imparidade;
-        #     adicionar +imp evita dupla penalização do FCO (gasto não-caixa — NCRF 2 §18 al. c)).
+        #   + imp: imparidade é gasto NÃO-caixa (NCRF 2 §18 al. c) — adiciona-se de
+        #     volta ao RL. Para esta adição ser correcta (e não duplicar), a variação
+        #     de clientes em var_nfm tem de ser em base BRUTA (ver d_cli_bruto abaixo).
         #   - sem +juros/-juros: juros são reclassificados para FCF (ver fluxo_fin).
         #   - sem -irc: o timing do IRC já está capturado em d_eoep_c (EOEP credor
         #     inclui IRC pendente); adicioná-lo separadamente causaria dupla dedução.
         #   - -d_ida: variação de IDA é não-monetária; deduzir reconcilia DFC ↔ Balanço.
         op_pre_nfm = rl + dep + imp + juros - rend_fin - rend_equiv_y - hub_pt2030_rec_y - d_ida
 
+        # Clientes no Balanço está LÍQUIDO de imparidades acumuladas (NCRF 27 §41),
+        # logo d_cli (líquido) já embute o gasto anual de imparidade. Como esse gasto
+        # já é adicionado em op_pre_nfm (+imp), usar d_cli líquido aqui contá-lo-ia
+        # DUAS vezes — era a origem do antigo desfasamento DFC↔Balanço. Converte-se
+        # para a base bruta (d_cli − imp), em que a imparidade aparece uma só vez.
+        d_cli_bruto = d_cli - imp
+
         # Nota: hub_inventario (inventario_libertado) NÃO é adicionado aqui porque
         # build_balanco já aplica hub_inv_lib ao saldo de inventários, pelo que d_inv
         # captura a libertação. Somar hub_inventario causaria dupla contagem.
         var_nfm = (
             d_inv
-            + d_cli
+            + d_cli_bruto
             + d_eoep_d
             + d_out_ac
             + d_forn

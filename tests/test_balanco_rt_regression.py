@@ -14,10 +14,11 @@ def model_outputs():
 
 
 def test_rt_formula_aplica_payout_e_reserva_legal(model_outputs):
-    """RT[y] = RT[y-1] + RL[y-1] * (1 - payout - reserva_legal) para anos >= ano_inicio_distribuicao.
+    """RT[y] = RT[y-1] + RL[y-1] - payout - dotação_reserva (com teto CSC art. 295.º).
 
-    Verifica a fórmula matematicamente contra os próprios valores do DR,
-    independente dos valores absolutos (que variam com os pressupostos).
+    A dotação da reserva legal está limitada a 20% do capital social: a apropriação
+    de cada ano é min(RL_prev * reserva_legal_pct, teto - reserva_acumulada). Verifica
+    a fórmula contra os próprios valores do DR/Balanço, replicando o mesmo teto.
     """
     a, base, sched = load("Base")
     payout = a.distribuicao["payout_ratio"]
@@ -27,14 +28,19 @@ def test_rt_formula_aplica_payout_e_reserva_legal(model_outputs):
     dr = model_outputs["dr"]
     balanco = model_outputs["balanco"]
 
+    capital_social = float(balanco[balanco.ano == 2025]["capital_social"].iloc[0])
+    teto = 0.20 * capital_social
+
     for ano in (2026, 2027, 2028, 2029):
         rl_prev = float(dr[dr.ano == (ano - 1)]["rl"].iloc[0])
         rl_cur = float(dr[dr.ano == ano]["rl"].iloc[0])
         rt_prev = float(balanco[balanco.ano == (ano - 1)]["resultados_transitados"].iloc[0])
         rt_cur = float(balanco[balanco.ano == ano]["resultados_transitados"].iloc[0])
+        reserva_leg_prev = float(balanco[balanco.ano == (ano - 1)]["reservas_legais"].iloc[0])
 
         if rl_cur > 0 and ano >= inicio_div:
-            expected = rt_prev + rl_prev - rl_prev * payout - rl_prev * reserva
+            dotacao = max(0.0, min(rl_prev * reserva, teto - reserva_leg_prev))
+            expected = rt_prev + rl_prev - rl_prev * payout - dotacao
         else:
             expected = rt_prev + rl_prev
 
@@ -43,41 +49,38 @@ def test_rt_formula_aplica_payout_e_reserva_legal(model_outputs):
         )
 
 
-def test_reserva_legal_deduzida_dos_rt(model_outputs):
-    """RT deve ser inferior ao que seria com payout_ratio apenas (sem reserva_legal).
+def test_reserva_legal_respeita_teto_csc_295(model_outputs):
+    """A reserva legal não cresce acima do teto de 20% do capital social (CSC art. 295.º).
 
-    Regressão directa: sem a dedução de reserva_legal_pct os RT seriam sistematicamente
-    superiores em ~5% do RL de cada ano anterior.
+    A Grestel já entra no horizonte com reserva legal acima de 20% do capital social
+    (~27%), pelo que a dotação obrigatória cessa: reservas_legais mantém-se constante
+    e RT deixa de ser penalizado por nova dotação. Regressão directa do teto — sem ele
+    a reserva crescia ~5% do RL por ano, indefinidamente.
     """
     a, base, sched = load("Base")
-    payout = a.distribuicao["payout_ratio"]
     reserva = a.distribuicao.get("reserva_legal_pct", 0.0)
 
     if reserva == 0.0:
         pytest.skip("reserva_legal_pct é zero — teste de regressão não aplicável")
 
-    dr = model_outputs["dr"]
     balanco = model_outputs["balanco"]
-    inicio_div = a.distribuicao["ano_inicio_distribuicao"]
+    capital_social = float(balanco[balanco.ano == 2025]["capital_social"].iloc[0])
+    teto = 0.20 * capital_social
 
-    rt_2029_actual = float(balanco[balanco.ano == 2029]["resultados_transitados"].iloc[0])
+    reserva_2025 = float(balanco[balanco.ano == 2025]["reservas_legais"].iloc[0])
 
-    # Simula o que o RT 2029 seria SEM reserva_legal (só payout)
-    rt = float(balanco[balanco.ano == 2025]["resultados_transitados"].iloc[0])
-    for ano in (2026, 2027, 2028, 2029):
-        rl_prev = float(dr[dr.ano == (ano - 1)]["rl"].iloc[0])
-        rl_cur = float(dr[dr.ano == ano]["rl"].iloc[0])
-        if rl_cur > 0 and ano >= inicio_div:
-            rt = rt + rl_prev - rl_prev * payout  # sem reserva
-        else:
-            rt = rt + rl_prev
-
-    rt_2029_sem_reserva = rt
-    assert rt_2029_actual < rt_2029_sem_reserva, (
-        f"RT 2029 com reserva ({rt_2029_actual:,.0f} €) não é inferior "
-        f"ao calculado só com payout ({rt_2029_sem_reserva:,.0f} €) — "
-        "reserva_legal_pct não está a ser deduzida"
+    # Pré-condição do cenário: já acima do teto legal → dotação deve cessar.
+    assert reserva_2025 > teto, (
+        f"Pré-condição falhou: reserva 2025 ({reserva_2025:,.0f} €) não excede "
+        f"o teto ({teto:,.0f} €) — rever este teste se o capital social mudou"
     )
+
+    for ano in (2026, 2027, 2028, 2029):
+        reserva_ano = float(balanco[balanco.ano == ano]["reservas_legais"].iloc[0])
+        assert abs(reserva_ano - reserva_2025) < 0.01, (
+            f"Reserva legal {ano} ({reserva_ano:,.0f} €) cresceu face a 2025 "
+            f"({reserva_2025:,.0f} €) apesar de já exceder 20% do capital social"
+        )
 
 
 def test_rt_2025_sem_deducoes(model_outputs):

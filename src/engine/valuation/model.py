@@ -93,27 +93,33 @@ class GrestelModel:
 
         return pv - net_debt
 
-    def _get_fcffs(self, p: dict) -> list[float]:
-        """FCFFs projetados — aplica choques estocásticos do MC se presentes."""
+    def _apply_shocks(self, raw: dict, p: dict) -> list[float]:
+        """Aplica os choques estocásticos do MC (receita + margem) a uma série
+        de cash flows projetados {ano: valor}. Partilhado por FCFF e FCFE para
+        que ambos reajam à incerteza de forma consistente."""
         rev_shock = float(p.get("g_revenue_shock") or 0.0)
         margin_shock = float(p.get("EBITDA_margin_shock") or 0.0)
 
+        years = sorted(raw.keys())
+        base = [float(raw[yr] or 0.0) for yr in years]
+
+        if rev_shock == 0.0 and margin_shock == 0.0:
+            return base
+
+        rev_raw: dict = p.get("projected_revenue") or {}
+        result: list[float] = []
+        for t, (cf, yr) in enumerate(zip(base, years), 1):
+            cf_s = cf * (1.0 + rev_shock) ** t
+            if margin_shock != 0.0 and rev_raw:
+                cf_s += margin_shock * float(rev_raw.get(yr) or 0.0)
+            result.append(cf_s)
+        return result
+
+    def _get_fcffs(self, p: dict) -> list[float]:
+        """FCFFs projetados — aplica choques estocásticos do MC se presentes."""
         raw: dict | None = p.get("projected_FCFF")
         if raw:
-            years = sorted(raw.keys())
-            base = [float(raw[yr] or 0.0) for yr in years]
-
-            if rev_shock == 0.0 and margin_shock == 0.0:
-                return base
-
-            rev_raw: dict = p.get("projected_revenue") or {}
-            result: list[float] = []
-            for t, (cf, yr) in enumerate(zip(base, years), 1):
-                cf_s = cf * (1.0 + rev_shock) ** t
-                if margin_shock != 0.0 and rev_raw:
-                    cf_s += margin_shock * float(rev_raw.get(yr) or 0.0)
-                result.append(cf_s)
-            return result
+            return self._apply_shocks(raw, p)
 
         # Sem projeções explícitas: calcular a partir dos parâmetros base
         return self._project_fcffs(p)
@@ -186,8 +192,9 @@ class GrestelModel:
 
         raw: dict | None = p.get("projected_FCFE")
         if raw:
-            years = sorted(raw.keys())
-            fcfes = [float(raw[yr] or 0.0) for yr in years]
+            # Mesmos choques (receita/margem) que o FCFF — sem isto o FCFE ficava
+            # insensível à incerteza no MC e subestimava a variância do equity.
+            fcfes = self._apply_shocks(raw, p)
         else:
             # Aproximação: FCFE ≈ FCFF − juro líquido de impostos sobre dívida
             fcffs = self._get_fcffs(p)

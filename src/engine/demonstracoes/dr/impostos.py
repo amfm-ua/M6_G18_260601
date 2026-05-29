@@ -73,7 +73,7 @@ def _irc(
     ta_g    = float(imp.get("Tributacao_Autonoma_crescimento", 0.03))
 
     sifide_carryforward_acum = 0.0  # carry-forward acumulado de anos anteriores
-    _rfai_carry: dict[int, float] = {}  # RFAI carry-forward por ano de origem
+    rfai_carryforward_acum = 0.0    # RFAI carry-forward acumulado (saldo corrente)
 
     for y, r in rai.items():
         if y == 2024 or r is None:
@@ -111,24 +111,20 @@ def _irc(
         sifide_carryforward_acum = sifide_disponivel - sifide_usado  # excesso → carry-forward
         coleta = max(0.0, coleta - sifide_usado)
 
-        # 3b. RFAI (CFI art. 22-23) — limite art. 23.º n.º 2 al. c): 25 % da coleta
-        # Carry-forward: excesso transpõe até 10 anos (art. 23.º n.º 2 al. e) CFI)
-        rfai_carry_disponivel = sum(
-            v for k, v in _rfai_carry.items() if 0 < y - k <= 10
-        )
-        if hub_rfai_map:
-            rfai_disponivel = float(hub_rfai_map.get(y, 0.0)) + rfai_carry_disponivel
-        else:
-            rfai_disponivel = rfai_carry_disponivel
+        # 3b. RFAI (CFI art. 22-23) — limite art. 23.º n.º 2 al. c): 25 % da coleta.
+        # Carry-forward acumulado num saldo corrente (mesmo padrão do SIFIDE acima):
+        # crédito novo do ano + saldo transitado, consumido até ao limite, o
+        # remanescente fica em saldo. A expiração a 10 anos (art. 23.º n.º 2 al. e))
+        # é imaterial no horizonte 2025-2034 (gaps < 10 anos), pelo que um
+        # acumulador escalar é suficiente e evita a dupla contagem do saldo.
+        rfai_novo = float(hub_rfai_map.get(y, 0.0)) if hub_rfai_map else 0.0
+        rfai_disponivel = rfai_novo + rfai_carryforward_acum
         if rfai_disponivel > 0:
             _limiar_rfai = float(imp.get("RFAI_limite_pct_coleta", 0.25))
             limite_rfai = coleta * _limiar_rfai
-            rfai_c = min(rfai_disponivel, limite_rfai)
-            coleta = max(0.0, coleta - rfai_c)
-            # Excesso transpõe até 10 anos (art. 23.º n.º 2 al. e) CFI)
-            rfai_excesso = rfai_disponivel - rfai_c
-            if rfai_excesso > 0:
-                _rfai_carry[y] = rfai_excesso
+            rfai_usado = min(rfai_disponivel, limite_rfai)
+            coleta = max(0.0, coleta - rfai_usado)
+            rfai_carryforward_acum = rfai_disponivel - rfai_usado  # excesso → carry-forward
 
         # 4. Tributação autónoma
         ta = ta_base * (1.0 + ta_g) ** (y - 2024) if ta_base > 0 else 0.0

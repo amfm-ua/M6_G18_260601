@@ -74,27 +74,27 @@ onde o accrual em EBITDA também é baseado em `dep_pools`.
 
 ### Impacto nos indicadores (cenário Base)
 
-| Métrica | Antes | Depois | Δ |
-|---|---|---|---|
-| VAL | 2 913 761 € | **2 493 769 €** | −419 992 € |
-| TIR | 18,83 % | **17,49 %** | −1,34 pp |
-| Payback simples | 6,03 anos | **6,12 anos** | +0,09 |
-| Payback atualizado | 7,07 anos | **7,37 anos** | +0,30 |
-| VALA (APV) | 2 112 164 € | **1 917 263 €** | −194 901 € |
+| Métrica            | Antes       | Depois          | Δ          |
+| ------------------ | ----------- | --------------- | ---------- |
+| VAL                | 2 913 761 € | **2 493 769 €** | −419 992 € |
+| TIR                | 18,83 %     | **17,49 %**     | −1,34 pp   |
+| Payback simples    | 6,03 anos   | **6,12 anos**   | +0,09      |
+| Payback atualizado | 7,07 anos   | **7,37 anos**   | +0,30      |
+| VALA (APV)         | 2 112 164 € | **1 917 263 €** | −194 901 € |
 
 O efeito é **conservador**: ao deixar de inflacionar o accrual, o EBITDA dos anos
 de extensão baixa, reduzindo VAL/TIR/VALA e alongando ligeiramente o payback.
 
 ### FCF e accrual após correção (2029–2034)
 
-| Ano | EBITDA | Accrual PT2030 | FCF livre |
-|---|---|---|---|
-| 2029 (motor) | 1 020 462 | 282 521 | 975 120 |
-| 2030 | 978 790 | 215 021 | 921 361 |
-| 2031 | 917 772 | 127 271 | 844 600 |
-| 2032 | 945 439 | 127 271 | 869 017 |
-| 2033 | 974 075 | 127 271 | 894 288 |
-| 2034 | 930 307 | 53 865 | 804 108 |
+| Ano          | EBITDA    | Accrual PT2030 | FCF livre |
+| ------------ | --------- | -------------- | --------- |
+| 2029 (motor) | 1 020 462 | 282 521        | 975 120   |
+| 2030         | 978 790   | 215 021        | 921 361   |
+| 2031         | 917 772   | 127 271        | 844 600   |
+| 2032         | 945 439   | 127 271        | 869 017   |
+| 2033         | 974 075   | 127 271        | 894 288   |
+| 2034         | 930 307   | 53 865         | 804 108   |
 
 *(O FCF de 2034 não inclui ainda o valor terminal, somado à parte na série de
 desconto `cashflows_val`.)*
@@ -113,22 +113,22 @@ O efeito líquido é considerado materialmente pequeno (CAPEX manut. ~120 k€/a
 ΔNFM ~15–20 k€/ano face a FCF de ~800–900 k€). Ver `docs/fcf_modelacao_hub.md` §4
 para a parametrização alternativa, se vier a ser pedida.
 
-## 5. Trabalho em aberto — extensão integral do motor a 2034
+## 5. Extensão integral do motor a 2034 — IMPLEMENTADA (via B)
 
-Se houver tempo, o passo "teoricamente correcto" é estender DR + Balanço + DFC
-consolidados até 2034. **Não é uma alteração de constante** — exige:
+**Estado (2026-05-28): feito.** A extensão de DR + Balanço + DFC consolidados a
+2034 foi implementada pela **abordagem B (roll-forward de maturidade, opt-in)**,
+documentada em [horizonte_10anos_extensao_motor.md](horizonte_10anos_extensao_motor.md).
+Ligar com `run_model(..., horizonte_maturidade=True)`; desligada por defeito.
 
-- `config.py`: `ANO_FIM` 2029 → 2034.
-- Pressupostos novos 2030–2034 (macro, vendas, custos) — hoje só existem até 2029.
-- Recriar as tabelas pré-computadas de `computed/schedules.yaml` (load-bearing):
-  AFT e depreciações, subsidiárias, dividendos, **mapa de dívida** e
-  `reference_balanco` — todas terminam em 2029.
-- Definir 5 assunções de negócio: dívida nova vs. desalavancagem, CAPEX de
-  substituição, crescimentos 2030–2034, trajetória das subsidiárias, política de
-  dividendos.
-- Recalibrar as 3 reconciliações (DR↔Balanço↔DFC) **sem** a âncora do
-  `reference_balanco` do Excel — o ponto de maior risco.
+A via originalmente temida (abordagem A — empurrar `ANO_FIM`) **não** foi
+necessária. O que a tornava arriscada era recriar as tabelas pré-computadas e
+recalibrar as reconciliações sem a âncora do `reference_balanco`. Descobriu-se que
+o **Balanço anual fecha por construção** via o *treasury plug* (não usa
+`reference_balanco`), pelo que o roll-forward garante `controlo ≈ 0` em 2030–2034
+sem recalibração. Pressupostos de maturidade adotados (g=2 %, CAPEX=amortizações,
+dívida constante, payout mantido, IRC à taxa efectiva de 2029) — ver o doc dedicado.
 
-Esforço: vários dias; risco principal = descalibrar o *treasury plug* e as
-reconciliações que hoje fecham ao cêntimo. Bloqueio: as 5 assunções têm de ser
-definidas antes de implementar.
+Para referência, a abordagem A teria exigido: `config.py` `ANO_FIM` 2029→2034;
+pressupostos novos 2030–2034; recriar `computed/schedules.yaml` (AFT/depreciações,
+subsidiárias, dividendos, mapa de dívida, `reference_balanco`); e recalibrar as 3
+reconciliações. A via B evita tudo isto ao isolar a extensão da fase de maturidade.

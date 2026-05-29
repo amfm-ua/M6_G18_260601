@@ -16,15 +16,16 @@ este modelo **não re-executa** o pipeline operacional
 ([`inventarios.py`](../src/engine/operacional/inventarios.py) → balanço → FCFE). Recebe séries
 de fluxos **já sintetizadas** e só perturba 5 drivers:
 
-| Driver atual | Onde entra |
-|---|---|
-| `WACC` | desconto FCFF (`_equity_dcf`) |
-| `g_terminal` | valor terminal Gordon (DCF e FCFE) |
-| `EV_EBITDA_mult` | múltiplos (`_equity_multiples`) |
-| `g_revenue_shock` | choque aditivo composto sobre FCFF (`_get_fcffs`) |
-| `EBITDA_margin_shock` | choque sobre margem (`_get_fcffs`) |
+| Driver atual          | Onde entra                                        |
+| --------------------- | ------------------------------------------------- |
+| `WACC`                | desconto FCFF (`_equity_dcf`)                     |
+| `g_terminal`          | valor terminal Gordon (DCF e FCFE)                |
+| `EV_EBITDA_mult`      | múltiplos (`_equity_multiples`)                   |
+| `g_revenue_shock`     | choque aditivo composto sobre FCFF (`_get_fcffs`) |
+| `EBITDA_margin_shock` | choque sobre margem (`_get_fcffs`)                |
 
 `GrestelModel` guarda os fluxos em dois dicts ano→€:
+
 - `p["projected_FCFF"]` — consumido por `_get_fcffs` (DCF-FCFF).
 - `p["projected_FCFE"]` — consumido por `_equity_fcfe`.
 

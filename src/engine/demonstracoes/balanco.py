@@ -231,19 +231,39 @@ def build_balanco(
         2024: cp["Resultados_Transitados"],
     }
 
+    # Reserva legal (CSC art. 295.º-296.º): apropriação anual de % do resultado.
+    # É uma transferência INTERNA ao capital próprio — sai dos resultados
+    # transitados (rt[y] desconta `res`) e entra nas reservas legais (reserva
+    # restrita, não distribuível). Creditá-la aqui mantém o capital próprio total
+    # inalterado pela apropriação. Sem este crédito a reserva "evaporava-se" do
+    # equity, subavaliando a caixa do treasury plug e criando um desfasamento
+    # sistemático com a DFC (a DFC só vê rl − dividendos no equity).
+    reservas_leg = {2024: reservas}
+    _cum_res = 0.0
+
+    # Teto da reserva legal (CSC art. 295.º): a dotação obrigatória cessa quando a
+    # reserva atinge 1/5 (20%) do capital social. Acima disso não há apropriação.
+    teto_reserva_legal = 0.20 * capital_social
+
     for y in YEARS:
         rl_prev = float(df_dr[df_dr.ano == (y - 1)]["rl"].iloc[0])
         rl_cur = float(df_dr[df_dr.ano == y]["rl"].iloc[0])
 
         if y == 2025:
             rt[y] = rt[y - 1] + base.balanco["capital_proprio"]["RL_2024"]
+            res = 0.0
         else:
             if rl_cur > 0 and y >= inicio_div:
                 div = rl_prev * payout
                 res = rl_prev * reserva_legal
+                # Limita a apropriação ao remanescente até ao teto legal.
+                res = max(0.0, min(res, teto_reserva_legal - (reservas + _cum_res)))
             else:
                 div = res = 0.0
             rt[y] = rt[y - 1] + rl_prev - div - res
+
+        _cum_res += res
+        reservas_leg[y] = reservas + _cum_res
 
     irc_dict = {
         y: -float(df_dr[df_dr.ano == y]["irc"].iloc[0])
@@ -356,7 +376,7 @@ def build_balanco(
             capital_social
             + premios
             + outros_ic
-            + reservas
+            + reservas_leg[y]
             + ajust_af
             + rt[y]
             + outras_var
@@ -446,7 +466,7 @@ def build_balanco(
                 "capital_social": capital_social,
                 "premios_emissao": premios,
                 "outros_ic_proprio": outros_ic,
-                "reservas_legais": reservas,
+                "reservas_legais": reservas_leg[y],
                 "ajust_af": ajust_af,
                 "resultados_transitados": rt[y],
                 "outras_var_cp": outras_var,

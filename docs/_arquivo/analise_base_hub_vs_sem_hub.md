@@ -84,12 +84,12 @@ A Grestel avalia a implementação de um hub logístico com investimento de 6.00
 
 | Indicador | Valor |
 |-----------|-------|
-| **VAL** | +2 110 k€ |
-| **TIR** | 14,6% |
+| **VAL** | +2 494 k€ |
+| **TIR** | 17,49% |
 | **WACC** | 6,46% |
-| **Índice de Rendibilidade** | 1,35 |
-| **Payback Simples** | ~7,0 anos |
-| **Payback Atualizado** | ~8,4 anos |
+| **Índice de Rendibilidade** | 1,42 |
+| **Payback Simples** | 6,12 anos |
+| **Payback Atualizado** | 7,37 anos |
 | **CAPEX Total** | 6 000 k€ |
 | — 2025 | 2 850 k€ |
 | — 2026 | 3 150 k€ |
@@ -109,7 +109,7 @@ A Grestel avalia a implementação de um hub logístico com investimento de 6.00
 
 4. **Perfil de alavancagem:** O rácio dívida líquida/EBITDA aumenta temporariamente para 2,7x em 2025 devido ao financiamento do CAPEX, desalavancando rapidamente até 0,5x em 2029 graças ao reforço do EBITDA.
 
-5. **Viabilidade do projeto:** O hub é economicamente viável com VAL positivo de +2.110 k€, TIR de 14,6% (superior ao WACC de 6,46%) e índice de rendibilidade de 1,35. O payback atualizado (~8,4 anos) é suportável dentro do horizonte de 10 anos.
+5. **Viabilidade do projeto:** O hub é economicamente viável com VAL positivo de +2.494 k€, TIR de 17,49% (superior ao WACC de 6,46%) e índice de rendibilidade de 1,42. O payback atualizado (7,37 anos) é suportável dentro do horizonte de 10 anos.
 
 6. **Acréscimo cumulativo:** Nos cinco anos analisados, o hub gera um impacto cumulativo de +7.626 k€ de EBITDA e +3.793 k€ de resultado líquido, justificando o investimento inicial.
 

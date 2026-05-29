@@ -1,5 +1,7 @@
 # 6. Plano de Financiamento — Hub Logístico 4.0
 
+> ⚠️ **Nota de coerência (ver `_INDICE_RELATORIO.md`):** esta secção foi integrada no **Cap. 6** do relatório. A estrutura de financiamento (tranches CGD €3.000k @ 4,15% + BEI €1.500k @ 3,75%, PT2030 €2.700k, RFAI €600k) e o mapa de serviço da dívida mantêm-se válidos. Porém, os parâmetros derivados (WACC 6,3%, Ke 16,18%, IRC 24,5%) estão **desatualizados** — valores canónicos: **WACC 6,46% · Ke 16,62% · IRC 23,5%**.
+
 > Secção pronta a inserir no relatório M6.  
 > Valores em k€ (milhares de euros). Horizonte de análise: 2025–2037 (período de reembolso total da dívida).
 

@@ -39,9 +39,6 @@ function App() {
   // Ecogres é subsidiária — sempre consolidada
   const ecogresOn = true;
 
-  // Stress usa sempre a variante de volume
-  const effectiveCenario = scenario === "Stress" ? "Stress_Volume" : scenario;
-
   useEffect(() => {
     API.listCustomScenarios()
       .then(list => setCustomScenarios(list))
@@ -99,10 +96,10 @@ function App() {
     setLoading(true);
     setError(null);
     Promise.all([
-      API.projecao({ cenario: effectiveCenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn }),
+      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn }),
       // Taxa de IRC efetiva da API (fonte de verdade única, C-1). Fallback
       // silencioso para o default offline se a chamada falhar.
-      API.assumptions({ cenario: effectiveCenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn })
+      API.assumptions({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn })
         .catch(() => ({})),
     ])
       .then(([data, assum]) => {
@@ -115,7 +112,7 @@ function App() {
           fse: data.fse,
           pessoal: data.pessoal,
           ircTaxaEfetiva: assum.irc_taxa_efetiva ?? GRESTEL.IRC_TAXA_EFETIVA,
-          scenario: effectiveCenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn,
+          scenario: scenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn,
         });
         setLoading(false);
       })
@@ -125,7 +122,7 @@ function App() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [effectiveCenario, effectiveHubOn, ecogresOn, cozeduraOn]);
+  }, [scenario, effectiveHubOn, ecogresOn, cozeduraOn]);
 
   return (
     <div className="app">
@@ -380,7 +377,7 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozed
           <span className="dot dot--ok" /> Ecogres
         </div>
         <div className="seg">
-          {Object.keys(GRESTEL.SCENARIOS).filter(k => k !== "Stress_Volume").map(k => (
+          {Object.keys(GRESTEL.SCENARIOS).map(k => (
             <button
               key={k}
               className={"seg-btn " + (scenario === k ? "is-on" : "")}

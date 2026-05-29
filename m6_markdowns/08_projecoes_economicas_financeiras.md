@@ -33,7 +33,7 @@ O CMVMC de 2024 (€15.298.208) desagrega-se em **4 categorias de matérias (MPS
 
 ### 7.1.5. Pressupostos de financiamento e custo do capital (OE1)
 
-O projeto Hub é avaliado a um **WACC de 6,46%** (taxa de desconto dos *cash-flows* no cenário base), resultante de Ke ≈ 16,6% (CAPM, *beta* realavancado para a estrutura de 75% de dívida; Rf ≈ 3,1%, prémio de risco ≈ 5,5%) e de Kd *after-tax* ≈ 3,1% (custo médio das duas tranches de 4,02%, líquido de imposto). A estrutura de financiamento do CAPEX é 75% dívida / 25% capital próprio (ver Cap. 6). É aplicado adicionalmente um WACC dinâmico (Miles-Ezzell) na análise de sensibilidade.
+O projeto Hub é avaliado a um **WACC de 6,46%** (taxa de desconto dos *cash-flows* no cenário base), resultante de Ke ≈ 16,6% (CAPM, *beta* realavancado para a estrutura de 75% de dívida; Rf ≈ 3,1%, prémio de risco ≈ 5,78%) e de Kd *after-tax* ≈ 3,1% (custo médio das duas tranches de 4,02%, líquido de imposto). A estrutura de financiamento do CAPEX é 75% dívida / 25% capital próprio (ver Cap. 6). É aplicado adicionalmente um WACC dinâmico (Miles-Ezzell) na análise de sensibilidade.
 
 ### 7.1.6. Pressupostos fiscais
 

@@ -25,9 +25,9 @@ Quadro consolidado dos pressupostos das projeções, fundamentados nas Operaçõ
 | Financiamento (OE1) | Fonte 1 — capital alheio | Tranche CGD €3.000k @ 4,15% (10 anos, carência 3a) | Plano de financiamento M6 |
 | Financiamento (OE1) | Fonte 2 — capital alheio | Linha BEI/PME (IFD) €1.500k @ 3,75% (10 anos, carência 3a) | Plano de financiamento M6 |
 | Financiamento (OE1) | Custo da dívida (Kd) | 4,02% (médio); ~3,1% *after-tax* | Modelo M6 |
-| Financiamento (OE1) | Custo do capital próprio (Ke) | ~16,62% (CAPM; βL ~2,4–2,5; Rf 3,1%; ERP 5,5%) | Modelo M6 |
+| Financiamento (OE1) | Custo do capital próprio (Ke) | ~16,62% (CAPM; βL ~2,34; Rf 3,1%; ERP 5,78%) | Modelo M6 |
 | Financiamento (OE1) | **WACC** | **6,46%** (base); WACC dinâmico Miles-Ezzell | Modelo M6 |
-| Fiscais | Taxa de IRC (marginal do projeto) | 23,5% (IRC 21% + derrama municipal 1,5% + estadual) | CIRC; modelo M6 |
+| Fiscais | Taxa de IRC (marginal do projeto) | 23,5% (IRC 20% + derrama estadual 2% + municipal 1,5%) | CIRC; modelo M6 |
 | Fiscais | Taxa efetiva consolidada | 8,4% (2024) → 20,2% (2029) | Modelo M6 — KPIs |
 | Fiscais | Benefícios ao investimento | SIFIDE II; RFAI €600k; DLRR; ICE | EBF / CFI |
 | Apoios | Subsídio PT2030 (FEDER) | €2.700k (45% do CAPEX elegível); NCRF 22; caixa em 2027 | Portugal 2030 |

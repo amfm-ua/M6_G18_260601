@@ -37,7 +37,7 @@ O capital próprio do projeto é integralmente fornecido pela Grestel (empresa-m
 | Dívida bancária (CGD + BEI) | 4.500.000 | 75% |
 | **TOTAL financiamento (CAPEX)** | **6.000.000** | **100%** |
 
-**Custo do capital próprio (Ke) e WACC.** O custo do capital próprio do projeto foi estimado pelo CAPM, com *beta* realavancado para a estrutura de 75% de dívida (Rf ≈ 3,1%; prémio de risco de mercado ≈ 5,5%; βL ≈ 2,4–2,5), resultando num **Ke ≈ 16,6%**. Combinando Ke (25%) e Kd *after-tax* ≈ 3,1% (75%), obtém-se um **WACC ≈ 6,46%**, taxa de desconto aplicada aos *cash-flows* do Hub no cenário base. O modelo utiliza ainda um **WACC dinâmico (Miles-Ezzell)**, crescente à medida que a dívida é amortizada e o peso do capital próprio aumenta, penalizando os fluxos mais tardios (ver Cap. 9).
+**Custo do capital próprio (Ke) e WACC.** O custo do capital próprio do projeto foi estimado pelo CAPM, com *beta* realavancado para a estrutura de 75% de dívida (Rf ≈ 3,1%; prémio de risco de mercado ≈ 5,78%; βL ≈ 2,34), resultando num **Ke ≈ 16,6%**. Combinando Ke (25%) e Kd *after-tax* ≈ 3,1% (75%), obtém-se um **WACC ≈ 6,46%**, taxa de desconto aplicada aos *cash-flows* do Hub no cenário base. O modelo utiliza ainda um **WACC dinâmico (Miles-Ezzell)**, crescente à medida que a dívida é amortizada e o peso do capital próprio aumenta, penalizando os fluxos mais tardios (ver Cap. 9).
 
 ---
 

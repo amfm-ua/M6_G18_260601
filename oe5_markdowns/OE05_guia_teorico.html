@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OE05 — Guia Teórico de Avaliação de Empresas · Grestel · G18</title>
+<style>
+  :root{
+    --azul:#1f4fd0; --verde:#1f8a4c; --tinta:#1f3a5f; --cinza:#5b6b7b;
+    --bg:#f6f8fb; --card:#ffffff; --linha:#dfe6ef; --amar:#b8860b; --vermelho:#b3261e;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:#1d2733;background:var(--bg);line-height:1.6;font-size:16px}
+  header.hero{background:linear-gradient(135deg,#1f3a5f,#2e5496);color:#fff;
+       padding:34px 28px;}
+  header.hero h1{margin:0 0 6px;font-size:1.7rem;letter-spacing:.2px}
+  header.hero p{margin:2px 0;opacity:.92;font-size:.95rem}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  .layout{display:flex;gap:28px;align-items:flex-start;max-width:1180px;margin:24px auto;padding:0 20px}
+  nav.toc{position:sticky;top:18px;flex:0 0 248px;background:var(--card);
+       border:1px solid var(--linha);border-radius:12px;padding:16px 14px;font-size:.9rem}
+  nav.toc h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--cinza);margin:.2em 0 .8em}
+  nav.toc a{display:block;color:var(--tinta);text-decoration:none;padding:5px 8px;border-radius:7px}
+  nav.toc a:hover{background:#eef3fb}
+  nav.toc ol{list-style:none;margin:0;padding:0;counter-reset:s}
+  nav.toc li a::before{counter-increment:s;content:counter(s) ". ";color:var(--cinza);font-weight:600}
+  main{flex:1 1 auto;min-width:0}
+  section.card{background:var(--card);border:1px solid var(--linha);border-radius:12px;
+       padding:24px 26px;margin:0 0 22px;scroll-margin-top:14px}
+  section.card h2{color:var(--tinta);border-bottom:2px solid #eef1f6;padding-bottom:8px;margin-top:0}
+  section.card h3{color:#2b3a4b;margin:1.4em 0 .4em;font-size:1.06rem}
+  .cap{display:inline-block;background:#eef3fb;color:var(--tinta);font-size:.74rem;
+       font-weight:600;padding:2px 9px;border-radius:20px;margin:0 4px 4px 0;border:1px solid #d7e2f3}
+  p{margin:.6em 0}
+  .formula{background:#0f1b2d;color:#eaf1fb;border-radius:10px;padding:14px 18px;margin:12px 0;
+       font-family:"Cambria Math","Times New Roman",Georgia,serif;font-size:1.12rem;overflow-x:auto}
+  .formula .lbl{display:block;color:#8fb4e8;font-size:.72rem;font-family:Segoe UI,sans-serif;
+       text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  var{font-style:italic;color:#cfe0fb}
+  .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .25em}
+  .frac>span:first-child{border-bottom:1px solid currentColor;padding:0 .5em}
+  .frac>span:last-child{padding:2px .5em 0}
+  .box{border-radius:10px;padding:12px 16px;margin:12px 0;border-left:4px solid}
+  .box.def{background:#f0f7f2;border-color:var(--verde)}
+  .box.xls{background:#eef3fb;border-color:var(--azul)}
+  .box.warn{background:#fdf6ec;border-color:var(--amar)}
+  .box b{color:var(--tinta)}
+  .box.xls b{color:var(--azul)}
+  .box.warn b{color:var(--amar)}
+  .box .tag{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;display:block;margin-bottom:3px}
+  .box.def .tag{color:var(--verde)} .box.xls .tag{color:var(--azul)} .box.warn .tag{color:var(--amar)}
+  code{background:#eef1f6;padding:1px 6px;border-radius:5px;font-size:.88em;color:#0f1b2d}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.92rem}
+  th,td{border:1px solid var(--linha);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f4fa;color:var(--tinta)}
+  tr:nth-child(even) td{background:#fafcff}
+  .legend span{display:inline-block;margin-right:16px;font-size:.86rem}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  footer{color:var(--cinza);font-size:.85rem;text-align:center;padding:26px 20px 40px}
+  .pill{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:6px;color:#fff}
+  .pill.azul{background:var(--azul)} .pill.verde{background:var(--verde)} .pill.preto{background:#3a4655}
+  @media(max-width:860px){.layout{flex-direction:column}nav.toc{position:static;width:100%;flex-basis:auto}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>Guia Teórico — Avaliação do Valor Intrínseco</h1>
+    <p><strong>OE05</strong> · Grestel — Produtos Cerâmicos, S.A. · PEF 2025-26 · Grupo 18</p>
+    <p>Triangulação: Fluxos de Caixa Descontados (DCF-FCFF) · Avaliação Relativa (Múltiplos) · Ótica do Acionista (FCFE)</p>
+    <p style="opacity:.8;font-size:.85rem;margin-top:10px">Base teórica: Damodaran, <em>Investment Valuation</em> (3.ª ed.). Cada conceito está ligado à folha/célula do template <code>OE05_G18_260601_estrutura.xlsx</code>.</p>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc">
+  <h2>Conteúdos</h2>
+  <ol>
+    <li><a href="#enq">Porquê três métodos</a></li>
+    <li><a href="#wacc">Custo de capital (WACC)</a></li>
+    <li><a href="#fcff">DCF-FCFF</a></li>
+    <li><a href="#terminal">Valor terminal</a></li>
+    <li><a href="#ponte">Ponte EV → Equity</a></li>
+    <li><a href="#mult">Avaliação por múltiplos</a></li>
+    <li><a href="#fcfe">FCFE (acionista)</a></li>
+    <li><a href="#sintese">Síntese e coerência</a></li>
+    <li><a href="#stress">Stress tests</a></li>
+    <li><a href="#preco">Preço de negociação</a></li>
+    <li><a href="#armadilhas">Armadilhas a evitar</a></li>
+    <li><a href="#glos">Glossário e fontes</a></li>
+  </ol>
+  <h2 style="margin-top:14px">Cores no Excel</h2>
+  <div class="legend">
+    <span><span class="dot" style="background:#1f4fd0"></span>Input (preenches)</span>
+    <span><span class="dot" style="background:#1f8a4c"></span>Referência</span>
+    <span><span class="dot" style="background:#3a4655"></span>Fórmula</span>
+  </div>
+</nav>
+
+<main>
+
+<section class="card" id="enq">
+  <h2>1. Porquê três métodos — a lógica da triangulação</h2>
+  <span class="cap">Cap. 34</span>
+  <p>O objetivo da OE5 é estimar o <strong>valor intrínseco</strong> da Grestel — quanto vale o negócio pela sua capacidade de gerar caixa, e não pelo preço momentâneo de mercado. Como nenhum modelo é perfeito, triangula-se a partir de <strong>três óticas independentes</strong>:</p>
+  <table>
+    <tr><th>Método</th><th>Pergunta a que responde</th><th>Ótica</th></tr>
+    <tr><td><strong>DCF-FCFF</strong> (obrigatório)</td><td>Quanto vale o negócio operacional para <em>todos</em> os financiadores?</td><td>Valor intrínseco de longo prazo</td></tr>
+    <tr><td><strong>Múltiplos</strong></td><td>Por quanto transacionam empresas semelhantes <em>hoje</em>?</td><td>Preço corrente de mercado</td></tr>
+    <tr><td><strong>FCFE</strong></td><td>Quanto sobra efetivamente para o <em>acionista</em>?</td><td>Ótica do detentor de capital</td></tr>
+  </table>
+  <div class="box def"><span class="tag">Ideia central</span>
+  O DCF mede valor intrínseco; os múltiplos medem preço relativo. Quando divergem, isso é <em>informação</em> (o mercado pode estar comprimido ou eufórico), não necessariamente erro. A divergência justifica-se, não se esconde.</div>
+</section>
+
+<section class="card" id="wacc">
+  <h2>2. Custo de capital — WACC e o benefício fiscal da dívida</h2>
+  <span class="cap">Cap. 8</span>
+  <p>Os fluxos do FCFF pertencem a <strong>todos</strong> os financiadores (acionistas + credores), por isso descontam-se ao <strong>custo médio ponderado de capital (WACC)</strong> — a remuneração exigida pelo conjunto.</p>
+
+  <h3>2.1 Custo do capital próprio (k<sub>e</sub>) — CAPM</h3>
+  <div class="formula"><span class="lbl">CAPM — Pressupostos!C15</span>
+    <var>k<sub>e</sub></var> = <var>R<sub>f</sub></var> + <var>β</var> × <var>ERP</var></div>
+  <p>O retorno exigido pelo acionista = taxa sem risco (<var>R<sub>f</sub></var>, ex.: OT portuguesa a 10 anos) mais um prémio pelo risco sistemático, dado pelo <strong>beta</strong> (<var>β</var>) multiplicado pelo prémio de risco de mercado (<var>ERP</var>).</p>
+  <div class="box xls"><span class="tag">No Excel</span> <code>Pressupostos!C12</code> (R<sub>f</sub>), <code>C13</code> (ERP), <code>C14</code> (β) são <span class="pill azul">input</span>; <code>C15</code> calcula k<sub>e</sub> automaticamente.</div>
+
+  <h3>2.2 Beta — desalavancar e re-alavancar</h3>
+  <p>O beta do setor reflete a estrutura de capital média dos pares. Para o aplicar à Grestel, desalavanca-se (retira-se a dívida dos pares) e re-alavanca-se com o rácio dívida/capital próprio da Grestel:</p>
+  <div class="formula"><span class="lbl">Beta re-alavancado (Hamada)</span>
+    <var>β<sub>L</sub></var> = <var>β<sub>U</sub></var> × [ 1 + (1 − <var>t</var>) × <span class="frac"><span>D</span><span>E</span></span> ]</div>
+
+  <h3>2.3 Custo da dívida e o benefício fiscal <span style="font-weight:400;font-size:.9rem">(obrigatório na OE5)</span></h3>
+  <p>Os juros da dívida são dedutíveis ao imposto. Logo, o custo <em>efetivo</em> da dívida para a empresa é inferior à taxa contratada — esse desconto é o <strong>benefício fiscal (tax shield)</strong>:</p>
+  <div class="formula"><span class="lbl">Custo da dívida após imposto — Pressupostos!C18</span>
+    <var>k<sub>d</sub></var><sup>após imp.</sup> = <var>k<sub>d</sub></var> × (1 − <var>t</var>)</div>
+  <div class="box warn"><span class="tag">Exigência do enunciado</span>
+  O impacto do benefício fiscal da dívida <strong>tem</strong> de aparecer no WACC. No template está garantido: o WACC usa <code>k<sub>d</sub>×(1−t)</code>, não o k<sub>d</sub> bruto.</div>
+
+  <h3>2.4 WACC</h3>
+  <div class="formula"><span class="lbl">WACC — Pressupostos!C23</span>
+    WACC = <var>k<sub>e</sub></var> × <span class="frac"><span>E</span><span>V</span></span> + <var>k<sub>d</sub></var> × (1 − <var>t</var>) × <span class="frac"><span>D</span><span>V</span></span></div>
+  <p>Os pesos <var>E/V</var> e <var>D/V</var> devem usar <strong>valores de mercado</strong> (ou a melhor aproximação disponível), não contabilísticos. Por construção, dívida mais barata (após imposto) e mais peso de dívida <em>reduzem</em> o WACC.</p>
+  <div class="box xls"><span class="tag">No Excel</span> <code>C19</code> (D) e <code>C20</code> (E) são input; <code>C21/C22</code> calculam os pesos; <code>C23</code> o WACC. <strong>O mesmo valor de dívida deve ser usado em todo o modelo</strong> — ver §11.</div>
+</section>
+
+<section class="card" id="fcff">
+  <h2>3. DCF-FCFF — o fluxo para a empresa</h2>
+  <span class="cap">Cap. 9</span><span class="cap">Cap. 10</span><span class="cap">Cap. 15</span>
+  <p>O valor de um ativo é o valor atual dos fluxos de caixa futuros que ele gera. O <strong>FCFF (Free Cash Flow to the Firm)</strong> é o caixa disponível depois de impostos e reinvestimento, <em>antes</em> de remunerar a dívida:</p>
+  <div class="formula"><span class="lbl">FCFF — DCF-FCFF!linha 23</span>
+    FCFF = EBIT × (1 − <var>t</var>) + D&amp;A − CapEx − ΔNWC</div>
+  <table>
+    <tr><th>Componente</th><th>Porquê</th><th>Excel</th></tr>
+    <tr><td>EBIT × (1−t) = <strong>NOPAT</strong></td><td>Resultado operacional líquido de imposto, como se não houvesse dívida</td><td>linha 17</td></tr>
+    <tr><td>+ D&amp;A</td><td>Custo que não é saída de caixa — readiciona-se</td><td>linha 20</td></tr>
+    <tr><td>− CapEx</td><td>Investimento em ativo fixo consome caixa</td><td>linha 21</td></tr>
+    <tr><td>− ΔNWC</td><td>Crescer exige mais fundo de maneio (stocks, clientes)</td><td>linha 22</td></tr>
+  </table>
+  <div class="box def"><span class="tag">Porque FCFF e não FCFE no DCF principal</span>
+  O FCFF é preferível quando a alavancagem está a mudar: não obriga a projetar pagamentos de dívida ano a ano (Cap. 15). A dívida entra <em>uma vez</em>, no fim, na ponte EV→Equity.</div>
+
+  <h3>3.1 Projeção e desconto</h3>
+  <p>Projeta-se a receita com taxas de crescimento, derivam-se EBITDA/EBIT por margens, e cada FCFF anual desconta-se ao WACC:</p>
+  <div class="formula"><span class="lbl">Valor atual de cada fluxo — linhas 25–26</span>
+    Fator desconto<sub>t</sub> = <span class="frac"><span>1</span><span>(1 + WACC)<sup>t</sup></span></span> &nbsp;&nbsp;→&nbsp;&nbsp; PV(FCFF<sub>t</sub>) = FCFF<sub>t</sub> × Fator<sub>t</sub></div>
+  <div class="box xls"><span class="tag">No Excel</span> As <strong>séries de projeção</strong> (receita, EBITDA, D&amp;A, CapEx, ΔNWC) são <span class="pill azul">input</span> — vêm do motor M6. As <strong>margens</strong> (linhas 12 e 15) são mostradas de propósito: se a margem saltar de forma injustificada, vês logo (ver §11).</div>
+</section>
+
+<section class="card" id="terminal">
+  <h2>4. Valor terminal — fechar a avaliação</h2>
+  <span class="cap">Cap. 12</span>
+  <p>Não se projetam fluxos até ao infinito. Após o período explícito (anos 1–n), assume-se crescimento estável perpétuo à taxa <var>g<sub>n</sub></var> e capta-se tudo num <strong>valor terminal</strong> (modelo de Gordon):</p>
+  <div class="formula"><span class="lbl">Valor terminal — DCF-FCFF!C29</span>
+    VT = <span class="frac"><span>FCFF<sub>n+1</sub></span><span>WACC − <var>g<sub>n</sub></var></span></span></div>
+
+  <h3>4.1 Duas restrições críticas</h3>
+  <div class="box warn"><span class="tag">Restrição 1 — crescimento</span>
+  <var>g<sub>n</sub></var> <strong>não pode exceder o crescimento nominal da economia</strong> (≈ taxa sem risco no longo prazo). Uma empresa não cresce para sempre mais depressa do que a economia onde opera.</div>
+  <div class="box warn"><span class="tag">Restrição 2 — coerência do reinvestimento</span>
+  Crescer exige reinvestir. O reinvestimento terminal tem de ser coerente com o crescimento e o retorno do capital:
+  <div class="formula" style="margin-top:8px"><span class="lbl">Pressupostos!C28</span>
+    Taxa de reinvestimento = <span class="frac"><span><var>g<sub>n</sub></var></span><span>ROC</span></span>
+    &nbsp;&nbsp;→&nbsp;&nbsp; FCFF<sub>n+1</sub> = NOPAT<sub>n+1</sub> × (1 − <span class="frac"><span><var>g<sub>n</sub></var></span><span>ROC</span></span>)</div>
+  Sem esta correção, assume-se implicitamente crescimento "de graça" e o valor terminal fica inflacionado. O template já aplica esta versão consistente em <code>DCF-FCFF!C28</code>.</div>
+
+  <h3>4.2 O peso do valor terminal</h3>
+  <p>Tipicamente o VT representa a maioria do Enterprise Value. Isso torna o resultado <strong>muito sensível</strong> ao spread <code>WACC − g<sub>n</sub></code>: poucos pontos-base mudam o valor drasticamente. É por isto que existe a folha de stress tests (§9).</p>
+</section>
+
+<section class="card" id="ponte">
+  <h2>5. Ponte Enterprise Value → Equity Value</h2>
+  <p>O DCF-FCFF dá o <strong>Enterprise Value (EV)</strong> — o valor de todo o negócio. Para chegar ao que pertence ao <strong>acionista</strong>, subtrai-se a dívida líquida:</p>
+  <div class="formula"><span class="lbl">DCF-FCFF!C33 → C35</span>
+    EV = Σ PV(FCFF) + PV(VT) &nbsp;&nbsp;|&nbsp;&nbsp; Equity Value = EV − Dívida Líquida</div>
+  <div class="formula"><span class="lbl">Valor por ação — DCF-FCFF!C37 (atenção às unidades)</span>
+    Valor por ação (€) = <span class="frac"><span>Equity Value (€ mil) × 1000</span><span>N.º de ações</span></span></div>
+  <div class="box def"><span class="tag">Dívida líquida</span> = dívida financeira − caixa e equivalentes. É <strong>um único conceito</strong>, usado de forma idêntica aqui e nos múltiplos (Pressupostos!C36).</div>
+</section>
+
+<section class="card" id="mult">
+  <h2>6. Avaliação por múltiplos — avaliação relativa</h2>
+  <span class="cap">Cap. 17</span><span class="cap">Cap. 18</span><span class="cap">Cap. 19</span><span class="cap">Cap. 20</span>
+  <p>Estima o valor comparando com empresas semelhantes: aplica-se um múltiplo setorial a uma métrica da Grestel. Exige menos pressupostos e reflete o estado <em>atual</em> do mercado.</p>
+  <table>
+    <tr><th>Múltiplo</th><th>Fórmula</th><th>Determinante fundamental</th><th>Dá…</th></tr>
+    <tr><td>EV/EBITDA</td><td>EV = EBITDA × múltiplo</td><td>Ignora depreciação e estrutura de capital</td><td>EV → equity (− DL)</td></tr>
+    <tr><td>EV/EBIT</td><td>EV = EBIT × múltiplo</td><td>Após depreciação</td><td>EV → equity (− DL)</td></tr>
+    <tr><td>EV/Sales</td><td>EV = Vendas × múltiplo</td><td>Margem operacional</td><td>EV → equity (− DL)</td></tr>
+    <tr><td>P/E</td><td>Equity = Lucro × múltiplo</td><td>Crescimento, payout, risco</td><td>Equity direto</td></tr>
+    <tr><td>P/BV</td><td>Equity = Cap. Próprio × múltiplo</td><td>ROE</td><td>Equity direto</td></tr>
+  </table>
+  <div class="box def"><span class="tag">Processo de 4 etapas (Cap. 17)</span>
+  (1) definição <em>consistente</em> do múltiplo; (2) conhecer a distribuição no mercado; (3) perceber os determinantes fundamentais; (4) escolher comparáveis rigorosos.</div>
+  <div class="box xls"><span class="tag">No Excel</span> Métricas da empresa ligadas ao DCF; medianas do setor em <code>Pressupostos!C39:C43</code>. A síntese (<code>Múltiplos!D17</code>) usa a <strong>mediana</strong> dos equity values dos três múltiplos de EV (EV/EBITDA, EV/EBIT, EV/Sales) — o rótulo reflete exatamente o que é calculado.</div>
+</section>
+
+<section class="card" id="fcfe">
+  <h2>7. FCFE — a ótica do acionista</h2>
+  <span class="cap">Cap. 13</span><span class="cap">Cap. 14</span>
+  <p>O <strong>FCFE (Free Cash Flow to Equity)</strong> é o caixa que sobra para o acionista <em>depois</em> de reinvestimento e do serviço da dívida:</p>
+  <div class="formula"><span class="lbl">FCFE — 💰 FCFE!linha 13</span>
+    FCFE = Lucro Líquido − (CapEx − D&amp;A) − ΔNWC + (Nova Dívida − Amortização)</div>
+  <p>Como já remunera a dívida, desconta-se ao <strong>custo do capital próprio (k<sub>e</sub>)</strong>, não ao WACC, e dá diretamente o <strong>equity value</strong> (sem ponte).</p>
+  <div class="box def"><span class="tag">FCFE vs. Dividendos (DDM)</span>
+  O modelo de dividendos (Gordon: <var>P<sub>0</sub></var> = <var>D<sub>1</sub></var>/(k<sub>e</sub>−g)) assume que o acionista só recebe dividendos. O FCFE é preferível quando os dividendos pagos <strong>divergem</strong> da capacidade real de distribuir caixa — caso típico de empresas que retêm resultados.</div>
+</section>
+
+<section class="card" id="sintese">
+  <h2>8. Síntese e análise de coerência</h2>
+  <span class="cap">Cap. 34</span>
+  <p>Combinam-se os três equity values numa referência ponderada. Na ausência de razão para sobreponderar uma ótica, pesos iguais (⅓ cada) evitam ancorar a decisão num só modelo — mas o peso é uma <strong>decisão tua</strong> (input).</p>
+  <div class="formula"><span class="lbl">Síntese!E7</span>
+    Valor ponderado = Σ ( Equity<sub>método</sub> × peso<sub>método</sub> )</div>
+  <h3>Explicar as discrepâncias</h3>
+  <p>Espera-se que o DCF (longo prazo) e os múltiplos (preço atual) divirjam. A coerência da análise está em <em>explicar</em> porquê — setor comprimido, desalavancagem projetada, sensibilidade ao valor terminal — e não em forçar convergência.</p>
+</section>
+
+<section class="card" id="stress">
+  <h2>9. Stress tests — sensibilidade</h2>
+  <p>O modelo tem de ser <strong>dinâmico</strong>: mudar um pressuposto recalcula tudo. A folha <code>📉 Stress Tests</code> faz variar simultaneamente <strong>WACC e g<sub>n</sub></strong> e mostra o impacto no equity DCF.</p>
+  <div class="box xls"><span class="tag">No Excel</span> Cada célula da grelha contém uma fórmula viva que recalcula o equity ao WACC e g indicados — não há valores fixos. Ao preencher o DCF, a tabela ganha vida sozinha.</div>
+  <div class="box def"><span class="tag">Porque WACC × g</span> Porque é o binómio que domina o valor terminal e, logo, a maior parte do EV. É a fonte de incerteza mais relevante a expor.</div>
+</section>
+
+<section class="card" id="preco">
+  <h2>10. Preço mínimo de negociação</h2>
+  <p>O valor ponderado é a referência <em>justa</em>. O <strong>preço mínimo de arranque</strong> aplica-lhe um desconto de negociação (ex.: −10%), para criar margem na mesa e refletir risco de iliquidez de uma participação fechada:</p>
+  <div class="formula"><span class="lbl">Síntese!C12 / C13</span>
+    Preço mínimo = Valor ponderado × (1 − desconto)</div>
+  <div class="box def"><span class="tag">Leitura</span> Não é o "valor justo único" — é o <em>piso</em> da posição negocial do vendedor. O intervalo defensável situa-se entre o método mais baixo e o mais alto.</div>
+</section>
+
+<section class="card" id="armadilhas">
+  <h2>11. Armadilhas a evitar (lições da versão anterior)</h2>
+  <p>O template foi desenhado para tornar estes erros <strong>estruturalmente impossíveis</strong>. Conhecê-los ajuda-te a validar o teu resultado:</p>
+  <table>
+    <tr><th>Armadilha</th><th>Consequência</th><th>Como o template protege</th></tr>
+    <tr><td>N.º de ações = 1</td><td>"Valor por ação" = equity total, sem sentido</td><td>N.º de ações é input próprio (<code>Pressupostos!C37</code>)</td></tr>
+    <tr><td>Margens fixas com salto</td><td>Margem dobra sem fundamento → infla NOPAT e valor terminal</td><td>Margens <em>visíveis</em> (linhas 12/15) — o salto não se esconde</td></tr>
+    <tr><td>Unidades € mil vs €</td><td>Valor por ação 1000× errado</td><td>Conversão explícita <code>×1000</code> na fórmula</td></tr>
+    <tr><td>Vários conceitos de dívida</td><td>WACC e ponte EV→equity incoerentes</td><td>Dívida líquida única (<code>Pressupostos!C36</code>) em todo o modelo</td></tr>
+    <tr><td>Rótulo ≠ cálculo</td><td>"EV/EBITDA" quando se calcula a mediana de 3</td><td>Rótulo descreve exatamente o que a célula faz</td></tr>
+    <tr><td>Ignorar peso do VT</td><td>Resultado frágil ao spread WACC−g</td><td>Folha de stress tests obrigatória</td></tr>
+  </table>
+</section>
+
+<section class="card" id="glos">
+  <h2>12. Glossário e fontes</h2>
+  <table>
+    <tr><th>Símbolo</th><th>Significado</th></tr>
+    <tr><td>R<sub>f</sub></td><td>Taxa livre de risco</td></tr>
+    <tr><td>ERP</td><td>Prémio de risco de mercado (<em>equity risk premium</em>)</td></tr>
+    <tr><td>β</td><td>Beta — sensibilidade ao risco sistemático</td></tr>
+    <tr><td>k<sub>e</sub> / k<sub>d</sub></td><td>Custo do capital próprio / da dívida</td></tr>
+    <tr><td>t</td><td>Taxa de imposto sobre o rendimento (IRC)</td></tr>
+    <tr><td>WACC</td><td>Custo médio ponderado de capital</td></tr>
+    <tr><td>NOPAT</td><td>Resultado operacional líquido de imposto = EBIT×(1−t)</td></tr>
+    <tr><td>FCFF / FCFE</td><td>Fluxo de caixa para a empresa / para o acionista</td></tr>
+    <tr><td>ΔNWC</td><td>Variação do fundo de maneio (<em>net working capital</em>)</td></tr>
+    <tr><td>EV</td><td>Enterprise Value — valor do negócio</td></tr>
+    <tr><td>g<sub>n</sub></td><td>Taxa de crescimento terminal (perpétua)</td></tr>
+    <tr><td>ROC</td><td>Retorno sobre o capital investido</td></tr>
+    <tr><td>VT</td><td>Valor terminal</td></tr>
+  </table>
+  <h3>Bibliografia</h3>
+  <p>Damodaran, A. <em>Investment Valuation: Tools and Techniques for Determining the Value of Any Asset</em>, 3.ª ed., Wiley.</p>
+  <ul style="font-size:.92rem;color:#3a4655">
+    <li>Cap. 8 — custo de capital e parâmetros de risco · Cap. 9–10 — resultados e fluxos de caixa</li>
+    <li>Cap. 12 — valor terminal · Cap. 15 — avaliação da empresa (FCFF/WACC)</li>
+    <li>Cap. 13–14 — modelos de dividendos e FCFE</li>
+    <li>Cap. 17–20 — avaliação relativa e múltiplos</li>
+    <li>Cap. 34 — escolha do modelo e análise de coerência</li>
+  </ul>
+</section>
+
+</main>
+</div>
+
+<footer>
+  Guia teórico OE05 · Grupo 18 · gerado como apoio ao template <code>OE05_G18_260601_estrutura.xlsx</code>.<br>
+  Os números devem vir do motor M6; este guia explica o <em>porquê</em> de cada cálculo.
+</footer>
+</body>
+</html>

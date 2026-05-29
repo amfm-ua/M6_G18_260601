@@ -27,11 +27,14 @@ _GRESTEL_DEFAULTS: dict = {
     "net_debt":         13_337_000.0,   # € (= 13 337 k€ dívida líquida fin 2025E)
     "shares":           1.0,
     "E_equity":         14_448_000.0,   # € (= 14 448 k€ CP contabilístico 2025E)
-    "EV_EBITDA_sector": 8.0,
-    "EV_EBIT_sector":   10.0,
-    "PE_sector":        14.0,
-    "PBV_sector":       1.5,
-    "EV_Sales_sector":  1.2,
+    # Múltiplos sectoriais — Damodaran, aplicados à Grestel (ver OE5). Substituem
+    # as medianas genéricas do sector cerâmico europeu por múltiplos considerados
+    # mais apropriados ao perfil da Grestel (margens/ROC acima do sector).
+    "EV_EBITDA_sector": 15.86,
+    "EV_EBIT_sector":   19.00,
+    "PE_sector":        23.20,
+    "PBV_sector":       4.73,
+    "EV_Sales_sector":  2.79,
     "negotiation_discount": -0.10,
     "w_dcf":            1 / 3,
     "w_multiples":      1 / 3,

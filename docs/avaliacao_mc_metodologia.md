@@ -46,7 +46,7 @@ A simulação perturba cinco *drivers* em cada iteração $i = 1, \ldots, N$:
 |---|---|---|
 | WACC | Triangular | $[\mu - 1{,}5\%, \mu, \mu + 1{,}5\%]$, $\mu = 6{,}21\%$ |
 | $g_n$ (crescimento terminal) | Triangular | cenário-dependente (ver §4) |
-| Múltiplo EV/EBITDA | Normal truncada | $\mathcal{N}(8{,}0; 1{,}5^2)$, suporte $[4; 16]$ |
+| Múltiplo EV/EBITDA | Normal truncada | $\mathcal{N}(15{,}86; 3{,}0^2)$, suporte $[7{,}9; 31{,}7]$ |
 | Choque crescimento receita | Normal truncada | $\mathcal{N}(0; 0{,}015^2)$, suporte $[-5\%; +10\%]$ |
 | Choque margem EBITDA | Normal truncada | $\mathcal{N}(0; 0{,}015^2)$, suporte $[-5\%; +5\%]$ |
 
@@ -121,7 +121,7 @@ Os pressupostos financeiros utilizados nas simulações foram calibrados com bas
 | WACC | 6,21% | $k_e \cdot E/V + k_d \cdot D/V$ |
 | Taxa de IRC efectiva ($\tau$) | 20,0% | OE2024, art. 87.º CIRC |
 | Dívida líquida | 13,3 M€ | Dívida financeira pós IAPMEI, fim 2025E |
-| Múltiplo EV/EBITDA sectorial | 8,0× | Mediana sector cerâmica europeu |
+| Múltiplo EV/EBITDA sectorial | 15,86× | Damodaran, aplicado ao perfil da Grestel (OE5) |
 
 Os fluxos de caixa projetados (FCFF e FCFE) são extraídos directamente do motor operacional para cada combinação (cenário × hub\_on), garantindo alinhamento total entre o plano financeiro e a avaliação estocástica.
 

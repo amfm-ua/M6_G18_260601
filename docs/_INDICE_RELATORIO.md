@@ -16,6 +16,9 @@ Extraídos do modelo em execução (`viabilidade_hub`, `vala_hub`, `monte_carlo_
 | Payback atualizado | **7,37 anos** | ~8,4 anos |
 | Índice de rendibilidade | **1,42** | 1,35 |
 | VALA (APV, VAL_base @ Ku) | **€3.718.544** | — |
+| DSCR mínimo (base, 2028) | **1,58×** | "≈1,1×" (era o stress, mal atribuído) |
+| DSCR mínimo (stress, sem apoios) | **1,08×** | — |
+| ICR mínimo (EBIT/juros, 2028) | **1,60×** | — |
 | Monte Carlo P(VAL>0) | **99,95%** | N=2.000, seed 42 |
 
 ---

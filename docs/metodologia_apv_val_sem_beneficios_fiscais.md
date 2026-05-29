@@ -136,6 +136,12 @@ Função principal: `vala_hub()` em `src/engine/projetos/hub_logistico/viabilida
 4. ✅ **`nota_metodologica`** + etiqueta da decomposição atualizadas para Ku; adicionada a chave de saída `val_base_ku` (mantido `val_base_ke` como alias retrocompatível).
 5. ✅ **`contingencia_hub.py`** — o hack `via["ke"]=ku` foi substituído por `via["ku"]=ku` + `via["ke"]=ke_lev`.
 6. ⏳ **Pendente (manual):** atualizar os números no relatório M6 (cap. 10) e em `fcf_modelacao_hub.md`.
+7. ✅ **Dashboard `interface/views.jsx`** — eliminados os resíduos de narrativa pré-correção que ainda apareciam na tab *Hub Logístico* (contradiziam o motor):
+   - **Subtab VALA, «Conclusão»** (`:2369`) — texto «O projeto é **inviável** sem benefícios fiscais» (herdado do caso-base a Ke = −591 k€) substituído por «O projeto **cria valor só pelas operações**… os benefícios fiscais **reforçam — não sustentam** a viabilidade», agora calculado a partir dos valores vivos do motor (VAL_base Ku = +€1,19 M; cenário *Sem PT2030 nem RFAI* = +€1,12 M, 🟢).
+   - **Etiquetas «Ke» → «Ku»** (6 ocorrências: KPI «VAL base» + sub «Ke=16,62 %» → «Ku=7,20 % · unlevered», waterfall, subtítulo do bridge, nota do comparativo, cabeçalhos de tabela VALA e MC) — o caso-base é descontado ao Ku, como já indica a `nota_metodologica` do motor; o «Ke=16,62 %» era especialmente enganador.
+   - **Subtab Monte Carlo (VALA)** — as linhas «Com PT2030 rejeitado» (96,9 %) e «Sem PT2030 e sem RFAI» (99,1 %) e o KPI `P(VALA>0 | PT2030 ✗)` tinham a cor **vermelha hardcoded** («falha»); passaram a tom condicionado pelos dados (≥ 50 % → verde), coerente com as ~5–17 falhas em 2000 simulações.
+   - As etiquetas «% viabilidade operacional / por financiamento» foram **mantidas** (são quotas de contribuição do VALA — 33 % / 67 % — não uma afirmação de (in)viabilidade).
+   - Verificado em runtime (porta 8001): conclusão e etiquetas corretas, linhas MC a verde, sem erros de consola.
 
 > Todas as correções **aumentam** o VAL (eram conservadoras na direção anterior), pelo que **não invertem** a decisão GO — mas alinham o modelo com a metodologia APV das fontes e tornam a narrativa («viável mesmo sem apoios») defensável. Testes: 91 passed, 5 skipped (inalterado).
 

@@ -1419,7 +1419,7 @@ function HubMonteCarloView({ ctx }) {
     ? Object.entries(mcVala.correlacoes_vala).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
     : [];
   const valaComponents = mcVala ? [
-    { key: "val_base_ke",   label: "VAL_base (Ke)",  data: mcVala.val_base_ke },
+    { key: "val_base_ke",   label: "VAL_base (Ku)",  data: mcVala.val_base_ke },
     { key: "escudo_fiscal", label: "Escudo Fiscal",   data: mcVala.escudo_fiscal },
     { key: "pv_pt2030",    label: "PT2030 líquido",  data: mcVala.pv_pt2030 },
     { key: "pv_rfai",      label: "RFAI",             data: mcVala.pv_rfai },
@@ -1593,7 +1593,7 @@ function HubMonteCarloView({ ctx }) {
           <KPI label="P(VALA > 0)"         value={fmt.pct(diag.prob_vala_positivo, 1)}                        tone="pos" sub="viabilidade APV total" />
           <KPI label="P(VAL_base > 0)"     value={fmt.pct(diag.prob_val_base_positivo, 1)}                    sub="puro operacional · sem fiscal" />
           <KPI label="P(VALA>0 | PT2030 ✓)" value={fmt.pct(diag.prob_vala_positivo_dado_pt2030_aprovado, 1)} tone="pos" sub="se PT2030 aprovado" />
-          <KPI label="P(VALA>0 | PT2030 ✗)" value={fmt.pct(diag.prob_vala_positivo_dado_pt2030_rejeitado, 1)} tone="neg" sub="se PT2030 rejeitado" />
+          <KPI label="P(VALA>0 | PT2030 ✗)" value={fmt.pct(diag.prob_vala_positivo_dado_pt2030_rejeitado, 1)} tone={diag.prob_vala_positivo_dado_pt2030_rejeitado >= 0.5 ? "pos" : "neg"} sub="se PT2030 rejeitado" />
         </div>
 
         <div className="grid-2-3">
@@ -1608,13 +1608,13 @@ function HubMonteCarloView({ ctx }) {
             </div>
             <div style={{ borderTop: "1px solid var(--rule-strong)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
               {[
-                { label: "Com PT2030 aprovado",       val: diag.prob_vala_positivo_dado_pt2030_aprovado,  pos: true  },
-                { label: "Com PT2030 rejeitado",      val: diag.prob_vala_positivo_dado_pt2030_rejeitado, pos: false },
-                { label: "Sem PT2030 e sem RFAI",    val: diag.prob_vala_sem_pt2030_positivo,             pos: false },
+                { label: "Com PT2030 aprovado",       val: diag.prob_vala_positivo_dado_pt2030_aprovado  },
+                { label: "Com PT2030 rejeitado",      val: diag.prob_vala_positivo_dado_pt2030_rejeitado },
+                { label: "Sem PT2030 e sem RFAI",    val: diag.prob_vala_sem_pt2030_positivo            },
               ].map(row => (
                 <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
                   <span style={{ color: "var(--muted)" }}>{row.label}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontWeight: 700, color: row.pos ? "var(--pos)" : "var(--neg)" }}>
+                  <span style={{ fontFamily: "var(--mono)", fontWeight: 700, color: row.val >= 0.5 ? "var(--pos)" : "var(--neg)" }}>
                     {fmt.pct(row.val, 1)}
                   </span>
                 </div>
@@ -1622,7 +1622,7 @@ function HubMonteCarloView({ ctx }) {
             </div>
           </Panel>
 
-          <Panel title="Decomposição VALA — Percentis" sub="VAL_base(Ke) + Escudo Fiscal + PT2030 líquido + RFAI · P5 / médio / P95">
+          <Panel title="Decomposição VALA — Percentis" sub="VAL_base(Ku) + Escudo Fiscal + PT2030 líquido + RFAI · P5 / médio / P95">
             <table className="ftable ftable--dense">
               <thead>
                 <tr>
@@ -1654,7 +1654,7 @@ function HubMonteCarloView({ ctx }) {
               <tr>
                 <th>Cenário</th>
                 <th className="mono num">VALA</th>
-                <th className="mono num">VAL_base (Ke)</th>
+                <th className="mono num">VAL_base (Ku)</th>
                 <th className="mono num">Escudo</th>
                 <th className="mono num">PV(PT2030)</th>
                 <th className="mono num">PV(RFAI)</th>
@@ -2115,7 +2115,7 @@ function HubVALAView({ ctx }) {
 
   // Waterfall items — bridge VAL_base → VALA
   const wfItems = [
-    { label: "VAL base (Ke)",   value: vala.val_base_ke,        type: "total" },
+    { label: "VAL base (Ku)",   value: vala.val_base_ke,        type: "total" },
     { label: "+ Escudo Fiscal", value: vala.escudo_fiscal_total, type: "delta" },
     { label: "+ PT2030 líquido",value: vala.pv_pt2030_liquido,  type: "delta" },
     { label: "+ RFAI",          value: vala.pv_rfai,            type: "delta" },
@@ -2172,7 +2172,7 @@ function HubVALAView({ ctx }) {
       {/* ── KPI row ──────────────────────────────────────────────────────── */}
       <div className="grid-4">
         <KPI label="VALA (APV)"      value={fmt.eurC(valaVal)}                 tone={valaVal >= 0 ? "pos" : "neg"} sub="Myers 1974 · APV" />
-        <KPI label="VAL base (Ke)"   value={fmt.eurC(vala.val_base_ke)}        tone={vala.val_base_ke >= 0 ? "pos" : "neg"} sub={"Ke=" + fmt.pct(params.ke ?? 0, 2)} />
+        <KPI label="VAL base (Ku)"   value={fmt.eurC(vala.val_base_ke)}        tone={vala.val_base_ke >= 0 ? "pos" : "neg"} sub={"Ku=" + fmt.pct(params.ku ?? 0, 2) + " · unlevered"} />
         <KPI label="Escudo Fiscal"   value={fmt.eurC(vala.escudo_fiscal_total)} tone="pos" sub="Miles-Ezzell · kd por tranche" />
         <KPI label="PT2030 + RFAI"   value={fmt.eurC((vala.pv_pt2030_liquido ?? 0) + (vala.pv_rfai ?? 0))} tone="pos" sub={"rf=" + fmt.pct(params.rf ?? 0, 2) + " · NCRF 22"} />
       </div>
@@ -2180,7 +2180,7 @@ function HubVALAView({ ctx }) {
       {/* ── Waterfall decomposition ──────────────────────────────────────── */}
       <Panel
         title="Decomposição APV — Bridge VALA"
-        sub="VALA = VAL base(Ke) + Escudo Fiscal + PT2030 líquido + RFAI"
+        sub="VALA = VAL base(Ku) + Escudo Fiscal + PT2030 líquido + RFAI"
         right={<span className="chip-static mono">VALA {fmt.eurC(valaVal)}</span>}
       >
         <WaterfallChart items={wfItems} height={240} />
@@ -2258,7 +2258,7 @@ function HubVALAView({ ctx }) {
               <td className="mono num muted">Embutido no WACC</td>
               <td className={"mono num " + (pctOps >= 0 ? "muted" : "neg")}>{fmt.pct(pctOps, 1)}</td>
               <td className="mono num muted">—</td>
-              <td className="muted" style={{ fontSize: 11.5 }}>VAL_base(Ke) / VALA</td>
+              <td className="muted" style={{ fontSize: 11.5 }}>VAL_base(Ku) / VALA</td>
             </tr>
             <tr>
               <td>% viabilidade por financiamento</td>
@@ -2284,7 +2284,7 @@ function HubVALAView({ ctx }) {
             <tr>
               <th>Cenário fiscal</th>
               <th className="mono num">VALA</th>
-              <th className="mono num">VAL_base(Ke)</th>
+              <th className="mono num">VAL_base(Ku)</th>
               <th className="mono num">PT2030 liq.</th>
               <th className="mono num">RFAI</th>
               <th className="mono num">Escudo Fisc.</th>
@@ -2366,9 +2366,12 @@ function HubVALAView({ ctx }) {
           lineHeight: 1.5,
           borderTop: "1px solid var(--rule)",
         }}>
-          <b>Conclusão:</b> O projeto é <b>inviável sem benefícios fiscais</b> —
-          {" "}{fmt.pct(Math.abs(pctFin), 0)} do VALA provém do PT2030, RFAI e escudo fiscal da dívida.
-          Apenas {fmt.pct(Math.abs(pctOps), 0)} é gerado pelas operações puras (VAL_base a Ke).
+          <b>Conclusão:</b> O projeto <b>cria valor só pelas operações</b> — o VAL base
+          (Ku, unlevered) é positivo em {fmt.eurC(vala.val_base_ke)} e mantém-se positivo
+          ({fmt.eurC(cenarios["sem_subsidios"]?.vala ?? vala.val_base_ke)}) mesmo no cenário
+          {" "}<i>Sem PT2030 nem RFAI</i>. Os benefícios fiscais <b>reforçam — não sustentam</b>{" "}
+          a viabilidade: representam {fmt.pct(Math.abs(pctFin), 0)} do VALA (PT2030 + RFAI +
+          escudo fiscal da dívida), enquanto {fmt.pct(Math.abs(pctOps), 0)} provém das operações puras.
         </div>
       </Panel>
     </>

@@ -41,11 +41,14 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
         "max": None,
         "spread": 0.005,
     },
-    # EV/EBITDA: normal truncada N(sector, 1.5) ∈ [sector×0.5, sector×2.0]
+    # EV/EBITDA: normal truncada N(sector, std) ∈ [sector×0.5, sector×2.0].
+    # std ≈ 19 % da média (alinhado com EV/EBITDA Damodaran ≈ 15.86 da OE5);
+    # preserva a dispersão relativa que existia quando o múltiplo base era 8.0
+    # (std 1.5 ≈ 19 %), para não subestimar a incerteza do método dos múltiplos.
     "EV_EBITDA_mult": {
         "type": "truncnorm",
         "mean": None,   # EV_EBITDA_sector (resolvido em runtime)
-        "std": 1.5,
+        "std": 3.0,
         "low": None,    # mean * 0.5
         "high": None,   # mean * 2.0
     },

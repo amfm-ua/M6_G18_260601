@@ -51,7 +51,7 @@ from .viabilidade import (
     _irr,
     _payback,
     _discounted_payback,
-    _vlq_ativos,
+    _vlc_ativos,
     _capital_vivo,
     ponto_critico_hub,
     viabilidade_hub,

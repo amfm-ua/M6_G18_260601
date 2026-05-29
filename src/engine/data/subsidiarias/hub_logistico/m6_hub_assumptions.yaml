@@ -79,7 +79,7 @@ projeto_hub:
         taxa_depreciacao: 0.00    # sunk cost — não depreciado (NCRF 7 §7)
         vida_util_anos: 99        # dummy — irrelevante; pool excluído da análise incremental
         capex_elegivel_rfai: false
-        excluir_analise_incremental: true  # filtra depreciação, VLQ e outflows de FCF
+        excluir_analise_incremental: true  # filtra depreciação, VLC e outflows de FCF
       software_integracao:
         descricao: "Integração de sistemas (WMS/MES — configuração, personalização, testes) — capitalizável NCRF 6 §57"
         montante: 195000          # 65 % dos 300 k€ originais; 35 % (105 k€) são formação → gastos_pre_operacionais
@@ -285,28 +285,45 @@ projeto_hub:
     DMI_MP_reducao_dias: 8    # Digital Twin: previsão de procura → safety stock MP menor
 
   # ---------------------------------------------------------------------------
-  # BENEFÍCIOS COMERCIAIS — Acréscimo de VN por canais diretos habilitados pelo Hub
+  # BENEFÍCIOS COMERCIAIS — Aceleração incremental de VN em canais JÁ EXISTENTES
   # ---------------------------------------------------------------------------
-  # Fonte: relatório estratégico Grestel → +€0,35M–€0,95M/ano a partir de 2026.
-  # Mecanismos (fase 1+2 integradas):
-  #   • Fulfillment 24-48h → habilita B2C e hotelaria premium (Horeca)
-  #   • +200% SKUs geridos (6 VLMs) → expansão de coleções e mercados
-  #   • Box-on-Demand → embalagem premium gift → +18pp margem canal direto
-  #   • Digital Twin + MES → previsão de procura → menos stock-outs → mais vendas
-  #   • Logística a terceiros (Fase 2): serviços a produtores cerâmicos da região
-  # Ajuste M6 (realismo): VN incremental reduzido ~25-30 % face à versão anterior.
-  #   — 2026: ramp-up de canal B2C de raiz é lento (6-9 meses para visibilidade online)
-  #   — 2027: consolidação Horeca mais gradual (contratos de fornecimento são plurianuais)
-  #   — 2028: serviços logísticos a terceiros dependem de procura externa (incerteza PME local)
-  #   — O perfil conservador é mais defensável perante o júri e o auditor externo
+  # NATUREZA (importante para a defesa): NÃO são vendas "de raiz". Os canais
+  # diretos já existem e já valem ~50 % do VN da Grestel (cenário Base, modelo
+  # core, SEM Hub — apuramento vendas_anuais × mix_canal_produto):
+  #     E-Commerce / B2C   : €5,9 M (2024) → €8,3 M (2029)   [17 % do VN produtos]
+  #     Hotelaria / Horeca : €11,2 M (2024) → €15,6 M (2029)  [33 % do VN produtos]
+  #
+  # PRINCÍPIO INCREMENTAL (Brealey, Myers & Allen, Cap. 6 — fluxos "com vs. sem
+  # projeto"): vn_incremental é APENAS o acréscimo causado pelo Hub ACIMA do
+  # crescimento orgânico. NÃO há dupla contagem — o baseline do core NÃO embute
+  # qualquer efeito do Hub: crescimento_volume_por_canal e crescimento_pvu_por_canal
+  # = 0,00 em data/pressupostos/2025/vendas.yaml (canais crescem só ao ritmo
+  # global ~2 %/ano). O incremento do Hub é, por construção, somado por cima.
+  #
+  # MAGNITUDE (defensável): vn_incremental = apenas +1,7 % (2026) a +4,0 % (2029)
+  # sobre o VN combinado B2C+Horeca. Não é aposta num mercado novo; é destravar
+  # procura que HOJE se perde por capacidade/lead time. Robustez: a receita
+  # comercial pode cair 57 % e o VALA sem apoios mantém-se positivo (break-even
+  # a 43 % do vn_incremental).
+  #
+  # MECANISMO (o Hub levanta o teto de canais estrangulados pelo DMI elevado):
+  #   • Fulfillment 24-48h (vs. 3-5 d atuais) → recupera encomendas B2C/Horeca
+  #     hoje não servidas por lead time; liga-se à redução estrutural de DMI.
+  #   • +200 % SKUs geridos (6 VLMs) → amplitude de coleções sem +headcount.
+  #   • Box-on-Demand → embalagem premium gift → +18 pp margem no canal direto.
+  #   • Digital Twin + MES → previsão de procura → menos stock-outs → menos vendas perdidas.
+  #   • Logística a terceiros (Fase 2): novo serviço B2B a cerâmicas da região.
+  # Janela €0,35–0,95 M/ano: relatório estratégico Grestel, reduzida ~25-30 % na
+  # revisão M6 (prudência face a ramp-up e incerteza de captura de quota).
+  # Detalhe e fundamentação completa: docs/beneficios_comerciais_hub.md
   # ---------------------------------------------------------------------------
   beneficios_comerciais:
     ano_inicio: 2026
     vn_incremental:
-      2026: 350000    # ramp-up B2C conservador: visibilidade de canal e logística ainda em comissionamento
-      2027: 650000    # Box-on-Demand + Horeca a maturar; encomendas gift e hotelaria crescem gradualmente
-      2028: 850000    # serviços logísticos a terceiros (~200 k€); Digital Twin reduz ruturas de forma sustentada
-      2029: 950000    # crescimento moderado sustentado (+11,8 % sobre 2028 — B2C + logística a terceiros maturada)
+      2026: 350000    # +1,7 % sobre B2C+Horeca existentes — arranque do destravamento (fulfillment em comissionamento)
+      2027: 650000    # ~+3 % — Box-on-Demand + Horeca a acelerar sobre base existente
+      2028: 850000    # +serviços logísticos a terceiros (~200 k€); Digital Twin reduz ruturas
+      2029: 950000    # +4,0 % sobre B2C+Horeca — captura sustentada (acréscimo sobre canal existente, sem novo mercado)
     cmvmc_pct_incremental: 0.55  # custo direto ~55% VN → margem bruta incremental ~45% (vs ~27% no canal retalhista via distribuidor, ganho de +18 pp no canal direto; inclui embalagem premium e custos de fulfillment B2C)
     usd_fraction: 0.15            # 15 % do VN incremental denominado em USD (B2C internacional / EUA)
 

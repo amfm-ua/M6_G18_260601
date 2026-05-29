@@ -151,19 +151,19 @@ def _discounted_payback(
     return _payback(disc)
 
 
-def _vlq_ativos(hub: dict, ano_fim: int) -> float:
+def _vlc_ativos(hub: dict, ano_fim: int) -> float:
     """
-    Valor Líquido Contabilístico (VLQ) de todos os pools + juros capitalizados
+    Valor Líquido Contabilístico (VLC) de todos os pools + juros capitalizados
     no final do horizonte de análise — componente base do Valor Residual (NCRF 7).
 
-    VLQ_pool = montante × max(ano_dep_fim − ano_fim, 0) / vida_util
+    VLC_pool = montante × max(ano_dep_fim − ano_fim, 0) / vida_util
     onde ano_dep_fim = max(ano_pool, ano_inicio_op) + vida_util − 1.
     """
     proj = hub["projeto_hub"]
     pools = proj["capex"]["pools"]
     ano_inicio_op = int(proj["ano_inicio_beneficios"])
 
-    vlq = 0.0
+    vlc = 0.0
     for pool in pools.values():
         if pool.get("excluir_analise_incremental", False):
             continue
@@ -173,7 +173,7 @@ def _vlq_ativos(hub: dict, ano_fim: int) -> float:
         ano_dep_inicio = max(ano_pool, ano_inicio_op)
         ano_dep_fim = ano_dep_inicio + vida_util - 1
         anos_restantes = max(ano_dep_fim - ano_fim, 0)
-        vlq += montante * anos_restantes / vida_util
+        vlc += montante * anos_restantes / vida_util
 
     # Pool virtual dos juros capitalizados (NCRF 10) — mesma vida útil da construção civil
     jc_map = _juros_capitalizados_map(hub)
@@ -182,15 +182,15 @@ def _vlq_ativos(hub: dict, ano_fim: int) -> float:
         vida_jc = int(pools["construcao_civil"]["vida_util_anos"])
         ano_dep_jc_fim = ano_inicio_op + vida_jc - 1
         anos_restantes_jc = max(ano_dep_jc_fim - ano_fim, 0)
-        vlq += jc_total * anos_restantes_jc / vida_jc
+        vlc += jc_total * anos_restantes_jc / vida_jc
 
     # Terreno — custo de oportunidade (UC API, Doc 3): não depreciável → valor
     # pleno recuperado no VR terminal, simétrico à saída registada em CFinv_t0.
     terreno_cfg = proj.get("gastos_pre_operacionais", {}).get("terreno_custo_oportunidade", {})
     if terreno_cfg.get("inclui_em_cfinv", False):
-        vlq += float(terreno_cfg.get("valor", 0.0))
+        vlc += float(terreno_cfg.get("valor", 0.0))
 
-    return vlq
+    return vlc
 
 
 def _capital_vivo(hub: dict, ano_fim: int) -> float:
@@ -316,9 +316,9 @@ def viabilidade_hub(
       incluir_liquidacao_divida — se True, subtrai o capital bancário vivo
         no ano horizonte do FCF terminal (perspetiva acionista / FCFE).
         Por defeito False: abordagem FCFF pura (dívida no WACC).
-      taxa_realizacao_ativos — rácio valor de mercado / VLQ no final do
-        horizonte. 1,0 = VLQ = valor de saída (mais-valia zero, sem imposto).
-        >1,0 gera mais-valia: imposto = (realizacao − VLQ) × irc_taxa.
+      taxa_realizacao_ativos — rácio valor de mercado / VLC no final do
+        horizonte. 1,0 = VLC = valor de saída (mais-valia zero, sem imposto).
+        >1,0 gera mais-valia: imposto = (realizacao − VLC) × irc_taxa.
     """
     if hub is None:
         hub = load()
@@ -465,9 +465,9 @@ def viabilidade_hub(
     # ── Valor Residual ──────────────────────────────────────────────────────
     # O projeto cessa financeiramente no ano horizonte; não se usa perpetuidade.
     ano_horizonte = int(df_fcf["ano"].iloc[-1])
-    vr_ativos = _vlq_ativos(hub, ano_horizonte)
+    vr_ativos = _vlc_ativos(hub, ano_horizonte)
 
-    # Mais-valias: se valor de realização > VLQ (taxa_realizacao_ativos > 1)
+    # Mais-valias: se valor de realização > VLC (taxa_realizacao_ativos > 1)
     valor_realizacao = vr_ativos * taxa_realizacao_ativos
     mais_valia = max(valor_realizacao - vr_ativos, 0.0)
     imposto_mais_valia = mais_valia * irc_taxa
@@ -1066,7 +1066,7 @@ def vala_hub(
                 "descricao": (
                     f"FCFF puro unlevered (sem reconhecimento NCRF 22 em EBIT, "
                     f"sem benefícios fiscais) descontado a Ku={ku:.4%}. "
-                    "Horizonte 2025-2034 + valor terminal (VLQ + NFM)."
+                    "Horizonte 2025-2034 + valor terminal (VLC + NFM)."
                 ),
             },
             {

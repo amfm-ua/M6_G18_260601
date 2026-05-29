@@ -51,6 +51,8 @@ O controlo de gestão assenta na comparação orçamento *vs.* realizado (mensal
 
 O Hub assume uma **curva de adoção (*ramp-up*)** de 20% (2027), 40% (2028) e 70%→100% (2029+), benefícios operacionais recorrentes de ~€280k/ano (poupança operacional ~€440k − *opex* incremental ~€225k + redução de quebras ~€65k), libertação de inventário de ~€1,73 M (2026) por redução do DMI, e receitas incrementais B2C/3PL com margem premium. A quota-alvo é de 3–5% do mercado logístico/*hospitality* nacional e europeu.
 
+> **Nota sobre as receitas incrementais B2C/Horeca (incrementalidade e não-duplicação).** Estas receitas (€0,35–0,95 M/ano) **não** são vendas novas especulativas: os canais E-Commerce/B2C (~€5,9 M em 2024) e Hotelaria/Horeca (~€11,2 M) já representam ~50% do volume de negócios da Grestel. O valor modelado corresponde apenas à **aceleração incremental** (+1,7% a +4,0% sobre esses canais) que o Hub viabiliza ao remover o estrangulamento de *fulfillment* (lead times de 3–5 dias e ruturas associados ao DMI elevado). Em conformidade com o princípio dos fluxos incrementais («com *vs.* sem projeto»; Brealey, Myers & Allen, Cap. 6), o valor é **somado acima** do crescimento orgânico — que no modelo *core* não incorpora qualquer efeito do Hub (crescimento específico por canal = 0). A análise de sensibilidade confirma a robustez: uma quebra de até **57%** nestas receitas mantém o VALA positivo mesmo sem apoios fiscais. Fundamentação completa em `docs/beneficios_comerciais_hub.md`.
+
 ---
 
 ## 7.2. Demonstração dos resultados comparativa

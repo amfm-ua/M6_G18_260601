@@ -96,13 +96,26 @@ def main() -> int:
     print(f"OK  {OUT.name}  ({len(chapters)} capítulos, {OUT.stat().st_size:,} bytes)")
 
     if args.docx:
-        if not shutil.which("pandoc"):
-            print("AVISO: pandoc não encontrado no PATH — .docx não gerado.")
-            return 0
-        subprocess.run(
-            ["pandoc", str(OUT), "-o", str(DOCX), "--toc"], check=True
-        )
-        print(f"OK  {DOCX.name} gerado via pandoc")
+        pandoc = shutil.which("pandoc")
+        if pandoc:
+            subprocess.run(
+                [pandoc, str(OUT), "-o", str(DOCX), "--toc"], check=True
+            )
+            print(f"OK  {DOCX.name} gerado via pandoc")
+        else:
+            # Fallback: pandoc embutido no pypandoc (pip install pypandoc_binary).
+            try:
+                import pypandoc
+            except ImportError:
+                print(
+                    "AVISO: pandoc não encontrado no PATH e pypandoc não instalado "
+                    "— .docx não gerado.\n        Instale com: pip install pypandoc_binary"
+                )
+                return 0
+            pypandoc.convert_file(
+                str(OUT), "docx", outputfile=str(DOCX), extra_args=["--toc"]
+            )
+            print(f"OK  {DOCX.name} gerado via pypandoc (pandoc embutido)")
 
     return 0
 

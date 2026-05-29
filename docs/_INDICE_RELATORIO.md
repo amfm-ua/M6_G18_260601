@@ -32,6 +32,7 @@ Extraídos do modelo em execução (`viabilidade_hub`, `vala_hub`, `monte_carlo_
 | `monte_carlo_distribuicoes.md` | Calibração das distribuições dos drivers |
 | `fcf_modelacao_hub.md` | Definições FCFF/FCFE e construção do FCF *(parâmetros canónicos)* |
 | `dmi_modelacao_inventario.md` | Modelação do DMI e libertação de inventário |
+| `beneficios_comerciais_hub.md` | Incrementalidade das receitas B2C/Horeca, não-duplicação e robustez *(defesa relatório/apresentação)* |
 | `horizonte_10anos_extensao_motor.md` | Extensão do motor (flag `horizonte_maturidade`) |
 | `extensao_fcf_hub_2030_2034.md` | Extrapolação do FCF 2030–2034 |
 | `analise_balanco_coerencia.md` | Testes de coerência do balanço |

@@ -27,7 +27,7 @@ Extraídos do modelo em execução (`viabilidade_hub`, `vala_hub`, `monte_carlo_
 | `_INDICE_RELATORIO.md` | Este mapa de coerência |
 | `avaliacao_mc_metodologia.md` | Metodologia da simulação de Monte Carlo |
 | `monte_carlo_distribuicoes.md` | Calibração das distribuições dos drivers |
-| `fcf_modelacao_hub.md` | Definições FCFF/FCFE e construção do FCF *(banner de coerência)* |
+| `fcf_modelacao_hub.md` | Definições FCFF/FCFE e construção do FCF *(parâmetros canónicos)* |
 | `dmi_modelacao_inventario.md` | Modelação do DMI e libertação de inventário |
 | `horizonte_10anos_extensao_motor.md` | Extensão do motor (flag `horizonte_maturidade`) |
 | `extensao_fcf_hub_2030_2034.md` | Extrapolação do FCF 2030–2034 |
@@ -35,7 +35,7 @@ Extraídos do modelo em execução (`viabilidade_hub`, `vala_hub`, `monte_carlo_
 | `reconciliacao_dfc_correcao.md` | Reconciliação da DFC |
 | `aplicacoes_financeiras_cp.md` | Modelação de aplicações financeiras de CP |
 | `correcao_irc_taxa_efetiva.md` | Discussão da taxa de IRC — **questão em aberto** |
-| `pressupostos_sinteticos.md` | Referência-mãe de pressupostos *(banner de coerência)* |
+| `pressupostos_sinteticos.md` | Referência-mãe de pressupostos *(parâmetros canónicos)* |
 
 ## 🟡 `docs/_fora_ambito_m6/` — trabalho válido fora do âmbito do plano Hub
 

@@ -76,9 +76,8 @@ def _npv_variable_wacc(
     """
     cum_factor = 1.0
     total = 0.0
-    for t, (cf, w) in enumerate(zip(cashflows, waccs)):
-        if t > 0:
-            cum_factor *= (1 + w)
+    for cf, w in zip(cashflows, waccs):
+        cum_factor *= (1 + w)
         total += cf / cum_factor
     return total
 
@@ -406,7 +405,7 @@ def viabilidade_hub(
         # PT2030 accrual (NCRF 22): reconhecido pela depreciação real dos pools,
         # não pela taxa de crescimento g (mesma fórmula dos anos 2025-2029).
         pt2030_accrual_ext = (
-            round(pt2030_montante_ext * dep_pools_ext / capex_base_ext, 0)
+            round(pt2030_montante_ext * dep_pools_ext / capex_base_ext, 2)
             if capex_base_ext > 0 else 0.0
         )
         ebitda_ext = ebitda_op_ext + pt2030_accrual_ext
@@ -414,7 +413,7 @@ def viabilidade_hub(
 
         # PT2030 [3a] base tributável: dep_total / capex_base × montante (Excel [3a])
         pt2030_3a_ext = (
-            round(pt2030_montante_ext * dep_total_ext / capex_base_ext, 0)
+            round(pt2030_montante_ext * dep_total_ext / capex_base_ext, 2)
             if capex_base_ext > 0 else 0.0
         )
         # ebit já inclui o accrual dep_pools (coerente com hub_fcf dos anos motor)

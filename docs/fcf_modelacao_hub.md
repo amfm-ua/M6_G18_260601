@@ -1,7 +1,5 @@
 # Modelação de FCF no Hub Logístico
 
-> ⚠️ **Nota de coerência (ver `_INDICE_RELATORIO.md`):** os parâmetros derivados deste documento (WACC 6,3%, IRC 24,5%, Ke 16,18%) estão **desatualizados** face ao modelo atual. Valores canónicos: **WACC 6,46% · IRC 23,5% · Ke 16,62% · VAL €2.493.769 · TIR 17,49%**. A metodologia FCFF/FCFE abaixo mantém-se válida.
-
 ## 1. FCFF vs FCFE — Definições
 
 **FCFF (Free Cash Flow to the Firm / Fluxo de Caixa Livre da Empresa)**
@@ -67,9 +65,9 @@ Definidos em `src/engine/data/subsidiarias/hub_logistico/m6_hub_assumptions.yaml
 
 | Parâmetro | Valor |
 |---|---|
-| WACC | 6,3% |
-| IRC (taxa efetiva) | 24,5% |
-| Ke (custo do capital próprio) | 16,18% |
+| WACC | 6,46% |
+| IRC (taxa efetiva) | 23,5% |
+| Ke (custo do capital próprio) | 16,62% |
 | Kd (custo da dívida) | 4,02% |
 | Horizonte | 10 anos (2025–2034) |
 | CAPEX base | 6 000 k€ |

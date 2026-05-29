@@ -1,7 +1,5 @@
 # Síntese de Pressupostos — Modelo Financeiro GrestelPy
 
-> ⚠️ **Nota de coerência (ver `_INDICE_RELATORIO.md`):** os parâmetros de custo do capital e fiscais aqui tabelados (WACC 6,3%, Ke 16,18%, IRC 24,5%) estão **desatualizados**. Valores canónicos do modelo atual: **WACC 6,46% · Ke 16,62% · IRC 23,5%**. Os restantes pressupostos (vendas, consumos, FSE, pessoal) mantêm-se válidos e estão refletidos no Cap. 7.1 e no Anexo I do relatório.
-
 **Horizonte:** 2024 (histórico auditado) · 2025–2029 (projeção)  
 **Entidades:** Grestel (matriz) · Ecogres (subsidiária) · Hub Logístico 4.0 (projeto)
 
@@ -45,7 +43,7 @@ Distribuição mensal plana (sem sazonalidade delta) em 2025.
 | Taxa IRC base 2025–2029 | 20% | OE2024 / Lei 28/2023 (ex-21%) |
 | Taxa IRC 2024 (histórico) | 21% | — |
 | Taxa efetiva planeamento (C-1) | 13% | Inclui SIFIDE II, ICE, derramas (banda auditada 8%–18%) |
-| Taxa IRC Hub (viabilidade) | 24,5% | 21% IRC + 2% derrama estado + 1,5% derrama municipal (Vagos) |
+| Taxa IRC Hub (viabilidade) | 23,5% | 20% IRC (OE2025) + 2% derrama estado + 1,5% derrama municipal (Vagos) |
 
 ### SIFIDE II (Crédito Fiscal I&D)
 - Taxa de dedução: **32,5%** de despesas elegíveis
@@ -363,17 +361,17 @@ Benchmark: GS1/VDMA — WMS em PME industriais liberta 10–15% de stock; 14,5% 
 
 | Parâmetro | Valor | Derivação |
 |-----------|-------|-----------|
-| Rf (OT Portugal 10a, mai 2025) | 3,25% | — |
-| ERP (prémio de risco mercado) | 5,5% | — |
-| β desalavancado | 0,72 | Damodaran Europa, Household Products |
+| Rf (OT Portugal 10a) | 3,10% | — |
+| ERP (prémio de risco mercado) | 5,78% | Damodaran (Portugal): mature 4,23% + CRP 1,55% (jan-2026) |
+| β desalavancado | 0,71 | Damodaran Europa, "Betas by Sector" (jan-2026) |
 | D/E Hub | 3,0 (75% dívida / 25% capital) | — |
-| β alavancado | 2,35 | β_u × (1 + (1 − t) × D/E) |
-| Ke (custo capital próprio) | 16,18% | CAPM: Rf + β × ERP |
+| β alavancado | 2,34 | β_u × (1 + (1 − t) × D/E), t = 23,5% |
+| Ke (custo capital próprio) | 16,62% | CAPM: Rf + β_l × ERP |
 | Kd ponderado (líquido IRC) | 4,02% | (€3M × 4,15% + €1,5M × 3,75%) / €4,5M |
-| **WACC estático Base** | **6,3%** | Ke × wE + Kd × (1−t) × wD |
-| WACC Upside | 6,9% | −0,4pp (escala maior) |
-| WACC Downside | 8,1% | +0,8pp |
-| WACC Stress | 9,1% | +1,8pp (colapso de confiança) |
+| **WACC estático Base** | **6,46%** | wE × Ke + wD × Kd × (1−t) = 0,25×16,62% + 0,75×4,02%×0,765 |
+| WACC Upside | 6,9% | cenário (escala maior) |
+| WACC Downside | 8,1% | cenário (+risco) |
+| WACC Stress | 9,1% | cenário (colapso de confiança) |
 
 **WACC dinâmico (Miles-Ezzell):** aplicado ao VAL — penaliza os cash flows mais tardios à medida que a dívida amortiza e o rácio E/V aumenta.
 
@@ -456,7 +454,7 @@ Benchmark: GS1/VDMA — WMS em PME industriais liberta 10–15% de stock; 14,5% 
 | Ramp-up Hub | 100% | 100% | 75–100% | 60–100% |
 | VN incremental Hub 2026 | €350k | €450k | €250k | €150k |
 | Libertação inventários | €1.900k | €2.200k | €1.300k | €750k |
-| WACC Hub | 6,3% | 6,9% | 8,1% | 9,1% |
+| WACC Hub | 6,46% | 6,9% | 8,1% | 9,1% |
 | Choques específicos | — | — | — | USA −12% (tarifas); Hotelaria −10%; energia +3,7% real |
 
 ---
@@ -487,7 +485,7 @@ Benchmark: GS1/VDMA — WMS em PME industriais liberta 10–15% de stock; 14,5% 
 
 | Driver | Amplitude Analisada | Impacto Relativo no VAL |
 |--------|--------------------|-----------------------|
-| WACC | ±2pp em torno de 6,3% | **Muito elevado** (desconto de perpetuidade) |
+| WACC | ±2pp em torno de 6,46% | **Muito elevado** (desconto de perpetuidade) |
 | VN Incremental B2C | Cenário ±50% | **Muito elevado** |
 | Taxa de Crescimento dos Benefícios | 3,5% ±2pp | **Elevado** (sensibilidade de perpetuidade) |
 | Subsídio PT2030 | 45% ±15pp | **Elevado** (reduz capital inicial) |

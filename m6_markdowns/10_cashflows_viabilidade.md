@@ -38,17 +38,17 @@ A viabilidade do Hub Logístico 4.0 é aferida sobre os *cash-flows* incrementai
 | **TIR > WACC?** | **Sim** (17,49% > 6,46%) | Folga de ~11 p.p. |
 | VAL @ WACC dinâmico (Miles-Ezzell) | €1.638.783 | Permanece positivo mesmo penalizando os fluxos tardios |
 
-**Avaliação complementar por APV (VALA).** O método do valor atual ajustado separa o valor das operações do valor dos efeitos de financiamento, descontando as operações ao custo do capital próprio do projeto (Ke ≈ 16,62%) e adicionando os componentes de financiamento ao seu próprio risco:
+**Avaliação complementar por APV (VALA).** O método do valor atual ajustado (Myers, 1974) separa o valor das operações do valor dos efeitos de financiamento. As operações são descontadas ao **custo de capital desalavancado (Ku ≈ 7,20%)** — que reflete apenas o risco do negócio, sem o risco financeiro — e os componentes de financiamento são adicionados, cada um ao seu próprio risco:
 
 | Componente | Valor (€) | Metodologia |
 |---|---:|---|
-| VAL base das operações (@ Ke 16,62%) | (591.546) | FCFF operacional descontado ao custo de capital próprio do projeto |
+| VAL base das operações (@ Ku 7,20%) | 1.209.734 | FCFF operacional unlevered, sem benefícios fiscais |
 | (+) Escudo fiscal da dívida | 199.700 | Miles-Ezzell, por tranche |
 | (+) PT2030 líquido | 2.084.376 | NCRF 22, descontado à taxa sem risco (rf ≈ 3,1%) |
 | (+) RFAI | 224.734 | Crédito fiscal, descontado a rf |
-| **VALA (APV)** | **1.917.263** | Myers (1974); Miles-Ezzell (1980) |
+| **VALA (APV)** | **3.718.544** | Myers (1974); Miles-Ezzell (1980) |
 
-Os dois métodos confirmam a viabilidade: o VAL por FCFF (€2,49 M) e o VALA (€1,92 M) são ambos claramente positivos. O VALA é mais conservador porque desconta as operações ao elevado custo de capital próprio do projeto (16,62%, reflexo da alavancagem de 75%) antes de adicionar os benefícios de financiamento — evidenciando, de forma transparente, que **o subsídio PT2030 (€2,08 M atualizados) é o principal criador de valor**, seguido do escudo fiscal e do RFAI.
+Os dois métodos confirmam a viabilidade. O ponto mais relevante é que **o projeto cria valor só pelas operações (€1,21 M atualizados ao Ku), antes de qualquer apoio público ou fiscal** — os benefícios fiscais reforçam, não sustentam, a viabilidade. O VALA (€3,72 M) é superior ao VAL por FCFF ao WACC (€2,49 M) porque adiciona, de forma explícita e ao risco adequado, o **subsídio PT2030 (€2,08 M atualizados — o principal criador de valor)** e o crédito **RFAI (€0,22 M)**, que a abordagem WACC sobre o FCFF operacional não capta.
 
 **Conclusão:** o projeto é **economicamente viável** — VAL positivo, TIR (17,49%) muito acima do WACC (6,46%), índice de rendibilidade de 1,42 e *payback* atualizado (7,37 anos) confortavelmente dentro do horizonte de 10 anos.
 

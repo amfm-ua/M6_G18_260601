@@ -453,4 +453,5 @@ projeto_hub:
     ke: 0.16622                # Custo do capital próprio — CAPM: rf 3,10 % + β_l 2,34 × ERP 5,78 %
                                # β_l = β_u × (1 + (1−t) × D/E) = 0,71 × (1 + 0,765 × 3) = 2,3395 ≈ 2,34
     kd: 0.0402                 # Custo médio ponderado da dívida: (3M×4,15%+1,5M×3,75%)/4,5M = 4,02 %
+    ku: 0.07204                # Custo de capital DESALAVANCADO (CAPM β_u): rf + β_u × ERP = 7,20 % — desconto do caso-base APV
     equity_inicial: 1500000    # Capital próprio investido = 25 % × CAPEX 6 M€

@@ -122,15 +122,17 @@ def _aplicar_estrutura_capital(hub: dict, equity: float, divida: float) -> dict[
 
     APV correto (Myers 1974): o VAL_base é descontado ao **Ku** (custo do capital
     DESALAVANCADO, constante e independente da estrutura). Só o escudo fiscal —
-    via montante de dívida — varia com a estrutura. Por isso `via["ke"]` (usado
-    pelo vala_hub para descontar o FCFF base) é fixado em **Ku**, e NÃO no Ke
-    alavancado. Caso contrário, recapitalizar baixaria o Ke e inflaria
-    espúriamente o VAL_base (dupla contagem da alavancagem → violaria MM).
+    via montante de dívida — varia com a estrutura. Por isso `via["ku"]` (usado
+    pelo vala_hub para descontar o FCFF base) é fixado em **Ku** (constante), e o
+    `via["ke"]` mantém o Ke alavancado correto. Caso contrário, recapitalizar
+    baixaria o Ke e inflaria espúriamente o VAL_base (dupla contagem da
+    alavancagem → violaria MM).
 
-    O Ke alavancado e o WACC são calculados na mesma — mas apenas para REPORTE
-    (perfil de risco do acionista, taxa de desconto FCFE), não para o VAL_base.
+    O Ke alavancado e o WACC são calculados na mesma — para REPORTE (perfil de
+    risco do acionista, taxa FCFE) e para o WACC dinâmico, não para o VAL_base.
 
-    Atualiza via["ke"]=Ku, via["wacc"], via["equity_inicial"] e escala as tranches.
+    Atualiza via["ku"]=Ku, via["ke"]=Ke_lev, via["wacc"], via["equity_inicial"]
+    e escala as tranches.
     """
     proj = hub["projeto_hub"]
     via = proj["viabilidade"]
@@ -147,7 +149,8 @@ def _aplicar_estrutura_capital(hub: dict, equity: float, divida: float) -> dict[
     wacc = _wacc_estatico(ke_lev, kd, t, equity, divida)
 
     _escala_divida(hub, divida)
-    via["ke"] = ku            # ← APV: FCFF base descontado a Ku (constante)
+    via["ku"] = ku            # ← APV: FCFF base descontado a Ku (constante, indep. da estrutura)
+    via["ke"] = ke_lev        # Ke alavancado correto (reporte + WACC dinâmico)
     via["wacc"] = wacc
     via["equity_inicial"] = equity
 

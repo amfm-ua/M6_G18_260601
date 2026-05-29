@@ -15,7 +15,7 @@ Extraídos do modelo em execução (`viabilidade_hub`, `vala_hub`, `monte_carlo_
 | TIR | **17,49%** | 14,6% |
 | Payback atualizado | **7,37 anos** | ~8,4 anos |
 | Índice de rendibilidade | **1,42** | 1,35 |
-| VALA (APV) | **€1.917.263** | — |
+| VALA (APV, VAL_base @ Ku) | **€3.718.544** | — |
 | Monte Carlo P(VAL>0) | **99,95%** | N=2.000, seed 42 |
 
 ---

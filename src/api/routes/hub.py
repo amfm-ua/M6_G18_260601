@@ -338,10 +338,10 @@ def get_hub_vala(
     Decompõe o valor do projeto nos quatro componentes APV:
 
     ```
-    VALA = VAL_base(Ke) + Σ PV(escudo_fiscal_i × kd_i) + PV(PT2030_líq × rf) + PV(RFAI × rf)
+    VALA = VAL_base(Ku) + Σ PV(escudo_fiscal_i × kd_i) + PV(PT2030_líq × rf) + PV(RFAI × rf)
     ```
 
-    - **VAL_base**: FCFF puro (sem PT2030 em EBIT) descontado a Ke (CAPM).
+    - **VAL_base**: FCFF puro unlevered (sem PT2030 em EBIT) descontado ao **Ku** desalavancado (APV — Myers 1974).
     - **Escudo Fiscal**: VA(juros_expensed × t) por tranche a kd_i (Miles-Ezzell 1980).
     - **PT2030 líquido**: VA(cash-in 2027 − custo IRC NCRF 22) a rf=3,25 %.
     - **RFAI**: VA(crédito fiscal sobre CAPEX elegível) a rf=3,25 %.
@@ -355,6 +355,7 @@ def get_hub_vala(
         "cenario": cenario,
         "vala": result["vala"],
         "decomposicao": result["decomposicao"],
+        "val_base_ku": result["val_base_ku"],
         "val_base_ke": result["val_base_ke"],
         "escudo_fiscal_total": result["escudo_fiscal_total"],
         "escudo_fiscal_por_tranche": result["escudo_fiscal_por_tranche"],
@@ -473,7 +474,7 @@ def get_hub_monte_carlo_vala(
 
     Cada simulação devolve os quatro componentes APV:
     ```
-    VALA = VAL_base(Ke) + Escudo_Fiscal + PV(PT2030_líq) + PV(RFAI)
+    VALA = VAL_base(Ku) + Escudo_Fiscal + PV(PT2030_líq) + PV(RFAI)
     ```
 
     O campo `diagnostico` responde à pergunta-chave:

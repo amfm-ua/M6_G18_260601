@@ -85,6 +85,13 @@ onde o accrual em EBITDA também é baseado em `dep_pools`.
 O efeito é **conservador**: ao deixar de inflacionar o accrual, o EBITDA dos anos
 de extensão baixa, reduzindo VAL/TIR/VALA e alongando ligeiramente o payback.
 
+> **Nota (correção posterior — APV ao Ku):** os valores de VALA nesta tabela foram
+> calculados com o caso-base descontado ao Ke alavancado. Após a correção metodológica
+> que passou a descontar o caso-base ao **Ku desalavancado (7,20%)** — ver
+> `metodologia_apv_val_sem_beneficios_fiscais.md` — o **VALA atual é €3.718.544**
+> (VAL_base operacional +€1.209.734). O Δ desta tabela (−194.901 €) continua válido como
+> impacto isolado da correção do accrual; apenas os níveis absolutos de VALA foram superados.
+
 ### FCF e accrual após correção (2029–2034)
 
 | Ano          | EBITDA    | Accrual PT2030 | FCF livre |

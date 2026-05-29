@@ -903,6 +903,14 @@ def vala_hub(
 
     ke = float(via.get("ke", 0.161794))
     rf = float(via.get("rf", 0.0325))
+    # Ku — custo de capital DESALAVANCADO: taxa de desconto do caso-base do APV
+    # (operações unlevered, sem benefícios fiscais). Lê-se do YAML; se ausente,
+    # deriva de CAPM com β_u: Ku = rf + β_u × ERP. NUNCA usar o Ke alavancado no
+    # caso-base — embute risco financeiro de D/E=3 e penaliza fluxos unlevered.
+    beta_u = float(via.get("beta_u", 0.71))
+    erp = float(via.get("erp", (ke - rf) / 2.34 if ke > rf else 0.0578))
+    ku = float(via.get("ku", rf + beta_u * erp))
+    wacc_real = float(via.get("wacc", 0.0646))
     horizonte = int(via.get("horizonte_anos", 10))
 
     # ── Horizonte completo: YEARS + anos de extensão ─────────────────────────
@@ -914,13 +922,15 @@ def vala_hub(
         """Período de desconto: t=1 para 2025 (convenção fim-de-período)."""
         return y - ano_base + 1
 
-    # ── 1. VAL_base(Ke) ── FCFF puro descontado a Ke ─────────────────────────
-    # viabilidade_hub() com wacc=Ke fornece os FCF (incluindo extensão e VT).
+    # ── 1. VAL_base(Ku) ── FCFF puro unlevered descontado a Ku ────────────────
+    # viabilidade_hub() fornece os FCF (idênticos qualquer que seja a taxa de
+    # desconto). Passa-se wacc=wacc_real para que res_via["val"] sirva de
+    # referência WACC genuína (confronto metodológico APV ↔ WACC).
     # O FCF_hub inclui o reconhecimento NCRF 22 no EBIT (via hub_dr_impact),
     # o que aumenta o IRC em accrual_y × irc_taxa. Removemos este efeito para
     # isolar o FCFF operacional puro — o PT2030 é tratado separadamente abaixo.
     res_via = viabilidade_hub(
-        hub, irc_taxa=irc_taxa, wacc=ke, incluir_inventario=incluir_inventario
+        hub, irc_taxa=irc_taxa, wacc=wacc_real, incluir_inventario=incluir_inventario
     )
     df_fcf_full = res_via["fcf_df"]
     cfs_com_vt = list(res_via["cashflows_val"])  # VT somado ao último CF
@@ -946,7 +956,8 @@ def vala_hub(
         cfs_clean.append(fcf_y - ajuste)
         fcf_ajuste_pt2030[y] = round(ajuste, 2)
 
-    val_base = _npv(cfs_clean, ke)
+    # APV (Myers 1974): o caso-base unlevered desconta-se ao Ku, NÃO ao Ke.
+    val_base = _npv(cfs_clean, ku)
 
     # ── 2. Escudo Fiscal por tranche (Miles-Ezzell) ───────────────────────────
     # Iteramos todos_anos manualmente para cobrir o horizonte completo,
@@ -1051,11 +1062,11 @@ def vala_hub(
         # ── Decomposição APV ──────────────────────────────────────────────────
         "decomposicao": [
             {
-                "componente": "VAL_base (Ke)",
+                "componente": "VAL_base (Ku, unlevered)",
                 "valor": round(val_base, 2),
                 "descricao": (
-                    f"FCFF puro (sem reconhecimento NCRF 22 em EBIT) "
-                    f"descontado a Ke={ke:.4%}. "
+                    f"FCFF puro unlevered (sem reconhecimento NCRF 22 em EBIT, "
+                    f"sem benefícios fiscais) descontado a Ku={ku:.4%}. "
                     "Horizonte 2025-2034 + valor terminal (VLQ + NFM)."
                 ),
             },
@@ -1088,7 +1099,8 @@ def vala_hub(
             },
         ],
         # ── Valores individuais para dashboards ───────────────────────────────
-        "val_base_ke": round(val_base, 2),
+        "val_base_ku": round(val_base, 2),       # caso-base unlevered a Ku (APV)
+        "val_base_ke": round(val_base, 2),       # alias retrocompatível (mesmo valor)
         "escudo_fiscal_total": round(total_escudo_fiscal, 2),
         "escudo_fiscal_por_tranche": escudo_por_tranche,
         "pv_pt2030_liquido": round(pv_pt2030, 2),
@@ -1101,7 +1113,9 @@ def vala_hub(
         "val_wacc_referencia": round(res_via.get("val", 0.0), 2),
         # ── Parâmetros usados ─────────────────────────────────────────────────
         "parametros": {
+            "ku": ku,
             "ke": ke,
+            "wacc": wacc_real,
             "rf": rf,
             "irc_taxa": irc_taxa,
             "horizonte_anos": horizonte,
@@ -1114,7 +1128,8 @@ def vala_hub(
         },
         "nota_metodologica": (
             "APV — Myers (1974). "
-            f"VAL_base a Ke={ke:.4%} (CAPM, β_l≈2,35, rf={rf:.2%}, ERP=5,5 %). "
+            f"VAL_base unlevered a Ku={ku:.4%} (CAPM com β_u={beta_u}, rf={rf:.2%}, "
+            f"ERP={erp:.2%}); NÃO usa o Ke alavancado no caso-base. "
             "Escudo fiscal a kd por tranche (Miles-Ezzell 1980). "
             f"PT2030 e RFAI a rf={rf:.2%} (fluxos quasi-determinísticos). "
             "FCF base limpo de NCRF 22 — reconhecimento separado no componente PT2030."

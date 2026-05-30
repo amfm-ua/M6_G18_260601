@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from src.engine.modelo.model import run_model
-from src.engine.valuation import GrestelModel, load_params, monte_carlo_valuation
+from src.engine.valuation import GrestelModel, load_params, monte_carlo_valuation, compute_vala
 from src.engine.valuation.excel_reader import _DEFAULT_PATH
 
 router = APIRouter(prefix="/api/valuation")
@@ -17,29 +17,41 @@ router = APIRouter(prefix="/api/valuation")
 # Calibrados com OE5 (R&C 2024, run_model cenário Base). Todos os valores
 # monetários em € (unidade usada pelo engine/run_model).
 _GRESTEL_DEFAULTS: dict = {
-    "WACC":             0.0621,
-    "ke":               0.0935,
-    "kd":               0.028,
+    # ── Taxas derivadas pelo motor (via /apv) ─────────────────────────────────
+    # ke e CMPC são OUTPUTS da VALA (vala.compute_vala), não inputs fixos. Os
+    # valores abaixo são o último resultado derivado one-shot com beta_u=0.71,
+    # Rf=3.10%, ERP=5.78% (fonte única, ver YAML do Hub). Recalculados em
+    # _build_mc_params_from_run; actualizar aqui sempre que se re-correr /api/valuation/vala.
+    "WACC":             0.0687,
+    "ke":               0.0803,
+    # ── Dados de mercado para o APV ──────────────────────────────────────────
+    # FONTE ÚNICA partilhada com o Hub (m6_hub_assumptions.yaml: rf/erp/beta_u).
+    # βU é risco de negócio do sector — VAL_base desconta-se a Ku=Rf+βU·ERP; o ke
+    # alavancado (Hamada) deriva do equity do VALA. NÃO usar back-out circular de βL.
+    "beta_u":           0.71,    # Damodaran "Betas by Sector (Europe)", Household Products, 5-jan-2026
+    "rf":               0.0310,  # OT Portugal 10 anos, média anual 2025 (BPstat Série 12099464)
+    "erp":              0.0578,  # ERP Portugal — Damodaran ctryprem.html, 5-jan-2026 (4,23% + CRP 1,55%)
+    "kd":               0.028,   # custo bruto da dívida (Rf + spread crédito)
     "tax_rate":         0.20,
     "g_terminal":       0.02,
     "g_phase1_avg":     0.06,
     "g_phase2_avg":     0.03,
-    "net_debt":         13_337_000.0,   # € (= 13 337 k€ dívida líquida fin 2025E)
-    "shares":           1.0,
-    "E_equity":         14_448_000.0,   # € (= 14 448 k€ CP contabilístico 2025E)
-    # Múltiplos sectoriais — Damodaran, aplicados à Grestel (ver OE5). Substituem
-    # as medianas genéricas do sector cerâmico europeu por múltiplos considerados
-    # mais apropriados ao perfil da Grestel (margens/ROC acima do sector).
+    "net_debt":         13_337_000.0,   # € — overridden por _build_mc_params_from_run
+    "shares":           526_318.0,      # capital social 526 318 € a valor nominal 1 €
+    "E_equity":         14_448_000.0,   # € CP contabilístico 2025E (só para PBV)
+    # ── Múltiplos sectoriais (Damodaran, calibrados OE5) ─────────────────────
     "EV_EBITDA_sector": 15.86,
     "EV_EBIT_sector":   19.00,
     "PE_sector":        23.20,
     "PBV_sector":       4.73,
     "EV_Sales_sector":  2.79,
     "negotiation_discount": -0.10,
-    "w_dcf":            1 / 3,
-    "w_multiples":      1 / 3,
-    "w_fcfe":           1 / 3,
-    # Operational base em € (overridden por _build_mc_params_from_run)
+    # Pesos por hierarquia de fiabilidade (ver model._W_DCF): intrínseco pesa o
+    # preço; múltiplos = banda de confronto (peso 0 %, não contamina o intrínseco).
+    "w_dcf":            0.60,   # DCF-FCFF — intrínseco, ótica da empresa
+    "w_multiples":      0.00,   # múltiplos — relativo, só confronto/sanity-check
+    "w_fcfe":           0.40,   # FCFE — intrínseco, ótica do acionista
+    # ── Base operacional em € (overridden por _build_mc_params_from_run) ─────
     "EBIT_base":        4_802_000.0,
     "EBITDA_base":      6_790_000.0,
     "DA_base":          1_988_000.0,
@@ -320,6 +332,31 @@ def _build_mc_params_from_run(
         if not bal_2024.empty and "total_cp" in bal_2024.columns:
             params["E_equity"] = round(float(bal_2024["total_cp"].iloc[0]), 1)
 
+    # VALA (método APV, Myers 1974) — substitui o CMPC iterativo. Ku=Rf+βU·ERP
+    # não depende do equity, por isso ke/CMPC derivam numa só passagem (sem
+    # circularidade nem âncora de múltiplos) e alimentam o DCF-FCFF principal.
+    # Corre aqui porque já há FCFs projetados e net_debt real do balanço. Só
+    # executa se os parâmetros de mercado estiverem presentes.
+    _bu  = float(params.get("beta_u") or 0.0)
+    _rf  = float(params.get("rf")     or 0.0)
+    _erp = float(params.get("erp")    or 0.0)
+    if _bu and _rf and _erp:
+        _nd  = float(params.get("net_debt")   or 0.0)
+        _kd  = float(params.get("kd")         or 0.028)
+        _tax = float(params.get("tax_rate")   or 0.20)
+        _g   = float(params.get("g_terminal") or 0.02)
+        _fcffs = [v for _, v in sorted((params.get("projected_FCFF") or {}).items())]
+        vala = compute_vala(
+            beta_u=_bu, rf=_rf, erp=_erp,
+            kd=_kd, tax_rate=_tax, net_debt=_nd,
+            fcffs=_fcffs, g_terminal=_g,
+        )
+        params["ku"]          = vala.ku
+        params["ke"]          = vala.ke
+        params["WACC"]        = vala.wacc
+        params["beta_l"]      = vala.beta_l    # disponível para diagnóstico
+        params["equity_vala"] = vala.equity_vala
+
     return params
 
 
@@ -411,6 +448,85 @@ def get_monte_carlo_comparativo(
         "com_hub": com_hub,
         "delta_weighted_equity_medio": round(float(delta_we), 1),
         "delta_min_price_medio":       round(float(delta_mp), 1),
+    })
+
+
+@router.get("/wacc-iterativo")
+@router.get("/vala")
+def get_vala(
+    cenario: str   = Query("Base"),
+    hub_on: bool   = Query(False),
+    excel_path: str = Query(None),
+    beta_u: float  = Query(None, description="βU desalavancado (omitir = default Grestel)"),
+    rf: float      = Query(None, description="Taxa sem risco (omitir = default)"),
+    erp: float     = Query(None, description="Prémio de risco de mercado (omitir = default)"),
+):
+    """Decomposição da VALA (Valor Atual Líquido Ajustado, método APV, Myers 1974).
+
+    Encadeia run_model → FCFs projetados → VALA = VAL_base(Ku) + escudo fiscal,
+    sem iteração (Ku não depende do equity). Devolve a decomposição e as taxas
+    derivadas (ke, CMPC) numa só passagem, mais o DCF-FCFF (método principal da
+    OE5) para confronto metodológico (VALA≈DCF valida ambos).
+
+    Fluxo:
+        Ku = Rf + βU·ERP
+        VAL_base = PV(FCFF @ Ku) + VT_Gordon@Ku
+        VA(escudo) = t·kd·D descontado a kd  (dívida constante → t·D)
+        VALA = VAL_base + escudo;  equity_vala = VALA − dívida líquida
+        D/E → βL (Hamada) → ke → CMPC   (one-shot; o CMPC alimenta o DCF-FCFF)
+
+    O path /wacc-iterativo mantém-se por retrocompatibilidade (alias de /vala).
+    """
+    params_fin = _load_excel(excel_path, fallback=True)
+    params = _build_mc_params_from_run(cenario, hub_on, params_fin)
+
+    _bu  = beta_u if beta_u is not None else float(params_fin.get("beta_u") or _GRESTEL_DEFAULTS["beta_u"])
+    _rf  = rf     if rf     is not None else float(params_fin.get("rf")     or _GRESTEL_DEFAULTS["rf"])
+    _erp = erp    if erp    is not None else float(params_fin.get("erp")    or _GRESTEL_DEFAULTS["erp"])
+    _kd  = float(params.get("kd")         or _GRESTEL_DEFAULTS["kd"])
+    _tax = float(params.get("tax_rate")   or _GRESTEL_DEFAULTS["tax_rate"])
+    _g   = float(params.get("g_terminal") or 0.02)
+    _nd  = float(params.get("net_debt")   or 0.0)
+    _fcffs = [v for _, v in sorted((params.get("projected_FCFF") or {}).items())]
+
+    vala = compute_vala(
+        beta_u=_bu, rf=_rf, erp=_erp,
+        kd=_kd, tax_rate=_tax, net_debt=_nd,
+        fcffs=_fcffs, g_terminal=_g,
+    )
+
+    # DCF-FCFF (método principal): mesmos FCFF descontados ao CMPC que a VALA dá.
+    equity_dcf = GrestelModel(params)._equity_dcf(params, vala.wacc)
+
+    return _serialize({
+        # ── Taxas derivadas (one-shot) ───────────────────────────────────────
+        "ku_pct":           round(vala.ku   * 100, 4),
+        "ke_pct":           round(vala.ke   * 100, 4),
+        "wacc_pct":         round(vala.wacc * 100, 4),
+        "ku":               round(vala.ku,   6),
+        "ke":               round(vala.ke,   6),
+        "wacc":             round(vala.wacc, 6),
+        "beta_l":           round(vala.beta_l, 4),
+        "beta_u":           round(_bu, 4),
+        "de_ratio":         round(vala.de_ratio, 4),
+        # ── Decomposição VALA (em k€) ────────────────────────────────────────
+        "val_base_keur":    round(vala.val_base   / 1000, 1),
+        "pv_escudo_keur":   round(vala.pv_escudo  / 1000, 1),
+        "vala_keur":        round(vala.vala        / 1000, 1),
+        "equity_vala_keur": round(vala.equity_vala / 1000, 1),
+        # ── DCF-FCFF (principal OE5) e confronto ─────────────────────────────
+        "equity_dcf_keur":  round(equity_dcf / 1000, 1),
+        "gap_vala_vs_dcf_pct": round(
+            (vala.equity_vala / equity_dcf - 1.0) * 100, 2
+        ) if equity_dcf else None,
+        "inputs": {
+            "rf_pct":  round(_rf  * 100, 4),
+            "erp_pct": round(_erp * 100, 4),
+            "kd_pct":  round(_kd  * 100, 4),
+            "net_debt_keur": round(_nd / 1000, 1),
+        },
+        "cenario": cenario,
+        "hub_on":  hub_on,
     })
 
 

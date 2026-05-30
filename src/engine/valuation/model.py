@@ -1,17 +1,42 @@
-"""GrestelModel — avaliação por DCF-FCFF, Múltiplos e FCFE.
+"""GrestelModel — avaliação por DCF-FCFF, FCFE e Múltiplos.
 
 Interface get_params / set_params / compute_synthesis compatível com
 o Monte Carlo (monte_carlo.py).  Não altera o modelo operacional existente.
+
+O preço resulta de uma hierarquia de fiabilidade, não de uma média ingénua:
+métodos INTRÍNSECOS pesam o preço (DCF-FCFF 60 %, FCFE 40 %) e o método RELATIVO
+(Múltiplos) serve apenas de BANDA DE CONFRONTO — calculado e devolvido, mas com
+peso 0 %, para não contaminar o valor intrínseco com sentimento de mercado (a
+Grestel é privada; ver constantes de peso adiante).
+
+A VALA (Valor Atual Líquido Ajustado / método APV, ver vala.compute_vala)
+trabalha nos bastidores: dá o CMPC sem circularidade e serve de confronto
+metodológico (VALA≈DCF valida ambos), também fora dos pesos da síntese.
 """
 from __future__ import annotations
 
 from typing import Any
 
+from .vala import compute_vala
 
-# Pesos por defeito: 50 % DCF-FCFF, 30 % Múltiplos, 20 % FCFE
-_W_DCF = 0.50
-_W_MULT = 0.30
-_W_FCFE = 0.20
+
+# Pesos por defeito: 60 % DCF-FCFF, 40 % FCFE, 0 % Múltiplos.
+#
+# Fundamento (hierarquia de fiabilidade, não média ingénua):
+#   • DCF-FCFF (60 %) — valor INTRÍNSECO pela ótica da empresa. Isola a
+#     performance operacional e o valor do Hub/PT2030 da estrutura de capital;
+#     estável ao longo da desalavancagem projetada. Âncora do preço.
+#   • FCFE (40 %) — valor INTRÍNSECO pela ótica do acionista. Capta o que sobra
+#     para os donos após serviço da dívida e a política de dividendos (20 % do RL
+#     a partir de 2026), relevante à medida que a empresa se capitaliza.
+#   • Múltiplos (0 %) — valor RELATIVO. NÃO entra no preço: a Grestel é privada e
+#     os comparáveis têm liquidez/risco distintos; misturá-los contaminaria o
+#     valor intrínseco com sentimento de mercado. Servem de BANDA DE CONFRONTO
+#     (sanity-check): se o intrínseco cair dentro da banda dos múltiplos, o
+#     modelo ganha credibilidade. Coerente com o papel de confronto da VALA/Hub.
+_W_DCF = 0.60
+_W_MULT = 0.00
+_W_FCFE = 0.40
 
 
 class GrestelModel:
@@ -40,18 +65,30 @@ class GrestelModel:
         self._params.update(p)
 
     def compute_synthesis(self) -> dict[str, float]:
-        """Calcula equity value pelos três métodos e devolve síntese ponderada.
+        """Calcula equity value pelos métodos e devolve síntese ponderada.
+
+        Método intrínseco principal: DCF-FCFF (equity_dcf), descontado ao CMPC
+        que a VALA fornece sem circularidade. A VALA (equity_vala) é devolvida
+        como confronto metodológico — NÃO entra nos pesos.
 
         Retorna
         -------
         dict com chaves:
-            equity_dcf, equity_multiples, equity_fcfe,
-            weighted_equity, min_price
+            equity_dcf (DCF-FCFF, principal), equity_multiples, equity_fcfe,
+            equity_vala (confronto, fora dos pesos), weighted_equity, min_price,
+            ku, ke, wacc, beta_l, de_ratio, val_base, pv_escudo, vala
         """
         p = self._params
-        equity_dcf = self._equity_dcf(p)
+
+        vala = self._compute_vala(p)
+        # CMPC do DCF-FCFF: derivado da VALA (sem circularidade) ou o legado.
+        wacc = vala.wacc if vala is not None else float(p.get("WACC") or 0.0)
+        # ke do FCFE: derivado da VALA quando disponível; senão o ke fixo legado.
+        ke_fcfe = vala.ke if vala is not None else float(p.get("ke") or 0.10)
+
+        equity_dcf = self._equity_dcf(p, wacc)        # DCF-FCFF @ CMPC — PRINCIPAL
         equity_mult = self._equity_multiples(p)
-        equity_fcfe = self._equity_fcfe(p)
+        equity_fcfe = self._equity_fcfe(p, ke_fcfe)
 
         w_dcf = float(p.get("w_dcf", _W_DCF))
         w_mult = float(p.get("w_multiples", _W_MULT))
@@ -64,18 +101,51 @@ class GrestelModel:
         shares = float(p.get("shares") or 1.0)
         min_price = (weighted / shares) * (1.0 + neg_disc)
 
-        return {
-            "equity_dcf": equity_dcf,
-            "equity_multiples": equity_mult,
-            "equity_fcfe": equity_fcfe,
+        out = {
+            "equity_dcf": equity_dcf,            # DCF-FCFF @ CMPC (intrínseco, 60 %)
+            "equity_multiples": equity_mult,     # relativo — banda de confronto (peso 0 %)
+            "equity_fcfe": equity_fcfe,          # FCFE @ ke (intrínseco, 40 %)
             "weighted_equity": weighted,
             "min_price": min_price,
         }
+        if vala is not None:
+            out.update({
+                "equity_vala": vala.equity_vala,  # confronto VALA (fora dos pesos)
+                "ku": vala.ku,
+                "ke": vala.ke,
+                "wacc": vala.wacc,
+                "beta_l": vala.beta_l,
+                "de_ratio": vala.de_ratio,
+                "val_base": vala.val_base,
+                "pv_escudo": vala.pv_escudo,
+                "vala": vala.vala,
+            })
+        return out
 
-    # ── DCF-FCFF ─────────────────────────────────────────────────────────────
+    # ── VALA — motor do CMPC + confronto (bastidores) ────────────────────────
 
-    def _equity_dcf(self, p: dict) -> float:
-        wacc = float(p["WACC"])
+    def _compute_vala(self, p: dict):
+        """Corre a VALA com os FCFF (já com choques MC) se houver parâmetros de
+        mercado (βU/Rf/ERP); caso contrário devolve None (caminho legado CMPC)."""
+        beta_u = float(p.get("beta_u") or 0.0)
+        rf = float(p.get("rf") or 0.0)
+        erp = float(p.get("erp") or 0.0)
+        if not (beta_u and rf and erp):
+            return None
+        return compute_vala(
+            beta_u=beta_u,
+            rf=rf,
+            erp=erp,
+            kd=float(p.get("kd") or 0.028),
+            tax_rate=float(p.get("tax_rate") or 0.20),
+            net_debt=float(p.get("net_debt") or 0.0),
+            fcffs=self._get_fcffs(p),
+            g_terminal=float(p.get("g_terminal") or 0.02),
+        )
+
+    # ── DCF-FCFF a CMPC (método intrínseco principal) ────────────────────────
+
+    def _equity_dcf(self, p: dict, wacc: float) -> float:
         g = float(p["g_terminal"])
         net_debt = float(p.get("net_debt") or 0.0)
 
@@ -86,7 +156,7 @@ class GrestelModel:
         n = len(fcffs)
         pv = sum(cf / (1.0 + wacc) ** t for t, cf in enumerate(fcffs, 1))
 
-        # Valor terminal de Gordon-Growth: FCFFn*(1+g) / (WACC-g)
+        # Valor terminal de Gordon-Growth: FCFFn*(1+g) / (CMPC-g)
         if wacc > g:
             tv = fcffs[-1] * (1.0 + g) / (wacc - g)
             pv += tv / (1.0 + wacc) ** n
@@ -186,8 +256,8 @@ class GrestelModel:
 
     # ── FCFE ─────────────────────────────────────────────────────────────────
 
-    def _equity_fcfe(self, p: dict) -> float:
-        ke = float(p.get("ke") or 0.10)
+    def _equity_fcfe(self, p: dict, ke: float | None = None) -> float:
+        ke = float(ke if ke is not None else (p.get("ke") or 0.10))
         g = float(p.get("g_terminal") or 0.02)
 
         raw: dict | None = p.get("projected_FCFE")

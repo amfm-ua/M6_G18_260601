@@ -30,9 +30,11 @@ onde $M_i$ é o múltiplo sectorial e $X_i$ a métrica correspondente da Grestel
 
 ### 2.3 Ponderação Final
 
-$$E_{pond} = \frac{1}{3} E_{DCF} + \frac{1}{3} E_{Mult} + \frac{1}{3} E_{FCFE}$$
+$$E_{pond} = 0{,}60\, E_{DCF} + 0{,}40\, E_{FCFE} \qquad (w_{Mult} = 0)$$
 
-Os três métodos têm igual ponderação (1/3), reflectindo incerteza equivalente sobre qual o método mais adequado, prática comum em contextos de avaliação académica e de *fairness opinions* (Damodaran, 2012).
+A ponderação reflecte uma **hierarquia de fiabilidade**, não uma média ingénua dos métodos. O preço resulta apenas das óticas **intrínsecas**: o **DCF-FCFF (60%)** é a âncora — isola a performance operacional e o valor do Hub/PT2030 da estrutura de capital, oferecendo a visão mais estável do negócio ao longo da desalavancagem projetada (Dívida Líquida/EBITDA de 3,27× para 0,26×); o **FCFE (40%)** capta o valor residual para o acionista após o serviço da dívida e a política de distribuição de dividendos (20% do resultado líquido a partir de 2026), relevante à medida que a empresa se capitaliza.
+
+Os **Múltiplos de mercado têm peso nulo no preço**, servindo de **banda de confronto** (*sanity-check*). Sendo a Grestel uma sociedade de capital fechado, os comparáveis cotados têm perfis de liquidez e risco distintos; incorporá-los na ponderação contaminaria o valor intrínseco — assente nos *cash-flows* reais do projeto — com o sentimento momentâneo do mercado bolsista. Quando o valor relativo cai próximo do intrínseco, valida-o; quando diverge, obriga a rever pressupostos. Esta separação entre valor intrínseco (preço) e valor relativo (confronto) é coerente com o papel de confronto que a VALA/APV desempenha no projeto Hub (Myers, 1974; Damodaran, 2012).
 
 ---
 

@@ -34,7 +34,7 @@ Quadro consolidado dos pressupostos das projeções, fundamentados nas Operaçõ
 | Investimento | CAPEX do Hub | €6.045k bruto (≈15,0% do ATL 2024); base de análise €6.000k | Plano de investimentos M6 |
 | Investimento | Reserva de contingência | 10% do CAPEX (€600k) + reserva de tesouraria €500k | Programa M6 |
 | Ideia inovadora | Curva de adoção (*ramp-up*) | 20% (2027); 40% (2028); 70%→100% (2029+) | Programa M6 |
-| Ideia inovadora | Benefício líquido operacional | ~€280k/ano (poupança €440k − opex €225k + quebras €65k) | Modelo M6 |
+| Ideia inovadora | Benefício líquido operacional | ~€300k/ano (poupança €440k − opex €225k + quebras €85k) | Modelo M6 |
 | Ideia inovadora | Libertação de inventário | ~€1,73 M (2026) por redução do DMI | Modelo M6 |
 
 ---

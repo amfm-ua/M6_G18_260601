@@ -1,0 +1,39 @@
+# Drivers de crescimento de custos 2030-2034 — SPREADS REAIS (Filosofia B)
+#
+# taxa_nominal = (1 + inflação_ano) × (1 + spread_real) − 1
+#
+# Inflação por ano (de macro.yaml): 2030-2034 = 1.5% a.a.
+
+crescimento_fse:
+  # Spread real de FSE — consolidação pós-Hub, ganhos de escala
+  # 2030: 1.0% real → ~2.5% nom | 2031-2034: ~2.5% nom
+  2030: 0.010
+  2031: 0.010
+  2032: 0.010
+  2033: 0.010
+  2034: 0.010
+
+crescimento_pessoal:
+  # Spread real salarial — ganhos reais moderados em fase madura
+  # 2030: 0.5% real → ~2.0% nom | 2031-2034: ~2.0% nom
+  2030: 0.005
+  2031: 0.005
+  2032: 0.005
+  2033: 0.005
+  2034: 0.005
+
+crescimento_custo_mercadorias:
+  # Spread real de custo de mercadorias — alinhado com inflação
+  2030: 0.014
+  2031: 0.014
+  2032: 0.014
+  2033: 0.014
+  2034: 0.014
+
+crescimento_pcu_mpsc:
+  # Spread real de PCU/MPSC
+  2030: 0.014
+  2031: 0.014
+  2032: 0.014
+  2033: 0.014
+  2034: 0.014

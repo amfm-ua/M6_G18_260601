@@ -384,9 +384,11 @@ def estender_maturidade(
         aplic_prev = bal_row["aplicacoes_fin_cp"]
         bal_prev = pd.Series(bal_row)
 
-    df_dr_ext = pd.concat([df_dr, pd.DataFrame(dr_rows)], ignore_index=True)
-    df_bal_ext = pd.concat([df_bal, pd.DataFrame(bal_rows)], ignore_index=True)
-    df_dfc_ext = pd.concat([df_dfc, pd.DataFrame(dfc_rows)], ignore_index=True)
+    # Truncar os anos de extensão que build_* já gerou (ALL_YEARS inclui 2030-2034),
+    # para que estender_maturidade substitua em vez de duplicar esses anos.
+    df_dr_ext = pd.concat([df_dr[df_dr.ano <= ano_base_ext], pd.DataFrame(dr_rows)], ignore_index=True)
+    df_bal_ext = pd.concat([df_bal[df_bal.ano <= ano_base_ext], pd.DataFrame(bal_rows)], ignore_index=True)
+    df_dfc_ext = pd.concat([df_dfc[df_dfc.ano <= ano_base_ext], pd.DataFrame(dfc_rows)], ignore_index=True)
 
     out = dict(dfs)
     out["dr"] = df_dr_ext

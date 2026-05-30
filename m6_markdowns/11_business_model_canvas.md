@@ -38,7 +38,7 @@ Ecogrés (manufatura subcontratada e logística consolidada); universidades e ce
 
 ## 10.9. Estrutura de custos
 
-Modelo **orientado ao valor**. Custos fixos: armazenagem (depreciação do Hub, manutenção, seguros), pessoal estrutural (~€15–18 M/ano) e serviço da dívida. Custos variáveis: *handling* e expedição (proporcionais ao volume), energia e consumíveis. O Hub gera **economias de escala e de eficiência** — poupança operacional recorrente de ~€440k/ano e redução de quebras de ~€65k/ano — com *opex* incremental de ~€225k/ano, resultando num benefício líquido de ~€280k/ano em regime de cruzeiro.
+Modelo **orientado ao valor**. Custos fixos: armazenagem (depreciação do Hub, manutenção, seguros), pessoal estrutural (~€15–18 M/ano) e serviço da dívida. Custos variáveis: *handling* e expedição (proporcionais ao volume), energia e consumíveis. O Hub gera **economias de escala e de eficiência** — poupança operacional recorrente de ~€440k/ano e redução de quebras de ~€85k/ano — com *opex* incremental de ~€225k/ano, resultando num benefício líquido de ~€300k/ano em regime de cruzeiro.
 
 ## 10.10. Cronograma de implementação
 

@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.engine.modelo.model import run_model
 from src.engine.valuation import GrestelModel, load_params, monte_carlo_valuation, compute_vala
@@ -94,7 +94,7 @@ class ValuationParams(BaseModel):
 class MCParams(BaseModel):
     """Parâmetros para o endpoint POST /monte-carlo."""
     params: ValuationParams
-    n_simulations: int = 1000
+    n_simulations: int = Field(default=1000, ge=100, le=50_000)
     seed: int | None = None
     distributions: dict[str, Any] | None = None
 

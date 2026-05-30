@@ -97,8 +97,9 @@ const GRESTEL = (() => {
 
   // Hub commercial VN increment (beneficios_comerciais in m6_hub_assumptions.yaml)
   // Applied automatically when hubOn=true — mirrors hub_dr_impact() vn_incremental
-  // Extended to 2034: no incremental VN after 2029; CAPEX/FSE savings taper off.
-  const HUB_VN_INC = { 2026: 500000, 2027: 900000, 2028: 1100000, 2029: 950000, 2030: 0, 2031: 0, 2032: 0, 2033: 0, 2034: 0 };
+  // Extended to 2034: recurring incremental revenue (enablement play, not efficiency play).
+  // vn_incremental = vn_incremental_base × (1 + 5%)^(ano − 2029), stabilizing at ~€1.48M/ano.
+  const HUB_VN_INC = { 2026: 500000, 2027: 900000, 2028: 1100000, 2029: 950000, 2030: 1220000, 2031: 1281000, 2032: 1345050, 2033: 1412303, 2034: 1482918 };
   const HUB_VN_CMVMC_PCT = 0.55; // cmvmc_pct_incremental
 
   // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
@@ -443,8 +444,8 @@ const GRESTEL = (() => {
         capex_2026: capex[2], // 2 200 000 €
         horizonte_anos: 10,
         crescimento_terminal: 0.02,
-        poupanca_operacional: 480000,
-        reducao_quebras: 80000,
+        poupanca_operacional: 440000,
+        reducao_quebras: 85000,   // custo de conv. perdido: 488,62 t × (2.123,45−180) €/t × 15% × 60%
         opex_incremental: 160000,
         beneficio_liquido_anual: 400000,
         crescimento_anual: 0.04,

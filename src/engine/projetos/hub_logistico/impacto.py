@@ -99,9 +99,24 @@ def hub_nfm(hub: dict) -> dict[int, float]:
     credito_forn_inicial = (psp / 360) * compras_anuais
 
     # Fase 2: clientes externos (crédito a receber por serviços logísticos)
+    # Suporta dois formatos no YAML:
+    #   receita_servicos_externos: {2026: 0, 2027: 200000, ...}  (novo, recomendado)
+    #   receita_servicos_externos_2028: 300000 + crescimento_servicos_anuais (legacy)
+    receita_dict = nfm_cfg.get("receita_servicos_externos", None)
+    if receita_dict is not None and isinstance(receita_dict, dict):
+        # Novo formato: map explícito por ano (3PL recorrente, ancorado)
+        receita_by_year: dict[int, float] = {
+            int(k): float(v) for k, v in receita_dict.items()
+        }
+    else:
+        # Legacy: receita escalar em 2028 + crescimento composto
+        receita_base = float(nfm_cfg.get("receita_servicos_externos_2028", 0.0))
+        cresc_serv = float(nfm_cfg.get("crescimento_servicos_anuais", 0.0))
+        receita_by_year = {
+            y: receita_base * (1 + cresc_serv) ** (y - 2028)
+            for y in range(2028, max(YEARS) + 1)
+        }
     pmr = float(nfm_cfg.get("pmr_clientes_externos_dias", 45))
-    receita_base = float(nfm_cfg.get("receita_servicos_externos_2028", 0.0))
-    cresc_serv = float(nfm_cfg.get("crescimento_servicos_anuais", 0.0))
     ano_fase2 = 2028
 
     result: dict[int, float] = {}
@@ -122,8 +137,7 @@ def hub_nfm(hub: dict) -> dict[int, float]:
         # Fase 2: variação anual do crédito a clientes externos
         # Só o INCREMENTO de receita gera ΔNFM (não o nível absoluto)
         if y >= ano_fase2:
-            n = y - ano_fase2
-            receita_y = receita_base * (1 + cresc_serv) ** n
+            receita_y = float(receita_by_year.get(y, 0.0))
             delta_cli = (pmr / 360) * (receita_y - receita_prev)
             delta_nfm += delta_cli
             receita_prev = receita_y
@@ -393,6 +407,24 @@ def hub_dr_impact(
     vn_inc_map: dict = ben_com.get("vn_incremental", {})
     cmvmc_pct_com = float(ben_com.get("cmvmc_pct_incremental", 0.55))
 
+    # 3PL: receita de serviços logísticos a terceiros (anexo à NFM)
+    # Suporta map explícito por ano ou legado escalar + crescimento.
+    nfm_cfg = proj.get("necessidades_fundo_maneio", {})
+    receita_3pl_dict = nfm_cfg.get("receita_servicos_externos", None)
+    cmvmc_serv_pct = float(nfm_cfg.get("cmvmc_servicos_pct", 0.40))
+    if receita_3pl_dict is not None and isinstance(receita_3pl_dict, dict):
+        receita_3pl: dict[int, float] = {
+            int(k): float(v) for k, v in receita_3pl_dict.items()
+        }
+    else:
+        # legacy: escalar 2028 + crescimento composto
+        base = float(nfm_cfg.get("receita_servicos_externos_2028", 0.0))
+        cresc = float(nfm_cfg.get("crescimento_servicos_anuais", 0.0))
+        receita_3pl = {
+            y: base * (1 + cresc) ** (y - 2028)
+            for y in range(2028, max(YEARS) + 1)
+        }
+
     df_cap = hub_capex(hub)
     capex_map = df_cap.set_index("ano")
 
@@ -406,18 +438,22 @@ def hub_dr_impact(
 
         if y < inicio:
             preop_y = gastos_preop.get(y, 0.0)
+            receita_3pl_y = float(receita_3pl.get(y, 0.0))
+            cmvmc_3pl_y = receita_3pl_y * cmvmc_serv_pct
             result[y] = {
                 "pessoal_reducao": 0.0,
                 "fse_reducao": 0.0,
                 "cmvmc_reducao": 0.0,
                 "fse_opex_hub": 0.0,
-                "gastos_preop_hub": preop_y,  # formação: gasto do exercício NCRF 6 §21
+                "gastos_preop_hub": preop_y,
                 "outros_rend_subsidio": 0.0,
                 "depreciacao_hub": 0.0,
                 "inventario_libertado": 0.0,
                 "inventario_estrutural": 0.0,
                 "vn_incremental": vn_inc,
                 "cmvmc_incremental": cmvmc_inc,
+                "receita_3pl": receita_3pl_y,
+                "cmvmc_3pl": cmvmc_3pl_y,
                 "beneficio_liquido": contrib_com - preop_y,
                 "ebitda_impact": contrib_com - preop_y,
                 "ebit_impact": contrib_com - preop_y,
@@ -443,6 +479,10 @@ def hub_dr_impact(
             cmvmc_red = reducao_quebras * fator * ramp
         fse_opex = fse_opex_base * fator  # OPEX existe desde o arranque, sem ramp-up
         subsidio_y = subsidio.get(y, 0.0)
+        # 3PL: receita de serviços logísticos a terceiros
+        receita_3pl_y = float(receita_3pl.get(y, 0.0))
+        cmvmc_3pl_y = receita_3pl_y * cmvmc_serv_pct
+        contrib_3pl = receita_3pl_y - cmvmc_3pl_y
 
         dep_hub = (
             float(capex_map.loc[y, "depreciacao"])
@@ -470,6 +510,10 @@ def hub_dr_impact(
             "inventario_estrutural": inventario_estrut,  # estrutural (só FCF do hub)
             "vn_incremental": vn_inc,
             "cmvmc_incremental": cmvmc_inc,
+            "receita_3pl": receita_3pl_y,
+            "cmvmc_3pl": cmvmc_3pl_y,
+            "receita_3pl": receita_3pl_y,
+            "cmvmc_3pl": cmvmc_3pl_y,
             "beneficio_liquido": beneficio_liq,
             "ebitda_impact": ebitda_impact,
             "ebit_impact": ebit_impact,

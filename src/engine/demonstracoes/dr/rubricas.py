@@ -43,12 +43,8 @@ def _outros_rendimentos(
     """
     ab = sched.plurianual_AB
 
-    g = [
-        ab.get("AB74", 0.02),
-        ab.get("AB84", 0.025),
-        ab.get("AB93", 0.025),
-        ab.get("AB94", 0.025),
-    ]
+    _g_keys = ["AB74", "AB84", "AB93", "AB94", "AB95", "AB96", "AB97", "AB98", "AB99"]
+    g = [ab.get(k, 0.02) for k in _g_keys]
 
     outros_rend_2024 = _get_dr_2024_value(base, "outros_rend", 0.0)
 
@@ -208,12 +204,8 @@ def _outros_gastos(
         2025: val_2025,
     }
 
-    g = [
-        ab.get("AB68", 0.05),
-        ab.get("AB84", 0.025),
-        ab.get("AB93", 0.025),
-        ab.get("AB94", 0.025),
-    ]
+    _og_keys = ["AB68", "AB84", "AB93", "AB94", "AB95", "AB96", "AB97", "AB98", "AB99"]
+    g = [ab.get(k, 0.02) for k in _og_keys]
 
     cur = val_2025
 

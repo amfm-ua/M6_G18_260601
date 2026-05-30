@@ -24,6 +24,10 @@ MACRO_2026_2029_FILE  = (DATA_DIR / "pressupostos"   / "2026_2029" / "macro.yaml
 VENDAS_2026_2029_FILE = (DATA_DIR / "pressupostos"   / "2026_2029" / "vendas.yaml").resolve()
 CUSTOS_2026_2029_FILE = (DATA_DIR / "pressupostos"   / "2026_2029" / "custos.yaml").resolve()
 
+MACRO_2030_2034_FILE  = (DATA_DIR / "pressupostos"   / "2030_2034" / "macro.yaml").resolve()
+VENDAS_2030_2034_FILE = (DATA_DIR / "pressupostos"   / "2030_2034" / "vendas.yaml").resolve()
+CUSTOS_2030_2034_FILE = (DATA_DIR / "pressupostos"   / "2030_2034" / "custos.yaml").resolve()
+
 # --- Catálogos estruturais estáveis ---
 PRODUTOS_FILE         = (DATA_DIR / "master"         / "produtos.yaml").resolve()
 MERCADORIAS_FILE      = (DATA_DIR / "master"         / "mercadorias.yaml").resolve()

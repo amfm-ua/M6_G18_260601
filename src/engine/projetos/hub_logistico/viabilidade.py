@@ -476,11 +476,36 @@ def viabilidade_hub(
     nfm_map = hub_nfm(hub)
     nfm_recovery_terminal = sum(nfm_map.values())
 
+    # 3PL: perpetuidade da receita de serviços logísticos a terceiros.
+    # O Hub é um ativo operacional recurrente. Os serviços 3PL (cerâmicas do
+    # cluster Aveiro/Coimbra) são contratos B2B renováveis que persistem alem do
+    # horizonte. No terminal, a receita 3PL do último ano é capitalizada
+    # como perpetuidade crescente (g_3pl) a partir do ano horizonte.
+    proj = hub["projeto_hub"]
+    nfm_cfg = proj.get("necessidades_fundo_maneio", {})
+    receita_3pl_map = nfm_cfg.get("receita_servicos_externos", {})
+    cmvmc_serv_pct = float(nfm_cfg.get("cmvmc_servicos_pct", 0.40))
+    if isinstance(receita_3pl_map, dict) and receita_3pl_map:
+        receita_ultimo = float(receita_3pl_map.get(str(ano_horizonte), 0.0))
+    else:
+        # legacy: usar base + crescimento composto
+        base = float(nfm_cfg.get("receita_servicos_externos_2028", 0.0))
+        cresc = float(nfm_cfg.get("crescimento_servicos_anuais", 0.0))
+        receita_ultimo = base * (1 + cresc) ** (ano_horizonte - 2028)
+
+    # Margem bruta 3PL no terminal: receita × (1 − cmvmc_serv_pct)
+    contrib_3pl_terminal = receita_ultimo * (1.0 - cmvmc_serv_pct)
+    # Gordon Growth: VT_3PL = CF_last / (WACC − g)
+    g_3pl = float(proj.get("beneficios_anuais", {}).get("crescimento_anual", 0.035))
+    # Crescimento mínimo: inflação (2%) + potencial pequeno mas estável
+    g_3pl = min(g_3pl, wacc - 0.01)  # não extrapolar acima do WACC
+    perp_3pl = contrib_3pl_terminal / (wacc - g_3pl) if wacc > g_3pl else 0.0
+
     # Dívida viva no final do horizonte (sempre calculada para informação)
     capital_vivo_t10 = _capital_vivo(hub, ano_horizonte)
     deducao_divida = capital_vivo_t10 if incluir_liquidacao_divida else 0.0
 
-    vt = (valor_realizacao - imposto_mais_valia) + nfm_recovery_terminal - deducao_divida
+    vt = (valor_realizacao - imposto_mais_valia) + nfm_recovery_terminal - deducao_divida + perp_3pl
 
     cfs = list(df_fcf["fcf_livre"])
     cfs[-1] += vt
@@ -544,6 +569,7 @@ def viabilidade_hub(
         "nota_custos_afundados": nota_custos_afundados,
         "fcf_df": df_fcf,
         "valor_terminal": vt,
+        "perp_3pl": perp_3pl,  # perpetuidade da receita 3PL (ativo recurrente)
         "valor_residual_ativos": vr_ativos,
         "mais_valia": mais_valia,
         "imposto_mais_valia": imposto_mais_valia,

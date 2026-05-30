@@ -477,13 +477,52 @@ class Base2024:
 class Schedules:
     raw: dict[str, Any]
 
+    def _extend_year_keyed(self, section: dict, anos_ext: list[int]) -> dict:
+        """Extende dicionários year-keyed para os anos de extensão (2030-2034).
+
+        Para secções de investimento/CAPEX (investimento_aft_dfc, investimento_intang_dfc,
+        amortizacoes, prestacoes_servicos): usa 0 (maturidade: CAPEX=subst, netting a zero).
+        Para juros, dividendos, e outros rates/factors: mantém o último valor.
+        """
+        out = dict(section)
+        # Keys that should be zeroed (CAPEX = amortização em maturidade)
+        zero_keys = {"investimento_aft_dfc", "investimento_intang_dfc",
+                     "amortizacoes", "prestacoes_servicos"}
+        for y in anos_ext:
+            if y not in out:
+                vals = [v for k, v in section.items() if isinstance(k, int) and k < y]
+                if vals:
+                    out[y] = 0.0
+                else:
+                    out[y] = 0.0
+        return out
+
     @property
     def investimento(self):
-        return self.raw["investimento"]
+        # Extender TODOS os dicionários year-keyed para anos 2030-2034
+        inv = dict(self.raw["investimento"])
+        anos_ext = [2030, 2031, 2032, 2033, 2034]
+        for key in inv:
+            if isinstance(inv[key], dict):
+                vals = [v for k, v in inv[key].items() if isinstance(k, int) and k < 2030]
+                last_val = vals[-1] if vals else 0.0
+                for y in anos_ext:
+                    if y not in inv[key]:
+                        inv[key][y] = last_val
+        return inv
 
     @property
     def financiamento(self):
-        return self.raw["financiamento"]
+        fin = dict(self.raw["financiamento"])
+        anos_ext = [2030, 2031, 2032, 2033, 2034]
+        for key in fin:
+            if isinstance(fin[key], dict):
+                vals = [v for k, v in fin[key].items() if isinstance(k, int) and k < 2030]
+                last_val = vals[-1] if vals else 0.0
+                for y in anos_ext:
+                    if y not in fin[key]:
+                        fin[key][y] = last_val
+        return fin
 
     @property
     def eoep(self):

@@ -198,6 +198,11 @@ plurianual_factors_AB:
   AB84: 0.025
   AB93: 0.025
   AB94: 0.025
+  AB95: 0.020
+  AB96: 0.020
+  AB97: 0.020
+  AB98: 0.020
+  AB99: 0.020
 eoep_saldos:
   IVA_saldo_2024_2025_total: -1350755.5884804358
   IRC_saldo_2025_total: 1375202.828477404

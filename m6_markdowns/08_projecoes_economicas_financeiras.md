@@ -33,7 +33,7 @@ O CMVMC de 2024 (€15.298.208) desagrega-se em **4 categorias de matérias (MPS
 
 ### 7.1.5. Pressupostos de financiamento e custo do capital (OE1)
 
-O projeto Hub é avaliado a um **WACC de 6,46%** (taxa de desconto dos *cash-flows* no cenário base), resultante de Ke ≈ 16,6% (CAPM, *beta* realavancado para a estrutura de 75% de dívida; Rf ≈ 3,1%, prémio de risco ≈ 5,78%) e de Kd *after-tax* ≈ 3,1% (custo médio das duas tranches de 4,02%, líquido de imposto). A estrutura de financiamento do CAPEX é 75% dívida / 25% capital próprio (ver Cap. 6). É aplicado adicionalmente um WACC dinâmico (Miles-Ezzell) na análise de sensibilidade.
+O projeto Hub é avaliado a um **WACC de 6,37%** (taxa de desconto dos *cash-flows* no cenário base), resultante de Ke ≈ 16,6% (CAPM, *beta* realavancado para a estrutura de 75% de dívida; Rf ≈ 3,1%, prémio de risco ≈ 5,78%) e de Kd *after-tax* ≈ 3,1% (custo médio das três tranches — BEI, Garantia Mútua e comercial — líquido de imposto). A estrutura de financiamento do CAPEX é 75% dívida / 25% capital próprio (ver Cap. 6). É aplicado adicionalmente um WACC dinâmico (Miles-Ezzell) na análise de sensibilidade.
 
 ### 7.1.6. Pressupostos fiscais
 
@@ -49,7 +49,7 @@ O controlo de gestão assenta na comparação orçamento *vs.* realizado (mensal
 
 ### 7.1.9. Pressupostos específicos da ideia inovadora (M1/M6)
 
-O Hub assume uma **curva de adoção (*ramp-up*)** de 20% (2027), 40% (2028) e 70%→100% (2029+), benefícios operacionais recorrentes de ~€280k/ano (poupança operacional ~€440k − *opex* incremental ~€225k + redução de quebras ~€65k), libertação de inventário de ~€1,73 M (2026) por redução do DMI, e receitas incrementais B2C/3PL com margem premium. A quota-alvo é de 3–5% do mercado logístico/*hospitality* nacional e europeu.
+O Hub assume uma **curva de adoção (*ramp-up*)** de 20% (2027), 40% (2028) e 70%→100% (2029+), benefícios operacionais recorrentes de ~€300k/ano (poupança operacional ~€440k − *opex* incremental ~€225k + redução de quebras ~€85k), libertação de inventário de ~€1,73 M (2026) por redução do DMI, e receitas incrementais B2C/3PL com margem premium. A quota-alvo é de 3–5% do mercado logístico/*hospitality* nacional e europeu.
 
 > **Nota sobre as receitas incrementais B2C/Horeca (incrementalidade e não-duplicação).** Estas receitas (€0,35–0,95 M/ano) **não** são vendas novas especulativas: os canais E-Commerce/B2C (~€5,9 M em 2024) e Hotelaria/Horeca (~€11,2 M) já representam ~50% do volume de negócios da Grestel. O valor modelado corresponde apenas à **aceleração incremental** (+1,7% a +4,0% sobre esses canais) que o Hub viabiliza ao remover o estrangulamento de *fulfillment* (lead times de 3–5 dias e ruturas associados ao DMI elevado). Em conformidade com o princípio dos fluxos incrementais («com *vs.* sem projeto»; Brealey, Myers & Allen, Cap. 6), o valor é **somado acima** do crescimento orgânico — que no modelo *core* não incorpora qualquer efeito do Hub (crescimento específico por canal = 0). A análise de sensibilidade confirma a robustez: uma quebra de até **57%** nestas receitas mantém o VALA positivo mesmo sem apoios fiscais. Fundamentação completa em `docs/beneficios_comerciais_hub.md`.
 
@@ -113,7 +113,7 @@ Balanço projetado — cenário COM Hub (valores em €):
 | ROIC | RO líquido/capital investido | 6,1% | 10,8% | 11,7% | 14,5% | 15,9% | 15,9% |
 | Rotação do ativo | VN/AT | 0,94 | 0,97 | 0,99 | 0,99 | 0,99 | 0,99 |
 
-**Comentário integrado.** O perfil financeiro melhora de forma consistente: a autonomia financeira quase duplica (30,3% → 57,7%), o rácio Dívida Líquida/EBITDA desalavanca de 4,1× para 0,5×, e a rendibilidade reforça-se (ROE estabiliza em ~19–21%; ROIC sobe para ~16%, claramente acima do WACC de 6,46%, evidenciando criação de valor). A liquidez geral mantém-se confortável (>1,4 em todos os anos, exceto o ponto baixo de 1,38 em 2026, ano de maior esforço de investimento). De notar que, **sem o Hub**, a autonomia financeira atingiria 62,0% em 2029 com ROE a descer para 15,6%: o projeto utiliza o capital de forma mais eficiente, mantendo solidez financeira e elevando a rendibilidade dos capitais próprios.
+**Comentário integrado.** O perfil financeiro melhora de forma consistente: a autonomia financeira quase duplica (30,3% → 57,7%), o rácio Dívida Líquida/EBITDA desalavanca de 4,1× para 0,5×, e a rendibilidade reforça-se (ROE estabiliza em ~19–21%; ROIC sobe para ~16%, claramente acima do WACC de 6,37%, evidenciando criação de valor). A liquidez geral mantém-se confortável (>1,4 em todos os anos, exceto o ponto baixo de 1,38 em 2026, ano de maior esforço de investimento). De notar que, **sem o Hub**, a autonomia financeira atingiria 62,0% em 2029 com ROE a descer para 15,6%: o projeto utiliza o capital de forma mais eficiente, mantendo solidez financeira e elevando a rendibilidade dos capitais próprios.
 
 ---
 

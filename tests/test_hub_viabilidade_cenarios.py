@@ -47,11 +47,17 @@ def test_hub_viability_respeita_cenario():
 # refatoração do Hub, a poupança de pessoal é derivada da elasticidade sobre VN
 # orgânico (share 40 %) e as quebras escalam com CMVMC_prod, evitando dupla contagem
 # com a DR consolidada.
+#
+# ATUALIZADO para enablement play + 3PL como receita recorrente + perpetuidade:
+# vn_incremental 2026-2034 recorrente (não finito 2029), receita_servicos_externos
+# dict 2026-2034 (3PL explícito), cmvmc_servicos_pct=0.40 (margem 60%).
+# Terminal value: VLC + NFM + perpetuidade 3PL (Gordon Growth).
+# WACC 6,37 %, todos os cenários.
 VAL_TIR_CANONICOS = {
-    "Base":     (1_342_474.04,  0.117170),
-    "Upside":   (3_146_363.12,  0.199388),
-    "Downside": (-1_337_074.68, 0.023670),
-    "Stress":   (-3_030_702.06, -0.043297),
+    "Base":     (2_031_233.1,  0.139901),
+    "Upside":   (3_868_078.0,  0.220060),
+    "Downside": (-796_361.6,   0.048832),
+    "Stress":   (-2_370_176.5, -0.004738),
 }
 
 
@@ -66,11 +72,14 @@ def test_hub_viabilidade_val_tir_canonicos(cenario, val_esp, tir_esp):
 
 
 def test_hub_viabilidade_base_metricas_canonicas():
-    """Métricas-síntese do cenário Base publicadas no relatório (IR e payback)."""
+    """Métricas-síntese do cenário Base para enablement play.
+
+    Com 3PL recorrente e perpetuidade: IR=1.339, payback=8.80.
+    """
     base = get_hub_viability(cenario="Base", irc_taxa=None, wacc=None)
 
-    assert base["indice_rendibilidade"] == pytest.approx(1.2237, abs=1e-3)  # 1,22
-    assert base["payback_atualizado"] == pytest.approx(9.2098, abs=1e-2)    # 9,21 anos
+    assert base["indice_rendibilidade"] == pytest.approx(1.3385, abs=1e-3)
+    assert base["payback_atualizado"] == pytest.approx(8.800, abs=1e-2)
 
 
 def test_hub_pessoal_derivado_nao_duplica_alpha_consolidado():

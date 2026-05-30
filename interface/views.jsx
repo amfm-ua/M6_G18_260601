@@ -406,52 +406,6 @@ function BalancoView({ ctx }) {
             ))}
           </tbody>
         </table>
-
-        {/* Subtabela projeções 2030-2034 */}
-        {showExt && !showYoY && (
-          <div style={{ marginTop: 16, borderTop: "1px solid var(--rule)", paddingTop: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
-              Projeções 2030–2034
-            </div>
-            <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr>
-                  <th style={{ width: "16%" }}>Rubrica</th>
-                  {extYears.map((y, i) => (
-                    <th key={"h_" + i} className="mono num" style={{ color: "var(--accent)", minWidth: 34 }}>{y.slice(2)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sections.map((sec, si) => (
-                  <React.Fragment key={"ex_" + si}>
-                    <tr className="is-section"><td colSpan={6}>{sec.header}</td></tr>
-                    {sec.rows.map((r, ri) => (
-                      <tr key={"ex_" + (r.key || (si + "_" + ri))}>
-                        <td>{r.label}</td>
-                        {[6,7,8,9,10].map(i => (
-                          <td key={i} className="mono num" style={{ color: "var(--accent)" }}>
-                            {fmtM(getBalVal(r.key, i, r.computed))}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    {sec.totals.map(t => (
-                      <tr key={"ex_" + t.label} className={t.cls || "is-subtotal"}>
-                        <td>{t.label}</td>
-                        {[6,7,8,9,10].map(i => (
-                          <td key={i} className="mono num" style={{ color: "var(--accent)" }}>
-                            {fmtM(t.getter(bal[i] || {}))}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Panel>
     );
   }
@@ -663,39 +617,6 @@ function DFCView({ ctx }) {
             {renderRow("variacao_caixa", "Variação Caixa", false, true)}
           </tbody>
         </table>
-
-        {/* Subtabela projeções 2030-2034 */}
-        {showExt && !showYoY && (
-          <div style={{ marginTop: 16, borderTop: "1px solid var(--rule)", paddingTop: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
-              Projeções 2030–2034
-            </div>
-            <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
-              <thead>
-                <tr>
-                  <th style={{ width: "16%" }}>Rubrica</th>
-                  {extYears.map((y, i) => (
-                    <th key={"h_" + i} className="mono num" style={{ color: "var(--accent)", minWidth: 34 }}>{y.slice(2)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {renderRow("recebimentos")}
-                {renderRow("pag_fornecedores")}
-                {renderRow("pag_pessoal")}
-                {renderRow("fluxo_operacional", "Fluxo operacional", true)}
-                {renderRow("capex_aft")}
-                {renderRow("dividendos_recebidos")}
-                {renderRow("fluxo_investimento", "Fluxo investimento", true)}
-                {renderRow("rec_emprestimos")}
-                {renderRow("pag_emprestimos")}
-                {renderRow("pag_dividendos")}
-                {renderRow("fluxo_financiamento", "Fluxo financiamento", true)}
-                {renderRow("variacao_caixa", "Variação Caixa", false, true)}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Panel>
     </>
   );
@@ -1414,8 +1335,8 @@ function HubViabilidadeView({ ctx }) {
             <KV k="WACC" v={fmt.pct(wacc, 1)} />
             <KV k="IRC taxa" v={fmt.pct(p.irc_taxa ?? GRESTEL.IRC_TAXA_EFETIVA, 1)} />
             <KV k="Horizonte" v={(p.horizonte_anos || 10) + " anos"} />
-            <KV k="Poupança operacional" v={fmt.eurC(p.poupanca_operacional || 380000) + " / ano"} />
-            <KV k="Redução quebras" v={fmt.eurC(p.reducao_quebras || 50000) + " / ano"} />
+            <KV k="Poupança operacional" v={fmt.eurC(p.poupanca_operacional || 440000) + " / ano"} />
+            <KV k="Redução quebras" v={fmt.eurC(p.reducao_quebras || 85000) + " / ano"} />
             <KV k="OPEX incremental" v={"− " + fmt.eurC(p.opex_incremental || 120000) + " / ano"} />
             <KV k="Benefício líquido base" v={fmt.eurC(p.beneficio_liquido_anual || 310000) + " / ano"} />
             <KV k="Crescimento benefícios" v={"+" + fmt.pct(p.crescimento_anual || 0.04, 1) + " / ano"} />

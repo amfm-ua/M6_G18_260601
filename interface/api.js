@@ -652,8 +652,8 @@ const API = (() => {
       }
       if (hub_on) {
         for (const [key, label, baseValue] of [
-          ["hub_poupanca", "Hub · Poupança Op.",    480000],
-          ["hub_quebras",  "Hub · Redução Quebras",  80000],
+          ["hub_poupanca", "Hub · Poupança Op.",    440000],
+          ["hub_quebras",  "Hub · Redução Quebras",  85000],
         ]) {
           variables[key] = {
             label, unit: "%", base_rate: baseValue,
@@ -679,13 +679,16 @@ const API = (() => {
 
   // ─── hubViabilidadeCenarios ────────────────────────────────────────────────
   // VAL, TIR, Payback do Hub por cenário — base para o E[VAL] ponderado.
+  // ATUALIZADO: enablement play + 3PL recorrente + perpetuidade 3PL (Gordon Growth).
+  // vn_incremental recorrente 2026-2034, receita_servicos_externos dict, cmvmc_servicos_pct=0.40.
+  // WACC 6,37 %.
   async function hubViabilidadeCenarios({ irc_taxa, wacc } = {}) {
     if (useMock) {
       return {
-        Base:     { vpl: 1_523_000, tir: 0.142, payback_simples: 7.2, payback_atualizado: 8.1, indice_rendibilidade: 1.25 },
-        Upside:   { vpl: 2_105_000, tir: 0.168, payback_simples: 6.3, payback_atualizado: 7.1, indice_rendibilidade: 1.35 },
-        Downside: { vpl:   812_000, tir: 0.115, payback_simples: 8.4, payback_atualizado: 9.8, indice_rendibilidade: 1.14 },
-        Stress:   { vpl:  -198_000, tir: 0.073, payback_simples: null, payback_atualizado: null, indice_rendibilidade: 0.97 },
+        Base:     { vpl: 2_031_233, tir: 0.1399, payback_simples: 7.8, payback_atualizado: 8.80, indice_rendibilidade: 1.3385 },
+        Upside:   { vpl: 3_868_078, tir: 0.2201, payback_simples: 5.8, payback_atualizado: 6.74, indice_rendibilidade: 1.6447 },
+        Downside: { vpl: -796_362,  tir: 0.0488, payback_simples: null, payback_atualizado: null, indice_rendibilidade: 0.8673 },
+        Stress:   { vpl: -2_370_177, tir: -0.0047, payback_simples: null, payback_atualizado: null, indice_rendibilidade: 0.6050 },
       };
     }
     const params = new URLSearchParams();

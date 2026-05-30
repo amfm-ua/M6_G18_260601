@@ -33,10 +33,12 @@ from .paths import (
     COZEDURA_FILE,
     CUSTOS_2025_FILE,
     CUSTOS_2026_2029_FILE,
+    CUSTOS_2030_2034_FILE,
     ECOGRES_ASSUMPTIONS_FILE,
     HUB_ASSUMPTIONS_FILE,
     MACRO_2025_FILE,
     MACRO_2026_2029_FILE,
+    MACRO_2030_2034_FILE,
     MERCADORIAS_FILE,
     MERCADORIAS_2024_FILE,
     MIX_2024_FILE,
@@ -46,6 +48,7 @@ from .paths import (
     SCHEDULES_FILE,
     VENDAS_2025_FILE,
     VENDAS_2026_2029_FILE,
+    VENDAS_2030_2034_FILE,
 )
 from .yaml_io import (
     _deep_update,
@@ -62,20 +65,20 @@ from .yaml_io import (
 #
 # NOTAÇÃO:
 #   - "base_2025": refere-se ao período completo 2025 (12 meses)
-#   - Anos 2026-2029: períodos completos (12 meses por ano)
+#   - Anos 2026-2034: períodos completos (12 meses por ano)
 #
 # CENÁRIO UPSIDE (Otimista):
-#   - Crescimento em volume de vendas: 5% a.a. em 2025-2028, reduzindo a 4% em 2029
-#   - Crescimento em preço de vendas: 5% a.a. em 2025-2026, moderando para 3% em 2029
-#   - Crescimento FSE (Fornecimentos e Serviços Externos): 4% em 2028-2029
+#   - Crescimento em volume de vendas: 5% a.a. em 2025-2028, +4% em 2029, +2.5% em 2030-2034
+#   - Crescimento em preço de vendas: 5% a.a. em 2025-2026, moderando para 2% em 2030-2034
+#   - Crescimento FSE: 4% em 2028-2029, +2% em 2030-2034
 #
 # CENÁRIO BASE (Central):
 #   - Sem variações: mantém os dados como definidos nos YAML
 #
 # CENÁRIO DOWNSIDE (Pessimista):
-#   - Crescimento em volume de vendas: 2% a.a. em 2025-2027, desacelerando a 1% em 2028-2029
-#   - Crescimento em preço de vendas: apenas 1% a.a. (pressure de concorrência / inflação contida)
-#   - Crescimento FSE: 4% em 2025-2027, acelerando a 6% em 2028-2029 (custos operacionais ascendentes)
+#   - Crescimento em volume de vendas: 2% a.a. em 2025-2027, desacelerando a 0.5% em 2030-2034
+#   - Crescimento em preço de vendas: apenas 1% a.a. (pressure de concorrência)
+#   - Crescimento FSE: 4% em 2025-2027, acelerando a 3% em 2030-2034
 #
 # ---------------------------------------------------------------------------
 # Overrides de cenário — SPREADS REAIS (Filosofia B)
@@ -87,7 +90,7 @@ from .yaml_io import (
 #
 # Conversão de referência (nominal → real):
 #   real = (1+nominal)/(1+inflação) − 1
-#   com inflações: 2025≈2.2%, 2026=2.0%, 2027=1.8%, 2028=1.7%, 2029=1.6%
+#   com inflações: 2025≈2.2%, 2026=2.0%, 2027=1.8%, 2028=1.7%, 2029=1.6%, 2030-2034=1.5%
 # ---------------------------------------------------------------------------
 _SCENARIO_OVERRIDES: dict[str, dict] = {
     "Base": {},
@@ -99,27 +102,37 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
             2027: 0.05,
             2028: 0.05,
             2029: 0.04,
+            2030: 0.025,
+            2031: 0.025,
+            2032: 0.025,
+            2033: 0.025,
+            2034: 0.025,
         },
-        # PVU: spreads reais — (5%−2.2%)/1.022≈2.7%, (5%−2.0%)/1.02≈2.9%, etc.
+        # PVU: spreads reais
         "crescimento_pvu_vendas": {
             "base_2025": 0.027,
             2026: 0.029,
             2027: 0.022,
             2028: 0.023,
             2029: 0.014,
+            2030: 0.020,
+            2031: 0.020,
+            2032: 0.020,
+            2033: 0.020,
+            2034: 0.020,
         },
-        # FSE: spread real apenas nos anos com pressão extra
+        # FSE: spread real
         "crescimento_fse": {
             2028: 0.023,
             2029: 0.024,
+            2030: 0.010,
+            2031: 0.010,
+            2032: 0.010,
+            2033: 0.010,
+            2034: 0.010,
         },
         # Diferenciação geográfica e de canal — cenário optimista
-        # USA/UE: aceleração de volume (USD forte + flagship Madrid + novos marketplaces NL/DE)
-        # Hotelaria: tração em contratos de hotel e cruzeiros
-        # E_Commerce: sucesso nos novos marketplaces
-        # PVU USA: poder de preço adicional via depreciação do USD (capturado em EUR)
-        # PVU Hotelaria/E_Commerce: premium de canal D2C e contratos de luxo
-        # NOTA: estes diferenciais aplicam-se apenas a 2025; 2026-2029 usam crescimento_volume_vendas global
+        # NOTA: estes diferenciais aplicam-se apenas a 2025; 2026-2034 usam crescimento_volume_vendas global
         "crescimento_volume_por_mercado": {"PT": 0.00, "UE": 0.03, "USA": 0.03, "ROW": 0.01},
         "crescimento_volume_por_canal": {"Private_Label": 0.02, "Hotelaria": 0.05, "Retalho": 0.01, "E_Commerce": 0.04},
         "crescimento_pvu_por_mercado": {"PT": 0.01, "UE": 0.01, "USA": 0.03, "ROW": 0.00},
@@ -133,6 +146,11 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
             2027: 0.02,
             2028: 0.01,
             2029: 0.01,
+            2030: 0.005,
+            2031: 0.005,
+            2032: 0.005,
+            2033: 0.005,
+            2034: 0.005,
         },
         # PVU: spread real negativo — preço não acompanha inflação
         "crescimento_pvu_vendas": {
@@ -141,6 +159,11 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
             2027: -0.008,
             2028: -0.007,
             2029: -0.006,
+            2030: -0.003,
+            2031: -0.003,
+            2032: -0.003,
+            2033: -0.003,
+            2034: -0.003,
         },
         # FSE: spread real positivo — custos sobem acima da inflação
         "crescimento_fse": {
@@ -149,27 +172,24 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
             2027: 0.022,
             2028: 0.042,
             2029: 0.043,
+            2030: 0.025,
+            2031: 0.025,
+            2032: 0.025,
+            2033: 0.025,
+            2034: 0.025,
         },
         # Diferenciação geográfica e de canal — cenário pessimista
-        # USA: EUR apreciado → produtos Grestel mais caros em USD, perda de competitividade
-        # UE: estagnação do retalho tradicional, adiamento de encomendas
-        # Private_Label: clientes conservadores, redução de quantidades e pressão de margem
-        # Hotelaria: menor gasto corporativo em eventos e cruzeiros
-        # E_Commerce: compensação digital parcial (única fonte de resiliência)
-        # PVU USA: necessidade de descontar para manter quota em USD (EUR apreciado agrava)
-        # NOTA: estes diferenciais aplicam-se apenas a 2025; 2026-2029 usam crescimento_volume_vendas global
+        # NOTA: diferenciais aplicam-se apenas a 2025; 2026-2034 usam crescimento_volume_vendas global
         "crescimento_volume_por_mercado": {"PT": 0.00, "UE": -0.02, "USA": -0.03, "ROW": -0.01},
         "crescimento_volume_por_canal": {"Private_Label": -0.03, "Hotelaria": -0.03, "Retalho": -0.01, "E_Commerce": 0.01},
         "crescimento_pvu_por_mercado": {"PT": 0.00, "UE": -0.01, "USA": -0.03, "ROW": -0.01},
         "crescimento_pvu_por_canal": {"Private_Label": -0.02, "Hotelaria": 0.00, "Retalho": -0.01, "E_Commerce": 0.00},
         # Hub Logístico — haircuts para ambiente adverso
-        # poupança −15%: inflação energia eleva OPEX robótica/WMS;
-        # escassez de técnicos qualificados pressiona custos de manutenção
         "hub_logistico": {
             "projeto_hub": {
                 "beneficios_anuais": {
                     "poupanca_operacional": 408000,    # 480 000 × 0.85
-                    "opex_incremental":     182000,    # 132 000 manutenção/SLA + 50 000 técnico IA (custo fixo)
+                    "opex_incremental":     182000,    # 132 000 manutenção/SLA + 50 000 técnico IA
                     "beneficio_liquido_anual": 306000, # 408k + 80k − 182k
                 },
             },
@@ -242,9 +262,9 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
             "projeto_hub": {
                 "beneficios_anuais": {
                     "poupanca_operacional":    336000,  # 480 000 × 0.70 (−30 %)
-                    "reducao_quebras":          16000,  # 80 000 × 0.20 — pasta instável
+                    "reducao_quebras":          21000,  # re-ancorado custo de conversão perdido (base 85k × haircut stress)
                     "opex_incremental":        200000,  # 150 000 manutenção/SLA + 50 000 técnico IA (custo fixo)
-                    "beneficio_liquido_anual": 152000,  # 336k + 16k − 200k
+                    "beneficio_liquido_anual": 157000,  # 336k + 21k − 200k
                     "ramp_up_por_ano": {
                         2026: 0.60,   # 1.º ano operacional: 60 % capturado
                         2027: 0.80,   # 2.º ano: curva aprendizagem ~80 %
@@ -277,7 +297,7 @@ _SCENARIO_OVERRIDES: dict[str, dict] = {
 # Recalibracao M6 do Hub Logistico.
 #
 # Mantem os cenarios do projeto alinhados com o YAML base atual:
-#   Base: poupanca 440k, quebras 65k, OPEX 225k, inventario via dias de DMI.
+#   Base: poupanca 440k, quebras 85k (custo de conversão perdido), OPEX 225k, inventario via dias de DMI.
 # A camada abaixo tambem evita que overrides historicos deixem o Downside
 # artificialmente melhor do que o Base.
 _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
@@ -286,9 +306,9 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
             "projeto_hub": {
                 "beneficios_anuais": {
                     "poupanca_operacional": 484000,
-                    "reducao_quebras": 75000,
+                    "reducao_quebras": 98000,
                     "opex_incremental": 210000,
-                    "beneficio_liquido_anual": 349000,
+                    "beneficio_liquido_anual": 372000,
                     "crescimento_anual": 0.040,
                 },
                 # Inventário via dias de DMI (Upside: automação no topo da janela VDMA)
@@ -300,11 +320,20 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
                         2027: 750000,
                         2028: 1000000,
                         2029: 1150000,
+                        2030: 1200000,
+                        2031: 1260000,
+                        2032: 1320000,
+                        2033: 1390000,
+                        2034: 1460000,
                     },
                     "cmvmc_pct_incremental": 0.52,
                 },
                 "necessidades_fundo_maneio": {
                     "compras_manutencao_anuais": 84000,
+                    "receita_servicos_externos": {
+                        2026: 0, 2027: 220000, 2028: 340000, 2029: 400000,
+                        2030: 440000, 2031: 490000, 2032: 540000, 2033: 600000, 2034: 660000,
+                    },
                 },
                 "viabilidade": {"wacc": 0.069},  # Base 7,3 % − 0,4 pp (Upside)
             },
@@ -315,9 +344,9 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
             "projeto_hub": {
                 "beneficios_anuais": {
                     "poupanca_operacional": 374000,
-                    "reducao_quebras": 45500,
+                    "reducao_quebras": 59500,
                     "opex_incremental": 247500,
-                    "beneficio_liquido_anual": 172000,
+                    "beneficio_liquido_anual": 186000,
                     "crescimento_anual": 0.025,
                     "ramp_up_por_ano": {
                         2026: 0.75,
@@ -335,11 +364,20 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
                         2027: 450000,
                         2028: 600000,
                         2029: 675000,
+                        2030: 700000,
+                        2031: 735000,
+                        2032: 772000,
+                        2033: 810000,
+                        2034: 851000,
                     },
                     "cmvmc_pct_incremental": 0.60,
                 },
                 "necessidades_fundo_maneio": {
                     "compras_manutencao_anuais": 99000,
+                    "receita_servicos_externos": {
+                        2026: 0, 2027: 140000, 2028: 210000, 2029: 250000,
+                        2030: 270000, 2031: 295000, 2032: 320000, 2033: 350000, 2034: 385000,
+                    },
                 },
                 "viabilidade": {"wacc": 0.081},  # Base 7,3 % + 0,8 pp (Downside)
             },
@@ -350,9 +388,9 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
             "projeto_hub": {
                 "beneficios_anuais": {
                     "poupanca_operacional": 308000,
-                    "reducao_quebras": 19500,
+                    "reducao_quebras": 25500,
                     "opex_incremental": 281250,
-                    "beneficio_liquido_anual": 46250,
+                    "beneficio_liquido_anual": 52250,
                     "crescimento_anual": 0.015,
                     "ramp_up_por_ano": {
                         2026: 0.60,
@@ -370,12 +408,20 @@ _HUB_SCENARIO_RECALIBRATION: dict[str, dict] = {
                         2027: 250000,
                         2028: 350000,
                         2029: 400000,
+                        2030: 420000,
+                        2031: 441000,
+                        2032: 463000,
+                        2033: 486000,
+                        2034: 510000,
                     },
                     "cmvmc_pct_incremental": 0.65,
                 },
                 "necessidades_fundo_maneio": {
                     "compras_manutencao_anuais": 112500,
-                    "receita_servicos_externos_2028": 150000,
+                    "receita_servicos_externos": {
+                        2026: 0, 2027: 80000, 2028: 120000, 2029: 140000,
+                        2030: 150000, 2031: 165000, 2032: 180000, 2033: 198000, 2034: 218000,
+                    },
                 },
                 "viabilidade": {"wacc": 0.091},  # Base 7,3 % + 1,8 pp (Stress)
             },
@@ -457,10 +503,13 @@ def load(cenario: str = "Base"):
         _load_yaml_layers([
             MACRO_2025_FILE,                  # Macro 2025 — inflação/câmbio mensal
             MACRO_2026_2029_FILE,             # Macro 2026-2029 — inflação/câmbio anual
+            MACRO_2030_2034_FILE,             # Macro 2030-2034 — inflação/câmbio anual
             VENDAS_2025_FILE,                 # Pressupostos vendas 2025
             VENDAS_2026_2029_FILE,            # Pressupostos vendas 2026-2029
+            VENDAS_2030_2034_FILE,           # Pressupostos vendas 2030-2034
             CUSTOS_2025_FILE,                 # Pressupostos custos 2025
             CUSTOS_2026_2029_FILE,            # Pressupostos custos 2026-2029
+            CUSTOS_2030_2034_FILE,            # Pressupostos custos 2030-2034
             MIX_2024_FILE,                    # Mix real 2024 (base histórica — única fonte de mix)
             ASSUMPTIONS_FILE,                 # Globais — fiscal, prazos, pessoal, ESG
         ])

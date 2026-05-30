@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class RunRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     cenario: str = "Base"
     hub_on: bool = False
     ecogres_on: bool = True
@@ -17,6 +19,8 @@ class RunRequest(BaseModel):
 
 
 class CustomScenarioPayload(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     label: str = ""
     description: str = ""
     overrides: dict[str, Any] | None = None

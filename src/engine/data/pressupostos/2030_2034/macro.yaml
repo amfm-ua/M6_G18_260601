@@ -1,0 +1,23 @@
+# Pressupostos macroeconómicos 2030-2034 — inflação e câmbio EUR/USD
+# Granularidade anual.
+#
+# Pressupostos de longo prazo (maturidade do setor cerâmica/hosting):
+#   - Inflação estabiliza em ~1.5% a.a. (maturidade económica europeia)
+#   - EUR/USD: dólar ligeiramente mais forte (PIB USA cresce mais, Fed mantém política)
+#   - Crescimento Real PIB PT: ~1.5% a.a. (tendência pré-pandemia)
+
+macro:
+  inflacao:
+    anual:
+      2030: 0.015
+      2031: 0.015
+      2032: 0.015
+      2033: 0.015
+      2034: 0.015
+  eur_usd:
+    anual:
+      2030: 1.12
+      2031: 1.11
+      2032: 1.10
+      2033: 1.11
+      2034: 1.12

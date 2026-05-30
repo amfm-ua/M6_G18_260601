@@ -95,7 +95,16 @@ def hub_quebras_saving_derivado(
     df_merc: pd.DataFrame,
     hub: dict,
 ) -> dict[int, float]:
-    """Breakage saving indexed to organic production cost (CMVMC_prod)."""
+    """Breakage saving indexed to organic production cost (CMVMC_prod).
+
+    The base scalar ``reducao_quebras`` is anchored to the *lost conversion cost*
+    of post-firing breakage (caco) attributable to handling — the energy + labour
+    embedded in a fired piece that is sunk when it breaks and is NOT recovered by
+    the Ecogres recycling loop (which only recovers material value at scrap price).
+    See m6_hub_assumptions.yaml (beneficios_anuais.quebras_driver) for the physical
+    derivation. Here that base is scaled by the growth of CMVMC_prod (volume proxy)
+    and the adoption ramp.
+    """
     proj = hub.get("projeto_hub", {})
     ben = proj.get("beneficios_anuais", {})
     cfg = ben.get("quebras_driver", {})

@@ -97,6 +97,53 @@ distribuicao_resultados:
   ano_inicio_distribuicao: 2026  # RL_2024 totalmente retido (sem dividendo em 2025 — capital afeto ao investimento hub)
   reserva_legal_pct: 0.05
 
+# ── Política Dinâmica de Dividendos ──────────────────────────────────────────
+# Payout dinámico: ajusta-se ao estado financeiro para manter o equilíbrio
+# entre distribuição aos acionistas e sustentabilidade da dívida.
+#
+# REGRAS DE DECISÃO:
+#   endividamento > endividamento_max  → RETER (payout_min)
+#       └─ necessidade de reforço de capital próprio para降 risco de incumplimiento
+#   aplica_fin_cp > aplica_fin_target  → DISTRIBUIR EXCEDENTE (payout_max)
+#       └─ excesso de liquidez improdutiva → devolver aos acionistas
+#  介于两者之间 → INTERPOLAR proporcionalmente
+#
+# A interpolação é suave (linear) para evitar alterações abruptas de política.
+# Os valores são expressos em pontos percentuais (ex: 0.35 = 35%).
+#
+payout_policy:
+  # Payout mínimo — quando o rácio de endividamento é elevado
+  # (> endividamento_max), reter resultados para reforçar capital próprio.
+  payout_min: 0.20
+
+  # Payout máximo — quando há excesso de liquidez (aplicações fin. CP
+  # acima do target) e o endividamento está controlado.
+  # Com endividamento baixo (6-32%), a empresa beneficia do escudo fiscal
+  # dos juros — mais resultados disponíveis para distribuição.
+  payout_max: 0.50
+
+  # Payout default (fallback) para anos sem RL positivo ou antes do início
+  # da distribuição — manter consistente com o payout_min.
+  payout_default: 0.20
+
+  # Rácio de endividamento (%) máximo — acima deste limiar,
+  # o payout cai para payout_min (prioridade: gestão de dívida).
+  endividamento_max_pct: 50.0
+
+  # Aplicações Financeiras CP (€) acima das quais o excesso é
+  # distribuído aos acionistas. Quando aplic_cp > aplica_fin_target,
+  # o payout sobe em direção a payout_max.
+  # Calibrado ao plano de investimento: o investimento hub absorve
+  # a liquidez 2025-2028; a partir de 2029 os saldos ultrapassam
+  # o target e inicia-se a distribuição progressiva.
+  # Reduzido de 8M para 5M para ativar a política mais cedo e
+  # garantir distribuições significativas a partir de 2032.
+  aplica_fin_cp_target: 5000000.0   # €5M — buffer operacional; excesso = distribuição
+
+  # Peso da componente de endividamento vs. liquidez na interpolação.
+  # 0.6 → 60% peso na regra de endividamento, 40% na liquidez.
+  peso_endividamento: 0.6
+
 # Crescimento anual dos rendimentos financeiros (juros de depósitos e aplicações de tesouraria)
 rendimentos_financeiros_base: 64677.79      # R&C 2024: rendimentos financeiros reais auditados
 rendimentos_financeiros_crescimento: 0.025

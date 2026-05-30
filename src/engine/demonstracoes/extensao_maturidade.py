@@ -52,6 +52,7 @@ import pandas as pd
 
 from ..inputs import Assumptions, Base2024, Schedules
 from ..operacional.clientes import iva_efetivo_vendas
+from .dfc import dynamic_payout
 
 # Inflação anual usada no estado estacionário (parametrizável).
 G_MATURIDADE_DEFAULT = 0.02
@@ -131,6 +132,7 @@ def estender_maturidade(
     inicio_div = int(a.distribuicao["ano_inicio_distribuicao"])
     caixa_min_pct = float(a.caixa.get("minima_pct_vn", 0.013))
     caixa_max_pct = float(a.caixa.get("maxima_pct_vn", 0.086))
+    pol_payout = a.raw.get("payout_policy", {})
 
     iva_vendas = iva_efetivo_vendas(a)
     iva_cmvmc = float(a.impostos.get("IVA_CMVMC", 0.23))
@@ -147,6 +149,7 @@ def estender_maturidade(
     reservas_leg_prev = float(bal_b["reservas_legais"])
     bal_prev = bal_b
     rl_prev = float(dr_b["rl"])
+    aplic_prev = float(bal_b["aplicacoes_fin_cp"])
 
     # Teto da reserva legal (CSC art. 295.º): a dotação cessa aos 20% do capital
     # social — mesma regra de balanco.py, aplicada ao saldo acumulado.
@@ -154,6 +157,19 @@ def estender_maturidade(
 
     for y in anos_ext:
         scale = (1.0 + g) ** (y - ano_base_ext)
+
+        # ── Payout dinámico para ano y ───────────────────────────────────────
+        # Endividamento do ano anterior (bal_prev) como rácio sobre ativo total.
+        endiv_pct = 100.0 * (
+            float(bal_prev["emprestimos_nc"]) + float(bal_prev["emprestimos_c"])
+        ) / max(1.0, float(bal_prev["total_ativo"]))
+        payout_y = dynamic_payout(
+            y=y, rl_prev=rl_prev,
+            endividamento_pct=endiv_pct,
+            aplic_fin_cp=aplic_prev,
+            pol=pol_payout,
+            inicio_div=inicio_div,
+        )
 
         # ---------- DR ----------
         dr_row: dict = {"ano": float(y)}
@@ -183,7 +199,7 @@ def estender_maturidade(
         # resultados transitados e é creditada em reservas_legais (transferência
         # interna ao capital próprio, CSC art. 295.º) — sem isto a DFC não reconcilia.
         if rl > 0 and y >= inicio_div:
-            div = rl_prev * payout
+            div = rl_prev * payout_y
             res = rl_prev * reserva_legal
             res = max(0.0, min(res, teto_reserva_legal - reservas_leg_prev))
         else:
@@ -352,6 +368,7 @@ def estender_maturidade(
             "hub_juros_capitalizados": 0.0,
             "var_linha_cp": d_linha_cp,
             "pag_dividendos": pag_div,
+            "payout_ratio": payout_y,
             "fluxo_financiamento": fluxo_fin,
             "variacao_caixa": var_caixa,
             "caixa_ini": caixa_ini,
@@ -364,6 +381,7 @@ def estender_maturidade(
         rt_prev = rt_y
         reservas_leg_prev = reservas_leg_y
         rl_prev = rl
+        aplic_prev = bal_row["aplicacoes_fin_cp"]
         bal_prev = pd.Series(bal_row)
 
     df_dr_ext = pd.concat([df_dr, pd.DataFrame(dr_rows)], ignore_index=True)

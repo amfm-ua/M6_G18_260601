@@ -24,6 +24,13 @@ const fmt = {
     if (a >= 1e3) return sign + "€" + (a / 1e3).toFixed(0) + "\u00A0k";
     return sign + "€" + a.toFixed(0);
   },
+  // €1,234 M — always in millions, 3 decimals, for financial statements
+  eurM: (v) => {
+    if (v == null || isNaN(v)) return "—";
+    const sign = v < 0 ? "−" : "";
+    const a = Math.abs(v);
+    return sign + "€" + (a / 1e6).toFixed(3).replace(".", ",") + "\u00A0M";
+  },
   // 23,5%
   pct: (v, d = 1) => {
     if (v == null || isNaN(v)) return "—";

@@ -68,7 +68,7 @@ pvu_mercadorias_crescimento:
 # Exemplo: UE: 0.05 → mercado UE cresce +5% adicional ao global
 crescimento_volume_por_mercado:
   PT:  0.00
-  UE:  0.00
+  UE:  0.05
   USA: 0.00
   ROW: 0.00
 
@@ -80,7 +80,7 @@ crescimento_volume_por_canal:
   Private_Label: 0.00
   Hotelaria:     0.00
   Retalho:       0.00
-  E_Commerce:    0.00
+  E_Commerce:    0.10
 
 # Ajuste diferenciado de PVU por mercado geográfico (valor directo, taxa real)
 # Acumulado multiplicativamente sobre pvu_produto_crescimento (por produto).

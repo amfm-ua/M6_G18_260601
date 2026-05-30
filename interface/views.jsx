@@ -37,6 +37,8 @@ function heatStyle(v, absMax) {
 // ---- Demonstração de Resultados ---------------------------------------------
 function DRView({ ctx }) {
   const { dr } = ctx;
+  const [showExt, setShowExt] = React.useState(false);
+  const [showYoY, setShowYoY] = React.useState(false);
   const rubricas = [
     { label: "Vendas e Serviços Prestados", key: "vn", strong: true },
     { label: "Outros Rendimentos", key: "outros_rend" },
@@ -53,7 +55,6 @@ function DRView({ ctx }) {
     { label: "Resultado Líquido", key: "rl", total: true },
   ];
 
-  // EBITDA bridge: 2024 -> 2025
   const r24 = dr[0], r25 = dr[1];
   const bridge = [
     { label: "EBITDA 2024", value: r24.ebitda, type: "total" },
@@ -64,6 +65,64 @@ function DRView({ ctx }) {
     { label: "Δ Pessoal", value: -(r25.pessoal - r24.pessoal), type: "delta" },
     { label: "Δ Outros Gastos", value: -(r25.outros_gastos - r24.outros_gastos), type: "delta" },
     { label: "EBITDA 2025", value: r25.ebitda, type: "total" },
+  ];
+
+  function fmtM(v) {
+    if (v == null || isNaN(v)) return "—";
+    if (v < 0) return "(" + (Math.abs(v) / 1e6).toFixed(2).replace(".", ",") + ")";
+    return (v / 1e6).toFixed(2).replace(".", ",");
+  }
+
+  function fmtCell(v, neg) {
+    if (v == null || isNaN(v)) return "—";
+    const str = (Math.abs(v) / 1e6).toFixed(2).replace(".", ",");
+    if (neg || v < 0) return "(" + str + ")";
+    return str;
+  }
+
+  function fmtYoY(v) {
+    if (v == null || isNaN(v) || !isFinite(v)) return "—";
+    return fmt.pctSigned(v);
+  }
+
+  function yoyStyle(v) {
+    if (v == null) return {};
+    return { color: v >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 };
+  }
+
+  function valStyle(v) {
+    return {};
+  }
+
+  function yoyOf(key, currIdx) {
+    if (currIdx === 0) return null;
+    const curr = dr[currIdx] ? dr[currIdx][key] : null;
+    const prev = dr[currIdx - 1] ? dr[currIdx - 1][key] : null;
+    if (prev == null || prev === 0 || curr == null) return null;
+    return (curr - prev) / Math.abs(prev);
+  }
+
+  const allYears = ["2025", "2026", "2027", "2028", "2029"];
+  const extYears = ["2030", "2031", "2032", "2033", "2034"];
+  const extYoYIndices = [[6,5],[7,6],[8,7],[9,8],[10,9]];
+
+  // Grouped header rows
+  const drHeaderRows = [
+    <tr key="grp">
+      <th rowSpan={2} style={{ width: "16%" }}>Rubrica</th>
+      <th colSpan={6} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--muted)" }}>Curto-Médio Prazo</th>
+      {showExt && <th colSpan={5} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--accent)" }}>Longo Prazo · Projeção</th>}
+      <th rowSpan={2} className="mono num" style={{ minWidth: 44 }}>CAGR 25-29</th>
+      {showExt && <th rowSpan={2} className="mono num" style={{ minWidth: 44 }}>CAGR 30-34</th>}
+    </tr>,
+    <tr key="yrs">
+      {["24","25","26","27","28","29"].map(y => (
+        <th key={y} className="mono num" style={{ minWidth: 34 }}>{y}</th>
+      ))}
+      {showExt && ["30","31","32","33","34"].map(y => (
+        <th key={y} className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>{y}</th>
+      ))}
+    </tr>
   ];
 
   return (
@@ -78,31 +137,107 @@ function DRView({ ctx }) {
         <WaterfallChart items={bridge} height={260} />
       </Panel>
 
-      <Panel title="Demonstração dos Resultados" sub="€ · valores anuais">
-        <table className="ftable ftable--dense">
-          <thead>
-            <tr>
-              <th style={{ width: "32%" }}>Rubrica</th>
-              {GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}
-              <th className="mono num">CAGR 25-29</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rubricas.map((r, i) => {
-              const vals = dr.map(d => d[r.key]);
-              const cagr = Math.pow(vals[5] / vals[1], 1 / 4) - 1;
-              return (
-                <tr key={r.key} className={[r.strong ? "is-bold" : "", r.subtotal ? "is-subtotal" : "", r.total ? "is-total" : ""].join(" ")}>
-                  <td>{r.label}</td>
-                  {vals.map((v, ix) => (
-                    <td key={ix} className="mono num">{r.neg ? "(" + fmt.eur(Math.abs(v)).replace("€", "€") + ")" : fmt.eur(v)}</td>
-                  ))}
-                  <td className="mono num" style={heatStyle(cagr, 0.25)}>{fmt.pctSigned(cagr)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <Panel
+        title={showYoY ? "Demonstração dos Resultados · Variação YoY" : "Demonstração dos Resultados"}
+        sub={showYoY ? "variação homológica (%)" : "€ milhões"}
+        right={
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button
+              className={"toggle " + (showYoY ? "is-on" : "")}
+              onClick={() => setShowYoY(m => !m)}
+            >
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              Var. YoY
+            </button>
+            <button
+              className={"toggle " + (showExt ? "is-on" : "")}
+              onClick={() => setShowExt(m => !m)}
+            >
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              Projeções 2030–2034
+            </button>
+          </div>
+        }
+      >
+        {showYoY ? (
+          <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
+            <thead>{drHeaderRows}</thead>
+            <tbody>
+              {rubricas.map((r) => {
+                const vals = dr.map(d => d[r.key]);
+                const cagr = vals[1] !== 0 ? Math.pow(vals[5] / vals[1], 1 / 4) - 1 : null;
+                const vals30 = vals.slice(6);
+                const cagr30 = vals30[4] > 0 && vals30[0] > 0
+                  ? Math.pow(vals30[4] / vals30[0], 1 / 4) - 1
+                  : null;
+                return (
+                  <tr key={r.key} className={[r.strong ? "is-bold" : "", r.subtotal ? "is-subtotal" : "", r.total ? "is-total" : ""].join(" ")}>
+                    <td>{r.label}</td>
+                    <td className="mono num" style={{ color: "var(--muted)" }}>—</td>
+                    {[1,2,3,4,5].map(i => {
+                      const v = yoyOf(r.key, i);
+                      return (
+                        <td key={"yoy_" + i} className="mono num" style={yoyStyle(v)}>
+                          {fmtYoY(v)}
+                        </td>
+                      );
+                    })}
+                    {showExt && extYoYIndices.map(([ci, pi], idx) => {
+                      const curr = dr[ci] ? dr[ci][r.key] : null;
+                      const prev = dr[pi] ? dr[pi][r.key] : null;
+                      const v = prev != null && prev !== 0 && curr != null ? (curr - prev) / Math.abs(prev) : null;
+                      return (
+                        <td key={"ext_yoy_" + idx} className="mono num" style={{ color: "var(--accent)" }}>
+                          {fmtYoY(v)}
+                        </td>
+                      );
+                    })}
+                    <td className="mono num" style={heatStyle(cagr, 0.25)}>{fmt.pctSigned(cagr)}</td>
+                    {showExt && (
+                      <td className="mono num" style={heatStyle(cagr30, 0.25)}>
+                        {cagr30 != null ? fmt.pctSigned(cagr30) : "—"}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
+            <thead>{drHeaderRows}</thead>
+            <tbody>
+              {rubricas.map((r) => {
+                const vals = dr.map(d => d[r.key]);
+                const cagr = vals[1] !== 0 ? Math.pow(vals[5] / vals[1], 1 / 4) - 1 : null;
+                const vals30 = vals.slice(6);
+                const cagr30 = vals30[4] > 0 && vals30[0] > 0
+                  ? Math.pow(vals30[4] / vals30[0], 1 / 4) - 1
+                  : null;
+                return (
+                  <tr key={r.key} className={[r.strong ? "is-bold" : "", r.subtotal ? "is-subtotal" : "", r.total ? "is-total" : ""].join(" ")}>
+                    <td>{r.label}</td>
+                    <td className="mono num" style={valStyle(vals[0])}>{fmtCell(vals[0], r.neg)}</td>
+                    <td className="mono num" style={valStyle(vals[1])}>{fmtCell(vals[1], r.neg)}</td>
+                    <td className="mono num" style={valStyle(vals[2])}>{fmtCell(vals[2], r.neg)}</td>
+                    <td className="mono num" style={valStyle(vals[3])}>{fmtCell(vals[3], r.neg)}</td>
+                    <td className="mono num" style={valStyle(vals[4])}>{fmtCell(vals[4], r.neg)}</td>
+                    <td className="mono num" style={valStyle(vals[5])}>{fmtCell(vals[5], r.neg)}</td>
+                    {showExt && vals.slice(6).map((v, idx) => (
+                      <td key={"ext_" + idx} className="mono num" style={{ color: "var(--accent)" }}>{fmtCell(v, r.neg)}</td>
+                    ))}
+                    <td className="mono num" style={heatStyle(cagr, 0.25)}>{fmt.pctSigned(cagr)}</td>
+                    {showExt && (
+                      <td className="mono num" style={heatStyle(cagr30, 0.25)}>
+                        {cagr30 != null ? fmt.pctSigned(cagr30) : "—"}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </Panel>
     </>
   );
@@ -113,6 +248,11 @@ function BalancoView({ ctx }) {
   const { bal } = ctx;
   const last = bal[bal.length - 1];
   const first = bal[0];
+  const [showExt, setShowExt] = React.useState(false);
+  const [showYoY, setShowYoY] = React.useState(false);
+
+  const allYears = ["2025", "2026", "2027", "2028", "2029"];
+  const extYears = ["2030", "2031", "2032", "2033", "2034"];
 
   const ativoRows = [
     { label: "Activos Fixos Tangíveis",                key: "AFT_liquido" },
@@ -141,26 +281,35 @@ function BalancoView({ ctx }) {
     { label: "Estado e Outros Passivos Correntes", key: "Outros_PC" },
   ];
 
-  function renderBRows(rows) {
-    return rows.map((r, idx) => {
-      if (r.section) {
-        return (
-          <tr key={"s_" + idx} className="is-section">
-            <td colSpan={GRESTEL.YEARS.length + 1}>{r.section}</td>
-          </tr>
-        );
-      }
-      return (
-        <tr key={r.key || idx}>
-          <td>{r.label}</td>
-          {bal.map((b, i) => (
-            <td key={i} className="mono num">
-              {fmt.eur(r.computed ? r.computed(b) : (b[r.key] || 0))}
-            </td>
-          ))}
-        </tr>
-      );
-    });
+  function fmtM(v) {
+    if (v == null || isNaN(v)) return "—";
+    if (v < 0) return "(" + (Math.abs(v) / 1e6).toFixed(2).replace(".", ",") + ")";
+    return (v / 1e6).toFixed(2).replace(".", ",");
+  }
+
+  function fmtYoY(v) {
+    if (v == null || isNaN(v) || !isFinite(v)) return "—";
+    return fmt.pctSigned(v);
+  }
+
+  function yoyStyle(v) {
+    if (v == null) return {};
+    return { color: v >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 };
+  }
+
+  function getBalVal(key, idx, computed) {
+    const b = bal[idx];
+    if (!b) return null;
+    if (computed) return computed(b);
+    return b[key] || 0;
+  }
+
+  function yoyOf(key, idx, computed) {
+    if (idx === 0) return null;
+    const curr = getBalVal(key, idx, computed);
+    const prev = getBalVal(key, idx - 1, computed);
+    if (prev == null || prev === 0 || curr == null) return null;
+    return (curr - prev) / Math.abs(prev);
   }
 
   const ancTotal = b => b.ativo_total - b.Inventarios - b.Clientes - b.Outros_AC - (b.Aplicacoes_Fin_CP || 0) - b.Caixa;
@@ -178,6 +327,134 @@ function BalancoView({ ctx }) {
       { key: "Caixa",          value: b.Caixa, color: "var(--neg)" },
     ]
   }));
+
+  // Grouped header rows
+  const balHeaderRows = [
+    <tr key="grp">
+      <th rowSpan={2} style={{ width: "16%" }}>Rubrica</th>
+      <th colSpan={6} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--muted)" }}>Curto-Médio Prazo</th>
+      {showExt && <th colSpan={5} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--accent)" }}>Longo Prazo · Projeção</th>}
+    </tr>,
+    <tr key="yrs">
+      {["24","25","26","27","28","29"].map(y => (
+        <th key={y} className="mono num" style={{ minWidth: 34 }}>{y}</th>
+      ))}
+      {showExt && ["30","31","32","33","34"].map(y => (
+        <th key={y} className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>{y}</th>
+      ))}
+    </tr>
+  ];
+
+  function BalPanel({ title, sections }) {
+    const ncols = 7 + (showExt ? 5 : 0);
+    return (
+      <Panel
+        title={title}
+        sub={showYoY ? "variação (%)" : "€ milhões"}
+        right={
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button className={"toggle " + (showYoY ? "is-on" : "")} onClick={() => setShowYoY(m => !m)}>
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              Var. YoY
+            </button>
+            <button className={"toggle " + (showExt ? "is-on" : "")} onClick={() => setShowExt(m => !m)}>
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              2030–34
+            </button>
+          </div>
+        }
+      >
+        <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
+          <thead>
+            {balHeaderRows}
+          </thead>
+          <tbody>
+            {sections.map((sec, si) => (
+              <React.Fragment key={si}>
+                <tr className="is-section"><td colSpan={ncols}>{sec.header}</td></tr>
+                {sec.rows.map((r, ri) => (
+                  <tr key={r.key || (si + "_" + ri)}>
+                    <td>{r.label}</td>
+                    {[0,1,2,3,4,5].map(i => (
+                      <td key={i} className="mono num">
+                        {showYoY ? fmtYoY(yoyOf(r.key, i, r.computed)) : fmtM(getBalVal(r.key, i, r.computed))}
+                      </td>
+                    ))}
+                    {showExt && [6,7,8,9,10].map(i => (
+                      <td key={"ex_" + i} className="mono num" style={{ color: "var(--accent)" }}>
+                        {showYoY ? fmtYoY(yoyOf(r.key, i, r.computed)) : fmtM(getBalVal(r.key, i, r.computed))}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {sec.totals.map(t => (
+                  <tr key={t.label} className={t.cls || "is-subtotal"}>
+                    <td>{t.label}</td>
+                    {[0,1,2,3,4,5].map(i => (
+                      <td key={i} className="mono num" style={showYoY ? yoyStyle(yoyOf(null, i, t.getter)) : {}}>
+                        {showYoY ? fmtYoY(yoyOf(null, i, t.getter)) : fmtM(t.getter(bal[i]))}
+                      </td>
+                    ))}
+                    {showExt && [6,7,8,9,10].map(i => (
+                      <td key={"ex_" + i} className="mono num" style={{ color: "var(--accent)" }}>
+                        {showYoY ? fmtYoY(yoyOf(null, i, t.getter)) : fmtM(t.getter(bal[i] || {}))}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Subtabela projeções 2030-2034 */}
+        {showExt && !showYoY && (
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--rule)", paddingTop: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+              Projeções 2030–2034
+            </div>
+            <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
+              <thead>
+                <tr>
+                  <th style={{ width: "16%" }}>Rubrica</th>
+                  {extYears.map((y, i) => (
+                    <th key={"h_" + i} className="mono num" style={{ color: "var(--accent)", minWidth: 34 }}>{y.slice(2)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sections.map((sec, si) => (
+                  <React.Fragment key={"ex_" + si}>
+                    <tr className="is-section"><td colSpan={6}>{sec.header}</td></tr>
+                    {sec.rows.map((r, ri) => (
+                      <tr key={"ex_" + (r.key || (si + "_" + ri))}>
+                        <td>{r.label}</td>
+                        {[6,7,8,9,10].map(i => (
+                          <td key={i} className="mono num" style={{ color: "var(--accent)" }}>
+                            {fmtM(getBalVal(r.key, i, r.computed))}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                    {sec.totals.map(t => (
+                      <tr key={"ex_" + t.label} className={t.cls || "is-subtotal"}>
+                        <td>{t.label}</td>
+                        {[6,7,8,9,10].map(i => (
+                          <td key={i} className="mono num" style={{ color: "var(--accent)" }}>
+                            {fmtM(t.getter(bal[i] || {}))}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
+    );
+  }
 
   return (
     <>
@@ -208,46 +485,21 @@ function BalancoView({ ctx }) {
       </Panel>
 
       <div className="grid-2">
-        <Panel title="ACTIVO" sub="€">
-          <table className="ftable ftable--dense">
-            <thead><tr><th>Rubrica</th>{GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}</tr></thead>
-            <tbody>
-              <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Activo Não Corrente</td></tr>
-              {renderBRows(ativoRows)}
-              <tr className="is-subtotal">
-                <td>Total ANC</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(ancTotal(b))}</td>)}
-              </tr>
-              <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Activo Corrente</td></tr>
-              {renderBRows(correntesRows)}
-              <tr className="is-subtotal">
-                <td>Total AC</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(acTotal(b))}</td>)}
-              </tr>
-              <tr className="is-total">
-                <td>Total Activo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.ativo_total)}</td>)}
-              </tr>
-            </tbody>
-          </table>
-        </Panel>
-
-        <Panel title="CAPITAL PRÓPRIO + PASSIVO" sub="€">
-          <table className="ftable ftable--dense">
-            <thead><tr><th>Rubrica</th>{GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}</tr></thead>
-            <tbody>
-              <tr className="is-section"><td colSpan={GRESTEL.YEARS.length + 1}>Capital Próprio</td></tr>
-              {renderBRows(cpRows)}
-              <tr className="is-subtotal">
-                <td>Total Capital Próprio</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.capital_total)}</td>)}
-              </tr>
-              {renderBRows(passivoRows)}
-              <tr className="is-subtotal">
-                <td>Total Passivo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.passivo_total)}</td>)}
-              </tr>
-              <tr className="is-total">
-                <td>Total CP + Passivo</td>{bal.map((b, i) => <td key={i} className="mono num">{fmt.eur(b.capital_total + b.passivo_total)}</td>)}
-              </tr>
-            </tbody>
-          </table>
-        </Panel>
+        <BalPanel
+          title="ACTIVO"
+          sections={[
+            { header: "Activo Não Corrente", rows: ativoRows, totals: [{ label: "Total ANC", getter: ancTotal }] },
+            { header: "Activo Corrente",     rows: correntesRows, totals: [{ label: "Total AC", getter: acTotal }, { label: "Total Activo", getter: b => b.ativo_total, cls: "is-total" }] },
+          ]}
+        />
+        <BalPanel
+          title="CAPITAL PRÓPRIO + PASSIVO"
+          sections={[
+            { header: "Capital Próprio", rows: cpRows, totals: [{ label: "Total Capital Próprio", getter: b => b.capital_total }] },
+            { header: "Passivo Não Corrente", rows: [{ key: "Emprestimos_NC", label: "Financiamentos Obtidos NC" }], totals: [] },
+            { header: "Passivo Corrente", rows: [{ key: "Emprestimos_C", label: "Financiamentos Obtidos Correntes" }, { key: "Fornecedores", label: "Fornecedores" }, { key: "Outros_PC", label: "Estado e Outros Passivos Correntes" }], totals: [{ label: "Total Passivo", getter: b => b.passivo_total }, { label: "Total CP + Passivo", getter: b => b.capital_total + b.passivo_total, cls: "is-total" }] },
+          ]}
+        />
       </div>
     </>
   );
@@ -257,7 +509,37 @@ function BalancoView({ ctx }) {
 function DFCView({ ctx }) {
   const { dfc } = ctx;
   const [year, setYear] = useState(2025);
+  const [showExt, setShowExt] = React.useState(false);
+  const [showYoY, setShowYoY] = React.useState(false);
   const r = dfc.find(d => d.year === year);
+
+  const allYears  = ["2025", "2026", "2027", "2028", "2029"];
+  const extYears  = ["2030", "2031", "2032", "2033", "2034"];
+
+  function fmtM(v) {
+    if (v == null || isNaN(v)) return "—";
+    if (v < 0) return "(" + (Math.abs(v) / 1e6).toFixed(2).replace(".", ",") + ")";
+    return (v / 1e6).toFixed(2).replace(".", ",");
+  }
+
+  function fmtYoY(v) {
+    if (v == null || isNaN(v) || !isFinite(v)) return "—";
+    return fmt.pctSigned(v);
+  }
+
+  function yoyStyle(v) {
+    if (v == null) return {};
+    return { color: v >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 };
+  }
+
+  function yoyOf(field, idx) {
+    if (idx === 0) return null;
+    const curr = dfc[idx] ? dfc[idx][field] || 0 : 0;
+    const prev = dfc[idx - 1] ? dfc[idx - 1][field] || 0 : 0;
+    if (prev === 0 || curr == null || prev == null) return null;
+    return (curr - prev) / Math.abs(prev);
+  }
+
   const items = [
     { label: "Recebimentos clientes", value: r.recebimentos, type: "delta" },
     { label: "Pagamentos fornecedores", value: r.pag_fornecedores, type: "delta" },
@@ -273,6 +555,55 @@ function DFCView({ ctx }) {
     { label: "Variação Caixa", value: r.variacao_caixa, type: "total" },
   ];
 
+  const allYearsFull = GRESTEL.YEARS;
+
+  // Grouped header rows
+  const dfcHeaderRows = [
+    <tr key="grp">
+      <th rowSpan={2} style={{ width: "16%" }}>Rubrica</th>
+      <th colSpan={6} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--muted)" }}>Curto-Médio Prazo</th>
+      {showExt && <th colSpan={5} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--accent)" }}>Longo Prazo · Projeção</th>}
+    </tr>,
+    <tr key="yrs">
+      {["24","25","26","27","28","29"].map(y => (
+        <th key={y} className="mono num" style={{ minWidth: 34 }}>{y}</th>
+      ))}
+      {showExt && ["30","31","32","33","34"].map(y => (
+        <th key={y} className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>{y}</th>
+      ))}
+    </tr>
+  ];
+
+  function dfcValStyle(v) {
+    if (v == null || isNaN(v) || v === 0) return {};
+    return { color: v > 0 ? "var(--pos)" : "var(--neg)" };
+  }
+
+  function renderRow(field, label, isSubtotal, isTotal) {
+    const cls = isTotal ? "is-total" : isSubtotal ? "is-subtotal" : "";
+    return (
+      <tr key={field} className={cls}>
+        <td>{label || field}</td>
+        {[0,1,2,3,4,5].map(i => {
+          const v = dfc[i] ? dfc[i][field] || 0 : 0;
+          return (
+            <td key={i} className="mono num" style={showYoY && isSubtotal ? yoyStyle(yoyOf(field, i)) : dfcValStyle(v)}>
+              {showYoY ? fmtYoY(yoyOf(field, i)) : fmtM(v)}
+            </td>
+          );
+        })}
+        {showExt && [6,7,8,9,10].map(i => {
+          const v = dfc[i] ? dfc[i][field] || 0 : 0;
+          return (
+            <td key={"ex_" + i} className="mono num" style={{ color: "var(--accent)" }}>
+              {showYoY ? fmtYoY(yoyOf(field, i)) : fmtM(v)}
+            </td>
+          );
+        })}
+      </tr>
+    );
+  }
+
   return (
     <>
       <div className="grid-3">
@@ -283,41 +614,88 @@ function DFCView({ ctx }) {
 
       <Panel
         title={"Demonstração de Fluxos de Caixa · " + year}
-        sub="método directo"
+        sub={showYoY ? "variação (%)" : "método directo"}
         right={
-          <div className="seg seg--sm">
-            {GRESTEL.YEARS.map(y => (
-              <button key={y} className={"seg-btn " + (year === y ? "is-on" : "")} onClick={() => setYear(y)}>{y}</button>
-            ))}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div className="seg seg--sm">
+              {allYearsFull.map(y => (
+                <button key={y} className={"seg-btn " + (year === y ? "is-on" : "")} onClick={() => setYear(y)}>{y}</button>
+              ))}
+            </div>
           </div>
         }
       >
         <WaterfallChart items={items} height={360} />
       </Panel>
 
-      <Panel title="Fluxos por ano" sub="€ · valores anuais">
-        <table className="ftable ftable--dense">
+      <Panel
+        title="Fluxos por ano"
+        sub={showYoY ? "variação (%)" : "€ milhões"}
+        right={
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <button className={"toggle " + (showYoY ? "is-on" : "")} onClick={() => setShowYoY(m => !m)}>
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              Var. YoY
+            </button>
+            <button className={"toggle " + (showExt ? "is-on" : "")} onClick={() => setShowExt(m => !m)}>
+              <span className="toggle-track"><span className="toggle-thumb" /></span>
+              2030–34
+            </button>
+          </div>
+        }
+      >
+        <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
           <thead>
-            <tr>
-              <th>Rubrica</th>
-              {GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}
-            </tr>
+            {dfcHeaderRows}
           </thead>
           <tbody>
-            <FRow label="Recebimentos clientes" values={dfc.map(d => d.recebimentos)} />
-            <FRow label="Pagamentos fornecedores" values={dfc.map(d => d.pag_fornecedores)} />
-            <FRow label="Pagamentos pessoal" values={dfc.map(d => d.pag_pessoal)} />
-            <tr className="is-subtotal"><td>Fluxo operacional</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.fluxo_operacional)}</td>)}</tr>
-            <FRow label="CAPEX" values={dfc.map(d => d.capex_aft)} />
-            <FRow label="Dividendos recebidos" values={dfc.map(d => d.dividendos_recebidos)} />
-            <tr className="is-subtotal"><td>Fluxo investimento</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.fluxo_investimento)}</td>)}</tr>
-            <FRow label="Recebimentos empréstimos" values={dfc.map(d => d.rec_emprestimos)} />
-            <FRow label="Pagamentos empréstimos" values={dfc.map(d => d.pag_emprestimos)} />
-            <FRow label="Dividendos pagos" values={dfc.map(d => d.pag_dividendos || 0)} />
-            <tr className="is-subtotal"><td>Fluxo financiamento</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.fluxo_financiamento)}</td>)}</tr>
-            <tr className="is-total"><td>Variação Caixa</td>{dfc.map((d, i) => <td key={i} className="mono num">{fmt.eur(d.variacao_caixa)}</td>)}</tr>
+            {renderRow("recebimentos")}
+            {renderRow("pag_fornecedores")}
+            {renderRow("pag_pessoal")}
+            {renderRow("fluxo_operacional", "Fluxo operacional", true)}
+            {renderRow("capex_aft")}
+            {renderRow("dividendos_recebidos")}
+            {renderRow("fluxo_investimento", "Fluxo investimento", true)}
+            {renderRow("rec_emprestimos")}
+            {renderRow("pag_emprestimos")}
+            {renderRow("pag_dividendos")}
+            {renderRow("fluxo_financiamento", "Fluxo financiamento", true)}
+            {renderRow("variacao_caixa", "Variação Caixa", false, true)}
           </tbody>
         </table>
+
+        {/* Subtabela projeções 2030-2034 */}
+        {showExt && !showYoY && (
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--rule)", paddingTop: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+              Projeções 2030–2034
+            </div>
+            <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
+              <thead>
+                <tr>
+                  <th style={{ width: "16%" }}>Rubrica</th>
+                  {extYears.map((y, i) => (
+                    <th key={"h_" + i} className="mono num" style={{ color: "var(--accent)", minWidth: 34 }}>{y.slice(2)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {renderRow("recebimentos")}
+                {renderRow("pag_fornecedores")}
+                {renderRow("pag_pessoal")}
+                {renderRow("fluxo_operacional", "Fluxo operacional", true)}
+                {renderRow("capex_aft")}
+                {renderRow("dividendos_recebidos")}
+                {renderRow("fluxo_investimento", "Fluxo investimento", true)}
+                {renderRow("rec_emprestimos")}
+                {renderRow("pag_emprestimos")}
+                {renderRow("pag_dividendos")}
+                {renderRow("fluxo_financiamento", "Fluxo financiamento", true)}
+                {renderRow("variacao_caixa", "Variação Caixa", false, true)}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Panel>
     </>
   );
@@ -371,6 +749,20 @@ function KPIView({ ctx }) {
   const [kpisB, setKpisB] = React.useState(null);
   const [loadA, setLoadA] = React.useState(false);
   const [loadB, setLoadB] = React.useState(false);
+  const [showYoY, setShowYoY] = React.useState(false);
+
+  function yoyStyle(v) {
+    if (v == null) return {};
+    return { color: v >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 };
+  }
+
+  function yoyOf(vals, ix) {
+    if (ix === 0) return null;
+    const curr = vals[ix];
+    const prev = vals[ix - 1];
+    if (curr == null || prev == null || prev === 0) return null;
+    return (curr - prev) / Math.abs(prev);
+  }
 
   const rows = [
     { label: "Margem EBITDA",        key: "margem_ebitda",        fmt: v => fmt.pct(v),        dfmt: d => fmt.pctSigned(d),                            up: true  },
@@ -416,24 +808,49 @@ function KPIView({ ctx }) {
   return (
     <Panel
       title="KPIs & rácios financeiros"
-      sub={compareMode ? `${scenLabel(pickA)}  ·vs·  ${scenLabel(pickB)}` : "evolução 2024–2029"}
+      sub={compareMode ? `${scenLabel(pickA)}  ·vs·  ${scenLabel(pickB)}` : showYoY ? "variação (%)" : "evolução 2024–2034"}
       right={
-        <button
-          className={"seg-btn " + (compareMode ? "is-on" : "")}
-          onClick={() => setCompareMode(m => !m)}
-          style={{ fontSize: 12 }}
-        >
-          Comparar cenários
-        </button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button
+            className={"toggle " + (showYoY ? "is-on" : "")}
+            onClick={() => setShowYoY(m => !m)}
+          >
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            Var. YoY
+          </button>
+          <button
+            className={"seg-btn " + (compareMode ? "is-on" : "")}
+            onClick={() => setCompareMode(m => !m)}
+            style={{ fontSize: 12 }}
+          >
+            Comparar
+          </button>
+        </div>
       }
     >
       {!compareMode ? (
-        <table className="ftable">
+        <table className="ftable" style={{ tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th>Rácio</th>
-              <th className="num">Tendência</th>
-              {GRESTEL.YEARS.map(y => <th key={y} className="mono num">{y}</th>)}
+              <th style={{ width: "20%" }}>Rácio</th>
+              <th className="num" style={{ minWidth: 80 }}>Tendência</th>
+              <th colSpan={6} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--muted)" }}>Curto-Médio Prazo</th>
+              <th colSpan={5} style={{ textAlign: "center", borderBottom: "1px solid var(--rule)", fontSize: 10, letterSpacing: "0.04em", color: "var(--accent)" }}>Longo Prazo · Projeção</th>
+            </tr>
+            <tr>
+              <th style={{ width: "20%" }}></th>
+              <th className="num" style={{ minWidth: 80 }}></th>
+              <th className="mono num" style={{ minWidth: 34 }}>24</th>
+              <th className="mono num" style={{ minWidth: 34 }}>25</th>
+              <th className="mono num" style={{ minWidth: 34 }}>26</th>
+              <th className="mono num" style={{ minWidth: 34 }}>27</th>
+              <th className="mono num" style={{ minWidth: 34 }}>28</th>
+              <th className="mono num" style={{ minWidth: 34 }}>29</th>
+              <th className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>30</th>
+              <th className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>31</th>
+              <th className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>32</th>
+              <th className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>33</th>
+              <th className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>34</th>
             </tr>
           </thead>
           <tbody>
@@ -444,9 +861,12 @@ function KPIView({ ctx }) {
                 <tr key={r.key}>
                   <td>{r.label}</td>
                   <td className="num"><Sparkline values={vals} width={80} height={24} color="var(--accent)" /></td>
-                  {vals.map((v, ix) => (
-                    <td key={ix} className="mono num" style={heatStyle(v, absMax)}>{r.fmt(v)}</td>
-                  ))}
+                  {vals.map((v, ix) => {
+                    const delta = yoyOf(vals, ix);
+                    const style = showYoY && delta != null ? yoyStyle(delta) : heatStyle(v, absMax);
+                    const display = showYoY && delta != null ? fmt.pctSigned(delta) : r.fmt(v);
+                    return <td key={ix} className="mono num" style={style}>{display}</td>;
+                  })}
                 </tr>
               );
             })}
@@ -684,7 +1104,7 @@ function RollingView({ ctx }) {
             ))}
             <FRow label="Pessoal" values={rf.map(r => -r.pessoal)} />
             <tr className="is-indent">
-              <td style={{ paddingLeft: "1.2rem", color: "var(--muted)", fontSize: "0.88em" }} title="Inclui: variação de inventários, reconhecimento PT2030, gastos pré-op. hub e outros rendimentos/gastos operacionais não desagregados mensalmente">
+              <td style={{ paddingLeft: "1.2rem", color: "var(--muted)", fontSize: "0.88em" }} title="Inclui: variação de inventários, gastos pré-op. hub e outros rendimentos/gastos operacionais não desagregados mensalmente">
                 Outros rend./gastos op. líq.
               </td>
               {rf.map((r, i) => <td key={i} className="mono num" style={{ color: "var(--muted)", fontSize: "0.88em" }}>{fmt.eur(r.outros_rend_liq)}</td>)}
@@ -928,7 +1348,7 @@ function HubViabilidadeView({ ctx }) {
                 <td>Benefícios fiscais</td>
                 <td className={"mono num " + (decomp.fiscal >= 0 ? "pos" : "neg")}>{fmt.eurC(decomp.fiscal)}</td>
                 <td className="mono num">{decomp.total_vala ? fmt.pct(decomp.fiscal / decomp.total_vala, 0) : "—"}</td>
-                <td style={{ fontSize: 11 }}>Escudo fiscal da dívida (Miles-Ezzell) + PT2030 líquido (NCRF 22) + crédito RFAI</td>
+                <td style={{ fontSize: 11 }}>Escudo fiscal da dívida (Miles-Ezzell) + crédito RFAI</td>
               </tr>
               <tr style={{ fontWeight: 600, borderTop: "2px solid var(--rule)" }}>
                 <td>VALA (total)</td>
@@ -941,7 +1361,6 @@ function HubViabilidadeView({ ctx }) {
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 12, fontSize: 12, color: "var(--muted)" }}>
             <span><strong style={{ color: "var(--ink-2)" }}>Detalhe fiscal</strong></span>
             <span>Escudo da dívida: <span className="mono">{fmt.eurC(decomp.fiscal_detalhe.escudo_fiscal)}</span></span>
-            <span>PT2030 líquido: <span className="mono">{fmt.eurC(decomp.fiscal_detalhe.pt2030_liquido)}</span></span>
             <span>RFAI: <span className="mono">{fmt.eurC(decomp.fiscal_detalhe.rfai)}</span></span>
           </div>
           <p className="muted" style={{ fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
@@ -1008,7 +1427,6 @@ function HubViabilidadeView({ ctx }) {
                 ))
               : <KV k="Capital alheio" v={fmt.eurC(p.banco_montante || 0) + " @ " + fmt.pct(p.banco_taxa_juro || 0, 2)} />
             }
-            <KV k="PT2030" v={fmt.eurC(p.pt2030_montante ?? 0) + " · " + (p.pt2030_ano || 2027)} />
             <KV k="RFAI crédito total" v={fmt.eurC(p.rfai_credito_total_gerado || 0)} />
             <KV k="Índice rendibilidade" v={viab.indice_rendibilidade != null ? viab.indice_rendibilidade.toFixed(2) + "×" : "—"} />
           </dl>
@@ -1386,7 +1804,6 @@ function HubConsolidadoView({ consol }) {
             <KV k="Payback simples" v={hub.payback_simples != null ? Number(hub.payback_simples).toFixed(1) + " anos" : "—"} />
             <KV k="Payback atualizado" v={hub.payback_atualizado != null ? Number(hub.payback_atualizado).toFixed(1) + " anos" : "—"} />
             <KV k="CAPEX" v={fmt.eurC(hub.capex_base || 0)} />
-            <KV k="PT2030" v={fmt.eurC(hub.pt2030_montante || 0)} />
             <KV k="WACC" v={fmt.pct(hub.wacc || 0.073, 0)} />
             <KV k="Índice rendibilidade" v={hub.indice_rendibilidade != null ? hub.indice_rendibilidade.toFixed(2) + "×" : "—"} />
           </dl>
@@ -1518,17 +1935,13 @@ function HubMonteCarloView({ ctx }) {
     dmi_reducao_dias:      "Redução de DMI (dias)",
     capex:                 "CAPEX total",
     wacc:                  "WACC",
-    // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
-    // PT2030 = €0 na base. drivers operacionales continuam simulados.
     preco_eletricidade:    "Preço da eletricidade",
     eur_usd:               "Taxa de câmbio EUR/USD",
     crescimento_logistico: "Taxa de crescimento logístico",
   };
 
-  // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
   const valaDriverLabels = {
     ...driverLabels,
-    // pt2030_approved REMOVIDO (2025-05-30): Não aplicável a grande empresa.
     rfai_utilization: "Absorção crédito RFAI",
     kd_shock:         "Choque spread bancário (Kd)",
   };
@@ -1536,11 +1949,9 @@ function HubMonteCarloView({ ctx }) {
   const corrVala = mcVala
     ? Object.entries(mcVala.correlacoes_vala).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
     : [];
-  // PT2030 REMOVIDO (2025-05-30): pv_pt2030 = 0, não aparece nos componentes.
   const valaComponents = mcVala ? [
     { key: "val_base_ke",   label: "VAL_base (Ku)",  data: mcVala.val_base_ke },
     { key: "escudo_fiscal", label: "Escudo Fiscal",   data: mcVala.escudo_fiscal },
-    // { key: "pv_pt2030", label: "PT2030 líquido", data: mcVala.pv_pt2030 }, // REMOVIDO 2025-05-30
     { key: "pv_rfai",      label: "RFAI",             data: mcVala.pv_rfai },
     { key: "vala",         label: "VALA total",       data: mcVala.vala, bold: true },
   ] : [];
@@ -1708,12 +2119,9 @@ function HubMonteCarloView({ ctx }) {
       )}
 
       {mcVala && <>
-        <div className="grid-4">
-          <KPI label="P(VALA > 0)"         value={fmt.pct(diag.prob_vala_positivo, 1)}                        tone="pos" sub="viabilidade APV total" />
-          <KPI label="P(VAL_base > 0)"     value={fmt.pct(diag.prob_val_base_positivo, 1)}                    sub="puro operacional · sem fiscal" />
-          {/* PT2030 KPIs REMOVIDO (2025-05-30): Grande empresa sem elegibilidade */}
-          {/* <KPI label="P(VALA>0 | PT2030 ✓)" ... /> */}
-          {/* <KPI label="P(VALA>0 | PT2030 ✗)" ... /> */}
+        <div className="grid-2">
+          <KPI label="P(VALA > 0)"     value={fmt.pct(diag.prob_vala_positivo, 1)}     tone="pos" sub="viabilidade APV total" />
+          <KPI label="P(VAL_base > 0)" value={fmt.pct(diag.prob_val_base_positivo, 1)} sub="puro operacional · sem fiscal" />
         </div>
 
         <div className="grid-2-3">
@@ -1726,7 +2134,6 @@ function HubMonteCarloView({ ctx }) {
                 das falhas devem-se a VAL_base negativo (operacional)
               </div>
             </div>
-            {/* PT2030 diagnostic REMOVIDO (2025-05-30): Grande empresa sem elegibilidade */}
           </Panel>
 
           <Panel title="Decomposição VALA — Percentis" sub="VAL_base(Ku) + Escudo Fiscal + RFAI · P5 / médio / P95">
@@ -1763,7 +2170,6 @@ function HubMonteCarloView({ ctx }) {
                 <th className="mono num">VALA</th>
                 <th className="mono num">VAL_base (Ku)</th>
                 <th className="mono num">Escudo</th>
-                {/* PT2030 REMOVIDO (2025-05-30): pv_pt2030 = 0 sempre */}
                 <th className="mono num">PV(RFAI)</th>
               </tr>
             </thead>
@@ -1774,7 +2180,6 @@ function HubMonteCarloView({ ctx }) {
                   <td className="mono num" style={{ color: sv.vala < 0 ? "var(--neg)" : undefined }}>{fmt.eurC(sv.vala)}</td>
                   <td className="mono num">{fmt.eurC(sv.val_base_ke)}</td>
                   <td className="mono num">{fmt.eurC(sv.escudo_fiscal)}</td>
-                  {/* PT2030 REMOVIDO: pv_pt2030 = 0 */}
                   <td className="mono num">{fmt.eurC(sv.pv_rfai)}</td>
                 </tr>
               ))}
@@ -1784,7 +2189,7 @@ function HubMonteCarloView({ ctx }) {
 
         <Panel
           title="Correlação driver → VALA"
-          sub="Pearson r · drivers fiscais: rfai_utilization, kd_shock (PT2030 = €0 fixo, 2025-05-30)"
+          sub="Pearson r · drivers fiscais: rfai_utilization, kd_shock"
           right={<Legend items={[{ label: "correlação positiva", color: "var(--pos)" }, { label: "correlação negativa", color: "var(--neg)" }]} />}
         >
           <HBarChart items={corrVala.map(([k, val]) => ({ label: valaDriverLabels[k] || k, value: val }))} />
@@ -1818,9 +2223,8 @@ function HubOE4View({ ctx }) {
 
   const totalCapex   = im.capex_base;
   const emprestimo   = im.sintese?.capital_alheio  ?? 0;
-  const pt2030       = im.pt2030_montante ?? 0;
   const capProprio   = im.sintese?.fundos_proprios ?? 0;
-  const fundingTotal = emprestimo + capProprio;  // CAPEX = capital alheio + capital próprio (PT2030 é separado)
+  const fundingTotal = emprestimo + capProprio;
   const nfmTotal    = im.nfm.reduce((a, r) => a + r.delta_nfm, 0);
   const dscrMin     = 1.20;
 
@@ -1861,18 +2265,13 @@ function HubOE4View({ ctx }) {
         <KPI label="Capital alheio"   value={fmt.eurC(emprestimo)} sub={
           (im.emprestimos || []).map(t => t.nome.replace(/_/g, " ") + " " + fmt.eurC(t.montante)).join(" · ") || "—"
         } />
-        <KPI label="Subsídio PT2030"  value={fmt.eurC(pt2030)} tone={pt2030 > 0 ? "pos" : undefined} sub={
-          pt2030 > 0
-            ? "fundo perdido · " + fmt.pct(im.sintese?.pt2030_pct_capex ?? 0, 0) + " CAPEX · " + im.pt2030_ano
-            : "grande empresa, sem SI PME · upside potencial"
-        } />
         <KPI label="RFAI"             value={fmt.eurC(im.rfai?.credito_total ?? 0)} tone="pos" sub={"apoio regional · " + fmt.pct(im.rfai?.taxa ?? 0, 1) + " × CAPEX elegível (art. 22-23 CFI)"} />
         <KPI label="Capital próprio"  value={fmt.eurC(capProprio)} sub={"CAPEX − dívida · " + fmt.pct(im.sintese?.fundos_proprios_pct ?? 0, 0) + " · NFM " + fmt.eurC(nfmTotal)} />
       </div>
 
       <Panel
         title="Mapa de Investimento"
-        sub="5 pools de CAPEX · vidas úteis e taxas de depreciação distintas"
+        sub={`${(im.pools || []).length} pools de CAPEX · vidas úteis e taxas de depreciação distintas`}
         right={<span className="chip-static mono">Σ {fmt.eurC(totalCapex)}</span>}
       >
         <table className="ftable ftable--dense">
@@ -1940,18 +2339,10 @@ function HubOE4View({ ctx }) {
           ]}
           height={40}
         />
-        {/* PT2030 / RFAI banner — condicional conforme montante PT2030 */}
-        {pt2030 > 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "6px 10px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 12 }}>
-            <span style={{ color: "var(--pos)", fontWeight: 600 }}>PT2030</span>
-            <span style={{ color: "var(--pos)" }}>Subsídio a fundo perdido {fmt.eurC(pt2030)} · reduz CAPEX líquido para {fmt.eurC(im.sintese?.capex_liquido_efetivo ?? totalCapex - pt2030)} · recebimento {im.pt2030_ano}</span>
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "6px 10px", background: "oklch(0.96 0.04 80)", borderRadius: 6, fontSize: 12 }}>
-            <span style={{ fontWeight: 600, color: "var(--ink-2)" }}>Apoio regional</span>
-            <span style={{ color: "var(--ink-2)" }}>PT2030 = €0 na base (grande empresa, sem acesso a SI PME) · Apoio via <b>RFAI</b>: {fmt.eurC(im.rfai?.credito_total ?? 0)} crédito de imposto ({fmt.pct(im.rfai?.taxa ?? 0, 1)} × CAPEX elegível, CFI art. 22-23, teto {fmt.pct(im.rfai?.teto_pct_capex ?? 0.30, 0)} CAPEX)</span>
-          </div>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "6px 10px", background: "oklch(0.96 0.04 80)", borderRadius: 6, fontSize: 12 }}>
+          <span style={{ fontWeight: 600, color: "var(--ink-2)" }}>Apoio regional</span>
+          <span style={{ color: "var(--ink-2)" }}>Apoio via <b>RFAI</b>: {fmt.eurC(im.rfai?.credito_total ?? 0)} crédito de imposto ({fmt.pct(im.rfai?.taxa ?? 0, 1)} × CAPEX elegível, CFI art. 22-23, teto {fmt.pct(im.rfai?.teto_pct_capex ?? 0.30, 0)} CAPEX)</span>
+        </div>
         <div className="grid-4" style={{ marginTop: 14 }}>
           {(im.emprestimos || []).map((t, i) => (
             <FundingCard
@@ -1969,23 +2360,6 @@ function HubOE4View({ ctx }) {
               ]}
             />
           ))}
-          <FundingCard
-            label={pt2030 > 0 ? "Subsídio PT2030" : "PT2030 (upside)"}
-            value={fmt.eur(pt2030)}
-            pct={totalCapex > 0 ? pt2030 / totalCapex : 0}
-            color="oklch(0.72 0.050 80)"
-            meta={pt2030 > 0 ? [
-              ["Natureza", "Fundo perdido (não reembolsável)"],
-              ["Cobertura", fmt.pct(im.sintese?.pt2030_pct_capex ?? 0, 0) + " do CAPEX"],
-              ["Recebimento", im.pt2030_ano + " (após arranque)"],
-              ["Reconhecimento", "Linear · proporcional às dep."],
-            ] : [
-              ["Estado", "€0 na base (prudente)"],
-              ["Razão", "Grande empresa — sem SI Inovação PME"],
-              ["Upside", "Se aprovado ≤ teto regional 30% − RFAI"],
-              ["Recebimento", im.pt2030_ano + " (se aprovado)"],
-            ]}
-          />
           <FundingCard
             label="RFAI (apoio regional)"
             value={fmt.eur(im.rfai?.credito_total ?? 0)}
@@ -2258,11 +2632,11 @@ function HubVALAView({ ctx }) {
 
   // Sensitivity table rows — labels vêm do backend (evita strings desalinhadas com o plano de financiamento)
   const sensList = [
-    "base", "pt2030_30pct", "sem_pt2030", "sem_subsidios", "irc_21pct", "kd_plus100bps",
+    "base", "pt2030_30pct", "sem_subsidios", "irc_21pct", "kd_plus100bps",
   ].map(key => ({ key, label: cenarios[key]?.label ?? key }));
   const baseVala = cenarios["base"]?.vala ?? valaVal;
 
-  // Semáforo thresholds — enquadramento correto: base=PT2030 €0, upside=PT2030 aprovado
+  // Semáforo: base=PT2030 €0; upside=PT2030 aprovado (30% CAPEX)
   const semaforoItems = [
     {
       vala: cenarios["base"]?.vala ?? valaVal,
@@ -2300,20 +2674,17 @@ function HubVALAView({ ctx }) {
         <KPI label="VAL base (Ku)"   value={fmt.eurC(vala.val_base_ke)}        tone={vala.val_base_ke >= 0 ? "pos" : "neg"} sub={"Ku=" + fmt.pct(params.ku ?? 0, 2) + " · unlevered"} />
         <KPI label="Escudo Fiscal"   value={fmt.eurC(vala.escudo_fiscal_total)} tone="pos" sub="Miles-Ezzell · kd por tranche" />
         <KPI
-          label={(vala.pv_pt2030_liquido ?? 0) > 0 ? "PT2030 + RFAI" : "RFAI"}
-          value={fmt.eurC((vala.pv_pt2030_liquido ?? 0) + (vala.pv_rfai ?? 0))}
+          label="RFAI"
+          value={fmt.eurC(vala.pv_rfai ?? 0)}
           tone="pos"
-          sub={(vala.pv_pt2030_liquido ?? 0) > 0
-            ? "rf=" + fmt.pct(params.rf ?? 0, 2) + " · NCRF 22"
-            : "apoio regional · rf=" + fmt.pct(params.rf ?? 0, 2)
-          }
+          sub={"apoio regional · rf=" + fmt.pct(params.rf ?? 0, 2)}
         />
       </div>
 
       {/* ── Waterfall decomposition ──────────────────────────────────────── */}
       <Panel
         title="Decomposição APV — Bridge VALA"
-        sub="VALA = VAL base(Ku) + Escudo Fiscal + PT2030 líquido + RFAI + Subsídio implícito (taxa bonificada)"
+        sub="VALA = VAL base(Ku) + Escudo Fiscal + RFAI + Subsídio implícito (taxa bonificada)"
         right={<span className="chip-static mono">VALA {fmt.eurC(valaVal)}</span>}
       >
         <WaterfallChart items={wfItems} height={240} />
@@ -2401,7 +2772,7 @@ function HubVALAView({ ctx }) {
               <td className="mono num muted">Embutido no WACC</td>
               <td className="mono num pos">{fmt.pct(pctFin, 1)}</td>
               <td className="mono num muted">—</td>
-              <td className="muted" style={{ fontSize: 11.5 }}>Escudo fiscal + PT2030 + RFAI + subsídio implícito</td>
+              <td className="muted" style={{ fontSize: 11.5 }}>Escudo fiscal + RFAI + subsídio implícito</td>
             </tr>
           </tbody>
         </table>
@@ -2421,7 +2792,6 @@ function HubVALAView({ ctx }) {
               <th>Cenário fiscal</th>
               <th className="mono num">VALA</th>
               <th className="mono num">VAL_base(Ku)</th>
-              <th className="mono num">PT2030 liq.</th>
               <th className="mono num">RFAI</th>
               <th className="mono num">Escudo Fisc.</th>
               <th className="mono num">Δ vs Base</th>
@@ -2446,7 +2816,6 @@ function HubVALAView({ ctx }) {
                   <td style={{ fontWeight: isBase ? 600 : 400, fontSize: isBase ? 12 : 11.5 }}>{label}</td>
                   <td className={"mono num " + (sc.vala >= 0 ? "pos" : "neg")}>{fmt.eurC(sc.vala)}</td>
                   <td className={"mono num " + (sc.val_base_ke >= 0 ? "pos" : "neg")}>{fmt.eurC(sc.val_base_ke)}</td>
-                  <td className="mono num pos">{fmt.eurC(sc.pv_pt2030)}</td>
                   <td className="mono num pos">{fmt.eurC(sc.pv_rfai)}</td>
                   <td className="mono num pos">{fmt.eurC(sc.escudo_fiscal)}</td>
                   <td className={"mono num " + (isBase ? "muted" : delta >= 0 ? "pos" : "neg")}
@@ -2590,9 +2959,9 @@ function HubContingenciaView({ ctx }) {
   // VALA cenários de risco (de sens)
   const cenariosSens = sens.cenarios || {};
   const valaBase      = cenariosSens["base"]?.vala ?? 0;
-  const valaSemPt2030 = cenariosSens["sem_pt2030"]?.vala ?? 0;
+  const valaSemRFAI   = cenariosSens["sem_subsidios"]?.vala ?? 0;
   const valaKdPlus    = cenariosSens["kd_plus100bps"]?.vala ?? 0;
-  const impactoPT2030 = valaSemPt2030 - valaBase;
+  const impactoRFAI   = valaSemRFAI - valaBase;
   const impactoKd     = valaKdPlus - valaBase;
 
   const n  = YEARS_PROJ.length;
@@ -2717,21 +3086,21 @@ function HubContingenciaView({ ctx }) {
         sub="Três riscos críticos identificados em §9.2 — combinação simultânea de desvios desfavoráveis (ceteris paribus)"
       >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {/* Risco 1 — PT2030 */}
+          {/* Risco 1 — RFAI não absorvido */}
           <div style={cardStyle}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               {riskBadge("RISCO 1", "var(--neg-soft)", "var(--neg)")}
-              <span style={{ fontSize: 12, fontWeight: 600 }}>Atraso PT2030</span>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>RFAI não absorvido</span>
             </div>
             <div style={{ fontSize: 11.5, color: "var(--ink-2)", lineHeight: 1.5, marginBottom: 10 }}>
-              Não recebimento dos <b>€2,7 M</b> planeados para 2027: eleva Dívida Líquida, reduz AF para níveis próximos do limite de 30% e sobrecarrega o FCF com encargos de juros.
+              Crédito RFAI (art. 22-23 CFI) não absorvido por insuficiência de coleta nos 5 anos seguintes: €1,4 M de benefício fiscal deixa de ser capturado, reduzindo o VALA pelo valor do carry-forward perdido.
             </div>
             <div style={{ background: "var(--surface-2)", borderRadius: 6, padding: "8px 12px", fontSize: 11.5, marginBottom: 8 }}>
-              {impactRow("Impacto no VALA", impactoPT2030, true)}
-              {impactRow("VALA sem PT2030", valaSemPt2030, false)}
+              {impactRow("Impacto no VALA", impactoRFAI, true)}
+              {impactRow("VALA sem RFAI", valaSemRFAI, false)}
             </div>
             <div style={{ fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5 }}>
-              <b style={{ color: "var(--pos)" }}>Mitigação:</b> Linha revolving €500k · Suporte acionistas · Amortização extraordinária desloca-se 2027 → 2028
+              <b style={{ color: "var(--pos)" }}>Mitigação:</b> RFAI gerido por escalões (25%/10%) · coleta IRC projetada cobre absorção até 2029 · carry-forward legal de 5 anos
             </div>
           </div>
 
@@ -2965,6 +3334,8 @@ function VendasView({ ctx }) {
   const [va, setVa] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
+  const [showYoY, setShowYoY] = React.useState(false);
+  const [showMoM, setShowMoM] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -2975,6 +3346,16 @@ function VendasView({ ctx }) {
       .catch(err => { if (!cancelled) { setError(err.message || String(err)); setLoading(false); } });
     return () => { cancelled = true; };
   }, [ctx.scenario, ctx.hubOn, ctx.ecogresOn]);
+
+  function yoyStyle(v) {
+    if (v == null) return {};
+    return { color: v >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 };
+  }
+
+  function yoyOf(curr, prev) {
+    if (prev == null || prev === 0 || curr == null) return null;
+    return (curr - prev) / Math.abs(prev);
+  }
 
   if (loading && !va) return <LoadingShell />;
   if (error && !va) return <ErrorBanner message={error} onRetry={() => setVa(null)} />;
@@ -3109,41 +3490,109 @@ function VendasView({ ctx }) {
         </Panel>
       </div>
 
-      <Panel title="Detalhe mensal · 2025" sub="€ · cenário ativo">
+      <Panel
+        title="Vendas anuais detalhadas"
+        sub={showYoY ? "variação (%)" : "€ milhões"}
+        right={
+          <button className={"toggle " + (showYoY ? "is-on" : "")} onClick={() => setShowYoY(m => !m)}>
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            Var. YoY
+          </button>
+        }
+      >
+        <table className="ftable ftable--dense" style={{ tableLayout: "fixed" }}>
+          <thead>
+            <tr>
+              <th style={{ width: "28%" }}>Rubrica</th>
+              <th className="mono num" style={{ minWidth: 34 }}>24</th>
+              <th className="mono num" style={{ minWidth: 34 }}>25</th>
+              <th className="mono num" style={{ minWidth: 34 }}>26</th>
+              <th className="mono num" style={{ minWidth: 34 }}>27</th>
+              <th className="mono num" style={{ minWidth: 34 }}>28</th>
+              <th className="mono num" style={{ minWidth: 34 }}>29</th>
+              {["30","31","32","33","34"].map(y => (
+                <th key={y} className="mono num" style={{ minWidth: 34, color: "var(--accent)" }}>{y}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              { label: "Produtos",    getVal: a => a.produtos },
+              { label: "Mercadorias", getVal: a => a.mercadorias },
+              { label: "Vendas Totais", getVal: a => a.vn, bold: true },
+            ].map(row => (
+              <tr key={row.label} className={row.bold ? "is-subtotal" : ""}>
+                <td>{row.label}</td>
+                {annual.map((a, i) => {
+                  const v = row.getVal(a);
+                  const prev = i > 0 ? row.getVal(annual[i - 1]) : null;
+                  const yoy = showYoY && i > 0 ? yoyOf(v, prev) : null;
+                  const inExt = i >= 6;
+                  return (
+                    <td key={i} className="mono num" style={yoy ? yoyStyle(yoy) : inExt ? { color: "var(--accent)" } : {}}>
+                      {yoy ? fmt.pctSigned(yoy) : fmt.eurC(v)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Panel>
+
+      <Panel
+        title="Detalhe mensal · 2025"
+        sub={showMoM ? "variação MoM (%)" : "€ milhões"}
+        right={
+          <button className={"toggle " + (showMoM ? "is-on" : "")} onClick={() => setShowMoM(m => !m)}>
+            <span className="toggle-track"><span className="toggle-thumb" /></span>
+            Var. MoM
+          </button>
+        }
+      >
         <table className="ftable ftable--dense">
           <thead>
             <tr>
-              <th>Rubrica</th>
+              <th style={{ width: "18%" }}>Rubrica</th>
               {meses.map(m => <th key={m.mes} className="mono num">{m.mes}</th>)}
               <th className="mono num">Total</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Produtos</td>
-              {meses.map((m, i) => <td key={i} className="mono num">{fmt.eur(m.produtos)}</td>)}
-              <td className="mono num">{fmt.eur(meses.reduce((a, m) => a + m.produtos, 0))}</td>
-            </tr>
-            <tr>
-              <td>Mercadorias</td>
-              {meses.map((m, i) => <td key={i} className="mono num">{fmt.eur(m.mercadorias)}</td>)}
-              <td className="mono num">{fmt.eur(meses.reduce((a, m) => a + m.mercadorias, 0))}</td>
-            </tr>
-            <tr className="is-total">
-              <td>Vendas totais</td>
-              {meses.map((m, i) => <td key={i} className="mono num">{fmt.eur(m.total)}</td>)}
-              <td className="mono num">{fmt.eur(meses.reduce((a, m) => a + m.total, 0))}</td>
-            </tr>
-            <tr className="row-sep"><td colSpan={14}></td></tr>
-            <tr>
-              <td className="muted">% do ano</td>
-              {meses.map((m, i) => (
-                <td key={i} className="mono num muted">
-                  {fmt.pct(m.total / meses.reduce((a, x) => a + x.total, 0), 1)}
-                </td>
-              ))}
-              <td className="mono num muted">100,0%</td>
-            </tr>
+            {[
+              { label: "Produtos",    getVal: m => m.produtos },
+              { label: "Mercadorias", getVal: m => m.mercadorias },
+              { label: "Vendas totais", getVal: m => m.total, bold: true },
+            ].map(row => (
+              <tr key={row.label} className={row.bold ? "is-subtotal" : ""}>
+                <td>{row.label}</td>
+                {meses.map((m, i) => {
+                  const v = row.getVal(m);
+                  const prev = i > 0 ? row.getVal(meses[i - 1]) : null;
+                  const mom = showMoM && prev != null && prev !== 0 ? yoyOf(v, prev) : null;
+                  return (
+                    <td key={i} className="mono num" style={mom ? yoyStyle(mom) : {}}>
+                      {mom != null ? fmt.pctSigned(mom) : fmt.eurC(v)}
+                    </td>
+                  );
+                })}
+                <td className="mono num">{fmt.eurC(meses.reduce((a, m) => a + row.getVal(m), 0))}</td>
+              </tr>
+            ))}
+            {!showMoM && (
+              <>
+                <tr className="row-sep"><td colSpan={14}></td></tr>
+                <tr>
+                  <td className="muted">% do ano</td>
+                  {meses.map((m, i) => (
+                    <td key={i} className="mono num muted">
+                      {fmt.pct(m.total / meses.reduce((a, x) => a + x.total, 0), 1)}
+                    </td>
+                  ))}
+                  <td className="mono num muted">100,0%</td>
+                </tr>
+              </>
+            )}
           </tbody>
         </table>
       </Panel>
@@ -4614,6 +5063,8 @@ function PessoalView({ ctx }) {
   const r2024 = anualMap[2024] || {};
   const r2025 = anualMap[2025] || {};
   const totais = anos.map(y => (anualMap[y] || {}).gastos_pessoal || 0);
+  // Hub ativo com poupança de pessoal derivada → mostrar FTE evitados e headcount líquido
+  const hubPoupaPessoal = (anual || []).some(r => (r.fte_poupados_hub || 0) > 0);
 
   // Contab breakdown
   const contabKeys = Object.keys(contab || {});
@@ -4728,9 +5179,21 @@ function PessoalView({ ctx }) {
               {totais.map((v, i) => <td key={i} className="mono num">{fmt.eur(v)}</td>)}
             </tr>
             <tr>
-              <td>Headcount (FTE)</td>
+              <td>Headcount (FTE){hubPoupaPessoal ? " — bruto (s/ hub)" : ""}</td>
               {anos.map((y, i) => <td key={i} className="mono num">{fmt.num((anualMap[y] || {}).headcount || 0)}</td>)}
             </tr>
+            {hubPoupaPessoal && (
+              <>
+                <tr>
+                  <td>FTE evitados (hub)</td>
+                  {anos.map((y, i) => <td key={i} className="mono num">−{fmt.num((anualMap[y] || {}).fte_poupados_hub || 0)}</td>)}
+                </tr>
+                <tr>
+                  <td><strong>Headcount líquido (c/ hub)</strong></td>
+                  {anos.map((y, i) => <td key={i} className="mono num"><strong>{fmt.num((anualMap[y] || {}).headcount_hub || (anualMap[y] || {}).headcount || 0)}</strong></td>)}
+                </tr>
+              </>
+            )}
             <tr>
               <td>Custo Médio</td>
               {anos.map((y, i) => <td key={i} className="mono num">{fmt.eur((anualMap[y] || {}).custo_medio || 0)}</td>)}

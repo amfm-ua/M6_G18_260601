@@ -8,7 +8,7 @@
 // Volume é grandeza física — taxa directa (sem composição com inflação).
 
 const GRESTEL = (() => {
-  const YEARS = [2024, 2025, 2026, 2027, 2028, 2029];
+  const YEARS = [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034];
 
   // ── IRC: fonte de verdade única (correção C-1) ─────────────────────────────
   // Antes existiam 4 valores divergentes para a mesma taxa (0.20 / 0.21 / 0.215
@@ -57,62 +57,53 @@ const GRESTEL = (() => {
       prob:  0.50,
       desc: "Continuidade das tendências 2024; crescimento moderado e sustentável. EUR/USD estável, marcas próprias +3%, Private Label recupera.",
       // vol: directo (físico) | preco/fse/pessoal/cmvmc: nominais
-      vol:    [null, 0.020, 0.030, 0.030, 0.030, 0.030],
-      preco:  [null, 0.030, 0.030, 0.030, 0.030, 0.030],
-      fse:    [null, 0.030, 0.030, 0.030, 0.050, 0.050],
-      pessoal:[null, 0.035, 0.035, 0.035, 0.030, 0.050],
-      cmvmc:  [null, 0.030, 0.030, 0.030, 0.030, 0.030],
+      vol:    [null, 0.020, 0.030, 0.030, 0.030, 0.030, 0.020, 0.020, 0.020, 0.015, 0.015],
+      preco:  [null, 0.030, 0.030, 0.030, 0.030, 0.030, 0.020, 0.020, 0.020, 0.020, 0.020],
+      fse:    [null, 0.030, 0.030, 0.030, 0.050, 0.050, 0.030, 0.030, 0.030, 0.025, 0.025],
+      pessoal:[null, 0.035, 0.035, 0.035, 0.030, 0.050, 0.030, 0.030, 0.025, 0.020, 0.020],
+      cmvmc:  [null, 0.030, 0.030, 0.030, 0.030, 0.030, 0.025, 0.025, 0.020, 0.020, 0.020],
     },
     Upside: {
       label: "Upside",
       prob:  0.20,
       desc: "USD aprecia vs EUR; flagship Madrid + novos marketplaces NL/DE; forte tração em Hotelaria/Cruzeiros; Ecogres aceite no mercado.",
-      // crescimento_volume_vendas override: 5%/5%/5%/5%/4%
-      // crescimento_pvu_vendas override (real): 2.7%/2.9%/2.2%/2.3%/1.4% → nominal ≈5%/5%/4%/4%/3%
-      // crescimento_fse override apenas 2028-2029 (real 2.3%/2.4%) → nominal ≈4%/4%
-      vol:    [null, 0.050, 0.050, 0.050, 0.050, 0.040],
-      preco:  [null, 0.050, 0.050, 0.040, 0.040, 0.030],
-      fse:    [null, 0.030, 0.030, 0.030, 0.040, 0.040],
-      pessoal:[null, 0.035, 0.035, 0.035, 0.030, 0.050],
-      cmvmc:  [null, 0.030, 0.030, 0.030, 0.030, 0.030],
+      vol:    [null, 0.050, 0.050, 0.050, 0.050, 0.040, 0.040, 0.035, 0.030, 0.030, 0.025],
+      preco:  [null, 0.050, 0.050, 0.040, 0.040, 0.030, 0.030, 0.030, 0.025, 0.025, 0.020],
+      fse:    [null, 0.030, 0.030, 0.030, 0.040, 0.040, 0.030, 0.025, 0.025, 0.020, 0.020],
+      pessoal:[null, 0.035, 0.035, 0.035, 0.030, 0.050, 0.030, 0.025, 0.025, 0.020, 0.020],
+      cmvmc:  [null, 0.030, 0.030, 0.030, 0.030, 0.030, 0.025, 0.025, 0.020, 0.020, 0.015],
     },
     Downside: {
       label: "Downside",
       prob:  0.25,
-      desc: "EUR aprecia vs USD; inflação e juros elevados; retração do consumo; Private Label conservador; retalho tradicional estagna.",
-      // crescimento_volume_vendas override: 2%/2%/2%/1%/1%
-      // crescimento_pvu_vendas override (real): −1.2%/−1.0%/−0.8%/−0.7%/−0.6% → nominal ≈1%
-      // crescimento_fse override (real): 1.8%/2.0%/2.2%/4.2%/4.3% → nominal ≈4%/4%/4%/6%/6%
-      vol:    [null, 0.020, 0.020, 0.020, 0.010, 0.010],
-      preco:  [null, 0.010, 0.010, 0.010, 0.010, 0.010],
-      fse:    [null, 0.040, 0.040, 0.040, 0.060, 0.060],
-      pessoal:[null, 0.035, 0.035, 0.035, 0.030, 0.050],
-      cmvmc:  [null, 0.030, 0.030, 0.030, 0.030, 0.030],
+      desc: "EUR appreciation vs USD; elevated inflation and interest rates; consumption contraction; conservative Private Label; traditional retail stagnates.",
+      vol:    [null, 0.020, 0.020, 0.020, 0.010, 0.010, 0.010, 0.010, 0.005, 0.005, 0.005],
+      preco:  [null, 0.010, 0.010, 0.010, 0.010, 0.010, 0.010, 0.010, 0.010, 0.010, 0.010],
+      fse:    [null, 0.040, 0.040, 0.040, 0.060, 0.060, 0.040, 0.035, 0.030, 0.030, 0.030],
+      pessoal:[null, 0.035, 0.035, 0.035, 0.030, 0.050, 0.030, 0.025, 0.020, 0.020, 0.020],
+      cmvmc:  [null, 0.030, 0.030, 0.030, 0.030, 0.030, 0.025, 0.025, 0.020, 0.020, 0.015],
     },
     Stress: {
       label: "Stress",
       prob:  0.05,
-      desc: "Tarifas agressivas USA inviabilizam margens; choque energético severo; colapso da hotelaria; paragem súbita de encomendas Private Label.",
-      // crescimento_volume_vendas override: −2%/0%/1%/2%/2%
-      // crescimento_pvu_vendas override (real): −2.2%/−1.0%/−0.8%/−0.7%/+0.4% → nominal ≈0%/1%/1%/1%/2%
-      // crescimento_fse override (real): 3.7%/2.9%/3.1%/4.2%/4.3% → nominal ≈6%/5%/5%/6%/6%
-      // crescimento_pessoal override (real): 2.7%/2.9%/2.2%/2.3%/3.3% → nominal ≈5%/5%/4%/4%/5%
-      vol:    [null, -0.020,  0.000, 0.010, 0.020, 0.020],
-      preco:  [null,  0.000,  0.010, 0.010, 0.010, 0.020],
-      fse:    [null,  0.060,  0.050, 0.050, 0.056, 0.057],
-      pessoal:[null,  0.050,  0.050, 0.040, 0.040, 0.050],
-      cmvmc:  [null,  0.030,  0.030, 0.030, 0.030, 0.030],
+      desc: "Aggressive US tariffs break margins; severe energy shock; hospitality collapse; sudden Private Label order freeze.",
+      vol:    [null, -0.020,  0.000, 0.010, 0.020, 0.020, 0.000, 0.000, 0.000, 0.000, 0.000],
+      preco:  [null,  0.000,  0.010, 0.010, 0.010, 0.020, 0.010, 0.010, 0.010, 0.010, 0.010],
+      fse:    [null,  0.060,  0.050, 0.050, 0.056, 0.057, 0.040, 0.035, 0.030, 0.030, 0.030],
+      pessoal:[null,  0.050,  0.050, 0.040, 0.040, 0.050, 0.030, 0.025, 0.020, 0.020, 0.020],
+      cmvmc:  [null,  0.030,  0.030, 0.030, 0.030, 0.030, 0.025, 0.025, 0.020, 0.020, 0.015],
     },
   };
 
   // Hub commercial VN increment (beneficios_comerciais in m6_hub_assumptions.yaml)
   // Applied automatically when hubOn=true — mirrors hub_dr_impact() vn_incremental
-  const HUB_VN_INC = { 2026: 500000, 2027: 900000, 2028: 1100000, 2029: 950000 };
+  // Extended to 2034: no incremental VN after 2029; CAPEX/FSE savings taper off.
+  const HUB_VN_INC = { 2026: 500000, 2027: 900000, 2028: 1100000, 2029: 950000, 2030: 0, 2031: 0, 2032: 0, 2033: 0, 2034: 0 };
   const HUB_VN_CMVMC_PCT = 0.55; // cmvmc_pct_incremental
 
   // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
   // PT2030 = €0 na base. HUB_PT2030_REC zerado para consistência.
-  const HUB_PT2030_REC = { 2026: 0, 2027: 0, 2028: 0, 2029: 0 };
+  const HUB_PT2030_REC = { 2026: 0, 2027: 0, 2028: 0, 2029: 0, 2030: 0, 2031: 0, 2032: 0, 2033: 0, 2034: 0 };
 
   // Project a DR series for a scenario; optional hub/ecogres on adds blocks.
   function projectDR(scenarioKey, opts = {}) {
@@ -148,13 +139,13 @@ const GRESTEL = (() => {
       const volFactor = 1 + s.vol[i] * alpha;
       series.pessoal.push(series.pessoal[i - 1] * (1 + s.pessoal[i]) * volFactor);
       series.outros_gastos.push(series.outros_gastos[i - 1] * 1.02);
-      // CAPEX hub aumenta depreciação a partir de 2026 (taxa 10%)
+      // CAPEX hub aumenta depreciação a partir de 2026 (taxa 10%), cessa após 2029
       let dep = series.depreciacoes[i - 1] * 1.01;
-      if (hubOn && YEARS[i] >= 2026) dep += 550000;
+      if (hubOn && YEARS[i] >= 2026 && YEARS[i] <= 2029) dep += 550000;
       series.depreciacoes.push(dep);
-      // Juros sobem com financiamento Hub (4.125M @ 4.15%) a partir de 2025
+      // Juros: Hub financiamento deprecia após 5 anos (2030+), sobe só até 2029
       let juros = series.juros[i - 1] * 0.96; // amortização base
-      if (hubOn && YEARS[i] >= 2025) juros += 171000;
+      if (hubOn && YEARS[i] >= 2025 && YEARS[i] <= 2029) juros += 171000;
       series.juros.push(juros);
     }
 

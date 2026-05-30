@@ -673,11 +673,13 @@ function OverviewView({ ctx }) {
   );
 }
 
-function FRow({ label, values, bold, fmt: f = fmt.eur }) {
+function FRow({ label, values, bold, fmt: f = fmt.eur, accentStart }) {
   return (
     <tr className={bold ? "is-bold" : ""}>
       <td>{label}</td>
-      {values.map((v, i) => <td key={i} className="mono num">{f(v)}</td>)}
+      {values.map((v, i) => (
+        <td key={i} className="mono num" style={accentStart && i >= 6 ? { color: "var(--accent)" } : {}}>{f(v)}</td>
+      ))}
     </tr>
   );
 }

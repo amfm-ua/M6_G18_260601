@@ -107,6 +107,92 @@ def _load_hub_dfc(a: Assumptions) -> dict[int, dict] | None:
         return None
 
 
+def dynamic_payout(
+    y: int,
+    rl_prev: float,
+    endividamento_pct: float,
+    aplic_fin_cp: float,
+    pol: dict,
+    inicio_div: int,
+) -> float:
+    """
+    Calcula o payout ratio dinâmico para o ano y, com base no estado financeiro.
+
+    Lógica de decisão (política de dividendos progressivos):
+      • RL positivo?   → distributable pool existe
+      • Endividamento > endividamento_max  → RETER (payout_min)
+          └─ priority: saúde financeira, reduzir risco de incumplimiento
+      • Aplicações fin. CP > aplica_fin_target  → DISTRIBUIR EXCEDENTE (payout_max)
+          └─ priority: devolver excesso de liquidez improdutiva
+      • otherwise  → INTERPOLAR entre payout_min e payout_max
+
+    Os sinais são usados separadamente para suavizar a transição:
+      signal_endividamento → 1.0 se endividamento > max (reter), 0.0 se abaixo (ok)
+      signal_liquidez      → 1.0 se aplic > target (distribuir), 0.0 se abaixo
+
+    O sinal composto pondera as duas componentes pelo peso configurado.
+
+    Args:
+        y: ano em análise
+        rl_prev: resultado líquido do ano anterior (base de distribuição)
+        endividamento_pct: rácio de endividamento (%) = dívida / ativo total × 100
+        aplic_fin_cp: saldo de aplicações financeiras CP (€) no início do período
+        pol: dicionário de política de dividendos (payout_policy em globais.yaml)
+        inicio_div: ano de início da distribuição de dividendos
+
+    Returns:
+        payout_ratio (float entre payout_min e payout_max)
+    """
+    # RL negativo → não há distribuição; reter tudo para cobertura de perdas.
+    if rl_prev <= 0:
+        return float(pol.get("payout_min", 0.20))
+
+    # Ano anterior ao início da distribuição → não distribuir.
+    if y < inicio_div:
+        return float(pol.get("payout_default", 0.20))
+
+    payout_min = float(pol.get("payout_min", 0.20))
+    payout_max = float(pol.get("payout_max", 0.45))
+    endividamento_max = float(pol.get("endividamento_max_pct", 50.0))
+    aplica_target = float(pol.get("aplica_fin_cp_target", 8000000.0))
+    peso_end = float(pol.get("peso_endividamento", 0.6))
+
+    # ── Componente endividamento ──────────────────────────────────────────────
+    # endividamento < max  → sinal = +1 (dívida baixa = benefício fiscal → payout alto)
+    # endividamento = max  → sinal = 0  (limiar de cautela)
+    # endividamento > max  → sinal = -1 (dívida elevada = risco → payout mínimo)
+    excess_end = endividamento_pct - endividamento_max
+    if excess_end >= 0:
+        # Dívida acima do limiar: penalidade crescente
+        signal_end = max(-1.0, -excess_end / (endividamento_max * 0.5))
+    else:
+        # Dívida abaixo do limiar: recompensa crescente (benefício fiscal)
+        signal_end = min(1.0, -excess_end / (endividamento_max * 0.3))
+
+    # ── Componente liquidez ───────────────────────────────────────────────────
+    # aplic_fin_cp > target → sinal = +1 (excesso → distribuir)
+    # aplic_fin_cp = target → sinal = 0 (sem excesso nem défice)
+    # aplic_fin_cp < 50% target → sinal = -1 (stress de liquidez → reter)
+    excess_aplic = aplic_fin_cp - aplica_target
+    if excess_aplic >= 0:
+        signal_liq = min(1.0, excess_aplic / (aplica_target * 0.5))
+    else:
+        signal_liq = max(-1.0, excess_aplic / (aplica_target * 0.5))
+
+    # Payout composto ──────────────────────────────────────────────────────
+    # Sinal composto ∈ [-1, +1]: soma ponderada de endividamento + liquidez.
+    # +1 → payout = payout_max (40-50%).  0 → payout = midpoint.  -1 → payout = payout_min (20%).
+    # Payout máximo de 50%: com endividamento baixo (6-32%), a empresa beneficia
+    # do escudo fiscal dos juros — mais resultados disponíveis para distribuição.
+    signal_composto = peso_end * signal_end + (1.0 - peso_end) * signal_liq
+
+    # Interpolar: sinal = -1 → payout = payout_min; sinal = +1 → payout = payout_max
+    payout = payout_min + (signal_composto + 1.0) / 2.0 * (payout_max - payout_min)
+    payout = max(payout_min, min(payout_max, payout))
+
+    return payout
+
+
 def build_dfc(
     a: Assumptions,
     df_dr: pd.DataFrame,
@@ -117,7 +203,6 @@ def build_dfc(
     """Constrói a Demonstração de Fluxos de Caixa pelo método indireto."""
     rows = []
 
-    payout = a.distribuicao["payout_ratio"]
     inicio_div = a.distribuicao["ano_inicio_distribuicao"]
 
     hub_dfc = _load_hub_dfc(a)
@@ -317,8 +402,25 @@ def build_dfc(
         rl_prev = float(df_dr[df_dr.ano == (y - 1)]["rl"].iloc[0])
         rl_cur = float(df_dr[df_dr.ano == y]["rl"].iloc[0])
 
+        # ── Payout dinámico: política de dividendos progressivos ──────────────
+        # Base de distribuição = RL do ano anterior (princípio do exercício findo).
+        # O payout ajustase ao estado financeiro:
+        #   • endividamento > max  → RETER (payout_min) para reduzir risco
+        #   • aplic_fin_cp > target → DISTRIBUIR EXCEDENTE (payout_max)
+        #   • otherwise  → INTERPOLAR entre payout_min e payout_max
+        endividamento_pct = 100.0 * (row_y["emprestimos_nc"] + row_y["emprestimos_c"]) / row_y["total_ativo"]
+        aplic_fin_cp_prev = row_p["aplicacoes_fin_cp"]
+        payout_y = dynamic_payout(
+            y=y,
+            rl_prev=rl_prev,
+            endividamento_pct=endividamento_pct,
+            aplic_fin_cp=aplic_fin_cp_prev,
+            pol=a.raw.get("payout_policy", {}),
+            inicio_div=inicio_div,
+        )
+
         pag_div = (
-            -rl_prev * payout
+            -rl_prev * payout_y
             if rl_cur > 0 and y >= inicio_div
             else 0.0
         )
@@ -384,6 +486,8 @@ def build_dfc(
                 "hub_juros_capitalizados": -hub_juros_cap_y,
                 "var_linha_cp": d_linha_cp,
                 "pag_dividendos": pag_div,
+                "payout_ratio": payout_y,
+                "caixa_dfc": caixa_ini + var_caixa,
                 "fluxo_financiamento": fluxo_fin,
                 "variacao_caixa": var_caixa,
                 "caixa_ini": caixa_ini,

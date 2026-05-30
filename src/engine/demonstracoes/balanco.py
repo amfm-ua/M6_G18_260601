@@ -226,6 +226,7 @@ def build_balanco(
     payout = a.distribuicao["payout_ratio"]
     reserva_legal = a.distribuicao.get("reserva_legal_pct", 0.0)
     inicio_div = a.distribuicao["ano_inicio_distribuicao"]
+    pol_payout = a.raw.get("payout_policy", {})
 
     rt = {
         2024: cp["Resultados_Transitados"],
@@ -245,16 +246,45 @@ def build_balanco(
     # reserva atinge 1/5 (20%) do capital social. Acima disso não há apropriação.
     teto_reserva_legal = 0.20 * capital_social
 
+    # ── Pré-cálculo de payout dinámico por ano ───────────────────────────────
+    # Usa endividamento do ano anterior como proxy (df_fin pré-calculado).
+    # A aproximação é suficiente: o payout depende do rácio, não do valor absoluto.
+    from .dfc import dynamic_payout
+
+    df_fin_precalc = financiamento.financiamento_anual(sched, a)
+    df_inv_precalc = investimento.investimento_anual(a, base, sched, df_vn=df_total)
+    total_ativo_proxy: dict[int, float] = {}
+
+    payout_by_year: dict[int, float] = {}
+    for y in [2025, 2026, 2027, 2028, 2029]:
+        y_prev = y - 1
+        emp_nc_prev = float(df_fin_precalc[df_fin_precalc.ano == y_prev]["emprestimos_NC"].iloc[0])
+        emp_c_prev = float(df_fin_precalc[df_fin_precalc.ano == y_prev]["emprestimos_C"].iloc[0])
+        aft_prev = float(df_inv_precalc[df_inv_precalc.ano == y_prev]["aft_liquido_fim"].iloc[0])
+        aplic_prev = 0.0
+        endiv_prev = 100.0 * (emp_nc_prev + emp_c_prev) / max(
+            1.0, aft_prev + emp_nc_prev + emp_c_prev + 1e7,
+        )
+        rl_prev_year = float(df_dr[df_dr.ano == (y - 1)]["rl"].iloc[0])
+        payout_by_year[y] = dynamic_payout(
+            y=y, rl_prev=rl_prev_year,
+            endividamento_pct=endiv_prev,
+            aplic_fin_cp=aplic_prev,
+            pol=pol_payout,
+            inicio_div=inicio_div,
+        )
+
     for y in YEARS:
         rl_prev = float(df_dr[df_dr.ano == (y - 1)]["rl"].iloc[0])
         rl_cur = float(df_dr[df_dr.ano == y]["rl"].iloc[0])
+        payout_y = payout_by_year.get(y, payout)
 
         if y == 2025:
             rt[y] = rt[y - 1] + base.balanco["capital_proprio"]["RL_2024"]
             res = 0.0
         else:
             if rl_cur > 0 and y >= inicio_div:
-                div = rl_prev * payout
+                div = rl_prev * payout_y
                 res = rl_prev * reserva_legal
                 # Limita a apropriação ao remanescente até ao teto legal.
                 res = max(0.0, min(res, teto_reserva_legal - (reservas + _cum_res)))

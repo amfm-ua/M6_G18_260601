@@ -194,12 +194,29 @@ def pessoal_anual(
         # HC derivado dos custos — zero double-counting
         hc_effective[y] = vals[y] / custo_medio_base[y] if custo_medio_base[y] else 0.0
 
+    # FTE evitados pelo hub: converte a poupança de pessoal DERIVADA (€/ano, já
+    # refletida na DR como `pessoal_reducao`) em equivalente de cabeças, usando o
+    # mesmo custo médio salarial. Permite mostrar na tabela que o hub reduz a
+    # necessidade de contratar — sem dupla contagem, pois o custo já desce na DR
+    # via a linha de benefício. headcount_hub × custo_medio = gastos_pessoal − red.
+    # Com hub inativo a série não existe → fte=0 e headcount_hub == headcount.
+    pessoal_saving = ben_hub.get("pessoal_saving_derivado") or {}
+
+    def _saving_fte(y: int) -> float:
+        cm = custo_medio_base.get(y, 0.0)
+        if not cm:
+            return 0.0
+        sav = float(pessoal_saving.get(y, pessoal_saving.get(str(y), 0.0)))
+        return sav / cm
+
     return pd.DataFrame(
         [
             {
                 "ano": y,
                 "gastos_pessoal": vals[y],
                 "headcount": hc_effective[y],
+                "fte_poupados_hub": _saving_fte(y),
+                "headcount_hub": hc_effective[y] - _saving_fte(y),
                 "custo_medio": custo_medio_base.get(y, 0.0),
                 "peso_vn_pct": vals[y] / vn_map[y] if vn_map.get(y) else None,
             }

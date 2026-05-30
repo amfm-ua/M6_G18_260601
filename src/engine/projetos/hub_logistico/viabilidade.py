@@ -796,10 +796,8 @@ def sensibilidade_hub(
         elif driver == "crescimento":
             proj["beneficios_anuais"]["crescimento_anual"] = v
 
-        elif driver == "pt2030_taxa":
-            # v = fracção do CAPEX (ex: 0.20 = 20 %, 0.45 = 45 %)
-            capex_val = float(proj["capex"]["base"])
-            proj["financiamento"]["PT2030"]["montante"] = v * capex_val
+        # PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
+        # A sensibilidade ao PT2030 foi removida do tornado. O modelo usa PT2030=€0.
 
         elif driver == "pessoal":
             # v = poupança operacional total (€/ano); base = 380 000 €
@@ -877,13 +875,10 @@ def tornado_hub(
             "desc_low": "10 d (pess.)",
             "desc_high": "28 d (otim.)",
         },
-        # 2. PT2030 — 20 % (aprovação parcial) vs 45 % (aprovação majorada)
-        "pt2030_taxa": {
-            "vals": [0.20, 0.45],
-            "label": "Co-financiamento PT2030 (% CAPEX)",
-            "desc_low": "20 % (€760 k)",
-            "desc_high": "45 % (€1 710 k)",
-        },
+        # 2. PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo
+        #    perdido. O cenário base usa PT2030=€0. Qualquer referência ao PT2030 na
+        #    documentação deve ser interpretada como upside residual (≤ 7,5% CAPEX
+        #    após RFAI) com custo de oportunidade superior ao benefício líquido.
         # 3. B2C — escala do VN incremental: +40 % 2024 → abrandamento vs aceleração
         "b2c": {
             "vals": [0.50, 1.50],

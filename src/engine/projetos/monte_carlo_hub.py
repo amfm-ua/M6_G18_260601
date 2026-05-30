@@ -16,7 +16,6 @@ VAL_determinístico; preço/câmbio log-normais → assimétricas com cauda dire
   dmi_pa_reducao      Triangular(8, 12, 15 dias)  — VLMs (VDMA); convertido em € via CMVMC_prod
   dmi_mp_reducao      Triangular(8,  8, 12 dias)  — Digital Twin (VDMA); idem
   dmi_clearing_dias   Triangular(12, 24, 36 dias) — clearing one-time de stock-excesso (mode≈€950 k)
-  pt2030_taxa         Triangular(0 %, 4 %, 7,5 %)               — subsídio residual sob teto regional
   b2c                 Normal truncada N(1,0; σ=0,20) ∈ [0,3; 2,0] — incerteza de mercado
   pessoal             Triangular(70 %, 100 %, 130 % do cenário) — simétrica; mean = mode
   wacc                Triangular(WACC−2 p.p., WACC_cenário, WACC+2 p.p.) — simétrica; mean = wacc_cenário
@@ -66,17 +65,11 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
         "mode": 24.0,
         "max": 36.0,
     },
-    # Subsídio PT2030 (fundo perdido) como intensidade sobre o CAPEX. A Grestel,
-    # grande empresa, não tem acesso ao SI PME → um eventual apoio é residual e
-    # fica sob o teto de auxílio com finalidade regional (RFAI + subsídio ≤ 30 %
-    # do CAPEX, CFI art. 43.º). Triangular(0 %; 4 %; 7,5 %) — o máximo de 7,5 %
-    # é o espaço que sobra do teto após o RFAI (22,5 %).
-    "pt2030_taxa": {
-        "type": "triangular",
-        "min": 0.0,
-        "mode": 0.04,
-        "max": 0.075,
-    },
+    # PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido do
+    # SI Inovação Produtiva. Qualquer apoio seria upside residual (≤ 7,5% CAPEX após RFAI),
+    # com custo de oportunidade superior ao benefício líquido. O modelo base usa PT2030=€0.
+    # Drivers de b2c, pessoal, wacc, capex, preço energia, câmbio e crescimento
+    # continuam a ser simulados estocasticamente para capturar incerteza operacional.
     # Normal truncada: incerteza de mercado em torno do cenário base (×1.0).
     "b2c": {
         "type": "truncnorm",
@@ -136,7 +129,7 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
 
 DRIVERS = [
     "dmi_pa_reducao", "dmi_mp_reducao", "dmi_clearing_dias",
-    "pt2030_taxa", "b2c", "pessoal", "wacc", "capex",
+    "b2c", "pessoal", "wacc", "capex",
     "preco_eletricidade", "eur_usd", "crescimento_logistico",
 ]
 
@@ -144,16 +137,13 @@ DRIVERS = [
 # Drivers e distribuições adicionais para Monte Carlo VALA (APV)
 # ---------------------------------------------------------------------------
 
-# pt2030_approved : Bernoulli(p=0.15) — aprovação rara (grande empresa, sem SI PME)
 # rfai_utilization: Triangular(0.5, 1.0, 1.0) — fração do crédito RFAI efetivamente absorvida
 # kd_shock        : Triangular(−100 bps, 0, +200 bps) — choque aditivo ao Kd bancário
-VALA_EXTRA_DRIVERS = ["pt2030_approved", "rfai_utilization", "kd_shock"]
+# PT2030 REMOVIDO: grande empresa sem elegibilidade a fundo perdido (2025-05-30)
+VALA_EXTRA_DRIVERS = ["rfai_utilization", "kd_shock"]
 
 DEFAULT_VALA_EXTRA_DISTRIBUTIONS: dict[str, dict] = {
-    "pt2030_approved": {
-        "type": "bernoulli",
-        "p": 0.15,
-    },
+    # PT2030 REMOVIDO: Bernoulli(p=0) — não aplicável a grande empresa (2025-05-30)
     "rfai_utilization": {
         "type": "triangular",
         "min": 0.50,
@@ -301,20 +291,11 @@ def _apply_sample(hub_base: dict, s: dict[str, float]) -> tuple[dict, float]:
     if rfai_cfg.get("aplicar", False) and "capex_elegivel" in rfai_cfg:
         rfai_cfg["capex_elegivel"] = float(rfai_cfg["capex_elegivel"]) * factor
 
-    # 3. PT2030 — subsídio (fundo perdido) = intensidade amostrada × CAPEX,
-    #    capado ao teto de auxílio com finalidade regional: o RFAI e o subsídio
-    #    incidem sobre o mesmo investimento e somam, ficando ≤ 30 % do CAPEX
-    #    (CFI art. 43.º + Portaria 297/2015). Garante coerência legal na cauda.
-    capex_amostra = s["capex"]
-    subsidio = s["pt2030_taxa"] * capex_amostra
-    credito_rfai = (
-        float(rfai_cfg.get("taxa", 0.0)) * float(rfai_cfg.get("capex_elegivel", 0.0))
-        if rfai_cfg.get("aplicar", False) else 0.0
-    )
-    teto_regional = 0.30 * capex_amostra
-    subsidio = max(0.0, min(subsidio, teto_regional - credito_rfai))
-    proj["financiamento"]["PT2030"]["montante"] = subsidio
-
+    # 3. PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
+    #    O financiamento do Hub baseia-se exclusivamente em operações + RFAI + deuda bancária.
+    #    O modelo mantém a chave PT2030 no YAML para integridade de estrutura, mas o montante
+    #    permanece em €0 em todas as simulações (sem sampling estocástico).
+    #
     # 4. Poupança operacional (pessoal + automação)
     ben = proj["beneficios_anuais"]
     base_poup = float(ben.get("poupanca_operacional", 0.0))
@@ -596,22 +577,20 @@ def monte_carlo_hub(
 # ---------------------------------------------------------------------------
 
 def _apply_sample_vala(hub_base: dict, s: dict[str, float]) -> dict:
-    """Aplica amostra base + mutações dos 3 drivers fiscais extras ao hub.
+    """Aplica amostra base + mutações dos 2 drivers fiscais extras ao hub.
 
     Sequência:
-      1. _apply_sample()  — drivers operacionais + wacc + capex + pt2030_taxa
-      2. pt2030_approved  — se Bernoulli=0, anula PT2030.montante
-      3. rfai_utilization — escala rfai.capex_elegivel pela taxa de utilização
-      4. kd_shock         — adiciona choque aditivo ao Kd de cada tranche
+      1. _apply_sample()  — drivers operacionais + wacc + capex (PT2030=€0 fixo)
+      2. rfai_utilization — escala rfai.capex_elegivel pela taxa de utilização
+      3. kd_shock         — adiciona choque aditivo ao Kd de cada tranche
 
     Retorna o hub mutado (wacc_i descartado — vala_hub usa Ke fixo do YAML).
     """
     h, _ = _apply_sample(hub_base, s)
     proj = h["projeto_hub"]
 
-    # 1. Rejeição binária do PT2030
-    if s.get("pt2030_approved", 1.0) < 0.5:
-        proj["financiamento"]["PT2030"]["montante"] = 0.0
+    # 1. PT2030 já está a €0 no YAML — sem sampling estocástico (2025-05-30)
+    #    Mantém-se a chave para integridade de estrutura, mas o montante é imutável.
 
     # 2. Utilização parcial do crédito RFAI (escala capex_elegivel)
     util = float(s.get("rfai_utilization", 1.0))
@@ -648,11 +627,10 @@ def _component_stats(values: list[float], *, histogram: bool = False) -> dict[st
 
 
 def _stress_fiscal(hub_base: dict, irc_taxa_base: float) -> dict[str, dict]:
-    """Três cenários de stress fiscal determinísticos (sem MC).
+    """Dois cenários de stress fiscal determinísticos (sem MC).
 
     Cenários:
-      base             — pressupostos nominais (referência)
-      pt2030_rejeitado — PT2030.montante = 0 (subsídio não aprovado)
+      base             — pressupostos nominais (referência), PT2030=€0
       rfai_esgotado    — RFAI.aplicar = False (carry-forward não absorvido)
       irc_28pct        — IRC sobe de 24,5 % para 28 %
     """
@@ -662,19 +640,12 @@ def _stress_fiscal(hub_base: dict, irc_taxa_base: float) -> dict[str, dict]:
             "vala": r["vala"],
             "val_base_ke": r["val_base_ke"],
             "escudo_fiscal": r["escudo_fiscal_total"],
-            "pv_pt2030": r["pv_pt2030_liquido"],
+            # PT2030 = €0: pv_pt2030 = 0 sempre
             "pv_rfai": r["pv_rfai"],
         }
 
     result: dict[str, dict] = {
-        "base": {"label": "Base — PT2030=€0 (upside), RFAI, IRC nominal", **_run(hub_base, irc_taxa_base)},
-    }
-
-    h = copy.deepcopy(hub_base)
-    h["projeto_hub"]["financiamento"]["PT2030"]["montante"] = 0.0
-    result["pt2030_rejeitado"] = {
-        "label": "PT2030 rejeitado (montante = 0)",
-        **_run(h, irc_taxa_base),
+        "base": {"label": "Base — PT2030=€0, RFAI ativo, IRC nominal", **_run(hub_base, irc_taxa_base)},
     }
 
     h = copy.deepcopy(hub_base)
@@ -703,27 +674,26 @@ def monte_carlo_vala_hub(
 ) -> dict:
     """Monte Carlo do VALA (APV) — distribuição desagregada por componente.
 
-    Estende o monte_carlo_hub() com três drivers estocásticos fiscais:
-      pt2030_approved   Bernoulli(p=0.75) — aprovação binária do PT2030
+    Estende o monte_carlo_hub() com dois drivers estocásticos fiscais:
       rfai_utilization  Triangular[0.50, 1.00, 1.00] — absorção do crédito RFAI
       kd_shock          Triangular[−1%, 0%, +2%] — choque aditivo no spread bancário
 
-    Em cada iteração chama vala_hub() e regista os quatro componentes APV:
-      VAL_base(Ke), Escudo Fiscal, PV(PT2030 líquido), PV(RFAI)
+    PT2030 = €0 fixo: grande empresa sem elegibilidade a fundo perdido (2025-05-30).
+
+    Em cada iteração chama vala_hub() e regista os três componentes APV:
+      VAL_base(Ke), Escudo Fiscal, PV(RFAI)
 
     Saídas principais
     -----------------
-    vala / val_base_ke / escudo_fiscal / pv_pt2030 / pv_rfai
+    vala / val_base_ke / escudo_fiscal / pv_rfai
         Estatísticas (mean, std, P5–P95, prob_positivo) de cada componente.
     diagnostico
-        P(VALA>0), P(VAL_base>0), P(VALA_sem_PT2030>0).
-        Análise de causa das falhas:
-          "Em X% das simulações onde o projeto falha, o PT2030 não foi aprovado."
-        P(VALA>0 | PT2030 aprovado) vs. P(VALA>0 | PT2030 rejeitado).
+        P(VALA>0), P(VAL_base>0).
+        Análise de causa das falhas operacionais.
     correlacoes_vala
         Pearson r para todos os drivers (incluindo fiscais) ordenado por |r|.
     stress_fiscal
-        Três cenários determinísticos: PT2030 rejeitado, RFAI esgotado, IRC=28%.
+        Dois cenários determinísticos: RFAI esgotado, IRC=28%.
     """
     if hub is None:
         hub = load()
@@ -792,9 +762,7 @@ def monte_carlo_vala_hub(
     vala_list: list[float] = []
     val_base_ke_list: list[float] = []
     escudo_list: list[float] = []
-    pv_pt2030_list: list[float] = []
     pv_rfai_list: list[float] = []
-    pt2030_approved_list: list[float] = []
     driver_samples: dict[str, list[float]] = {d: [] for d in all_vala_drivers}
 
     for i in range(n_simulations):
@@ -808,50 +776,30 @@ def monte_carlo_vala_hub(
         vala_list.append(float(res["vala"]))
         val_base_ke_list.append(float(res["val_base_ke"]))
         escudo_list.append(float(res["escudo_fiscal_total"]))
-        pv_pt2030_list.append(float(res["pv_pt2030_liquido"]))
         pv_rfai_list.append(float(res["pv_rfai"]))
-        pt2030_approved_list.append(s["pt2030_approved"])
 
     # ── Estatísticas por componente ───────────────────────────────────────────
     vala_arr = np.array(vala_list, dtype=float)
     val_base_arr = np.array(val_base_ke_list, dtype=float)
     escudo_arr = np.array(escudo_list, dtype=float)
     rfai_arr = np.array(pv_rfai_list, dtype=float)
-    approved_arr = np.array(pt2030_approved_list, dtype=float)
 
     # ── Diagnóstico de falhas ─────────────────────────────────────────────────
-    # VALA sem PT2030: val_base + escudo + rfai (PT2030 a zero)
-    vala_sem_pt2030_arr = val_base_arr + escudo_arr + rfai_arr
-
     mask_falha = vala_arr < 0
     n_falhas = int(mask_falha.sum())
-    mask_rejeitado = approved_arr < 0.5
-
-    n_falhas_por_pt2030 = int((mask_falha & mask_rejeitado).sum())
-    pct_falhas_por_pt2030 = n_falhas_por_pt2030 / n_falhas if n_falhas > 0 else 0.0
 
     n_falhas_val_base_neg = int((mask_falha & (val_base_arr < 0)).sum())
     pct_falhas_val_base = n_falhas_val_base_neg / n_falhas if n_falhas > 0 else 0.0
 
-    n_aprovado = int((~mask_rejeitado).sum())
-    n_rejeitado = int(mask_rejeitado.sum())
-    prob_pos_aprovado = float(np.mean(vala_arr[~mask_rejeitado] > 0)) if n_aprovado > 0 else 0.0
-    prob_pos_rejeitado = float(np.mean(vala_arr[mask_rejeitado] > 0)) if n_rejeitado > 0 else 0.0
-
     diagnostico: dict[str, Any] = {
         "prob_vala_positivo": float(np.mean(vala_arr > 0)),
         "prob_val_base_positivo": float(np.mean(val_base_arr > 0)),
-        "prob_vala_sem_pt2030_positivo": float(np.mean(vala_sem_pt2030_arr > 0)),
         "n_falhas": n_falhas,
-        "pct_falhas_por_pt2030_rejeitado": round(pct_falhas_por_pt2030, 4),
         "pct_falhas_com_val_base_negativo": round(pct_falhas_val_base, 4),
-        "prob_vala_positivo_dado_pt2030_aprovado": round(prob_pos_aprovado, 4),
-        "prob_vala_positivo_dado_pt2030_rejeitado": round(prob_pos_rejeitado, 4),
         "interpretacao": (
-            f"Em {pct_falhas_por_pt2030:.0%} das {n_falhas} simulações onde o projeto falha, "
-            f"o PT2030 não foi aprovado. "
-            f"Sem PT2030: P(VALA>0)={prob_pos_rejeitado:.1%}; "
-            f"com PT2030: P(VALA>0)={prob_pos_aprovado:.1%}."
+            f"{n_falhas} simulações com VALA < 0. "
+            f"{pct_falhas_val_base:.0%} devem-se a VAL_base negativo (operacional). "
+            f"PT2030 = €0 (grande empresa sem elegibilidade a fundo perdido)."
         ),
     }
 
@@ -873,7 +821,6 @@ def monte_carlo_vala_hub(
         "vala": _component_stats(vala_list, histogram=True),
         "val_base_ke": _component_stats(val_base_ke_list),
         "escudo_fiscal": _component_stats(escudo_list),
-        "pv_pt2030": _component_stats(pv_pt2030_list),
         "pv_rfai": _component_stats(pv_rfai_list),
         "diagnostico": diagnostico,
         "correlacoes_vala": {k: float(v) for k, v in correlacoes_vala.items()},
@@ -887,7 +834,7 @@ def monte_carlo_vala_hub(
             "vala_base": vala_base_det,
             "val_base_ke": float(res_base["val_base_ke"]),
             "escudo_fiscal": float(res_base["escudo_fiscal_total"]),
-            "pv_pt2030": float(res_base["pv_pt2030_liquido"]),
+            # PT2030 = €0: pv_pt2030 = 0, removido do return (2025-05-30)
             "pv_rfai": float(res_base["pv_rfai"]),
             "wacc_base": float(wacc_base),
             "capex_base": float(capex_base),

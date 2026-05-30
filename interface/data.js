@@ -110,10 +110,9 @@ const GRESTEL = (() => {
   const HUB_VN_INC = { 2026: 500000, 2027: 900000, 2028: 1100000, 2029: 950000 };
   const HUB_VN_CMVMC_PCT = 0.55; // cmvmc_pct_incremental
 
-  // PT2030 recognition in outros_rend (mirrors pt2030_reconhecimento() in hub_logistico.py)
-  // = PT2030_montante × dep_pools_ano / capex_base = 2_700_000 × dep_y / 6_000_000
-  // dep_y 7 pools (2026-2028=692125; 2029=592125 — integracao_formacao termina ao fim do 3.º ano)
-  const HUB_PT2030_REC = { 2026: 311456, 2027: 311456, 2028: 311456, 2029: 266456 };
+  // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
+  // PT2030 = €0 na base. HUB_PT2030_REC zerado para consistência.
+  const HUB_PT2030_REC = { 2026: 0, 2027: 0, 2028: 0, 2029: 0 };
 
   // Project a DR series for a scenario; optional hub/ecogres on adds blocks.
   function projectDR(scenarioKey, opts = {}) {
@@ -332,7 +331,7 @@ const GRESTEL = (() => {
       const fluxo_investimento = capex + dividendos_recebidos;
       let rec = 0, pag = -1000000;
       if (hubOn && y === 2025) rec += 4125000;
-      if (hubOn && y === 2027) rec += 2200000; // PT2030
+      if (hubOn && y === 2027) rec += 0; // PT2030 REMOVIDO (2025-05-30): €0
       if (hubOn && y >= 2028) pag -= 412500;
       const fluxo_financiamento = rec + pag - r.juros;
       const variacao_caixa = fluxo_operacional + fluxo_investimento + fluxo_financiamento;
@@ -410,7 +409,7 @@ const GRESTEL = (() => {
         fcf += beneficio + 550000 * irc_taxa; // tax shield via depreciação
       }
       if (year === 2026) fcf += 1500000; // libertação de inventário
-      if (year === 2027) fcf += 2200000; // PT2030
+      if (year === 2027) fcf += 0; // PT2030 REMOVIDO (2025-05-30): €0
       fcf_livre.push(fcf);
       cumulative += fcf;
       cumulative_arr.push(cumulative);

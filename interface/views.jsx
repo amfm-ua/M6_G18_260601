@@ -40,7 +40,7 @@ function DRView({ ctx }) {
   const rubricas = [
     { label: "Vendas e Serviços Prestados", key: "vn", strong: true },
     { label: "Outros Rendimentos", key: "outros_rend" },
-    { label: "Custo das Mercadorias Vendidas e MC", key: "cmvmc", neg: true },
+    { label: "CMVMC", key: "cmvmc", neg: true },
     { label: "Fornecimentos e Serviços Externos", key: "fse", neg: true },
     { label: "Gastos com o Pessoal", key: "pessoal", neg: true },
     { label: "Outros Gastos / Imparidades", key: "outros_gastos", neg: true },
@@ -1518,15 +1518,17 @@ function HubMonteCarloView({ ctx }) {
     dmi_reducao_dias:      "Redução de DMI (dias)",
     capex:                 "CAPEX total",
     wacc:                  "WACC",
-    pt2030_taxa:           "Co-financiamento PT2030",
+    // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
+    // PT2030 = €0 na base. drivers operacionales continuam simulados.
     preco_eletricidade:    "Preço da eletricidade",
     eur_usd:               "Taxa de câmbio EUR/USD",
     crescimento_logistico: "Taxa de crescimento logístico",
   };
 
+  // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
   const valaDriverLabels = {
     ...driverLabels,
-    pt2030_approved:  "Aprovação PT2030 (Bernoulli 75%)",
+    // pt2030_approved REMOVIDO (2025-05-30): Não aplicável a grande empresa.
     rfai_utilization: "Absorção crédito RFAI",
     kd_shock:         "Choque spread bancário (Kd)",
   };
@@ -1534,10 +1536,11 @@ function HubMonteCarloView({ ctx }) {
   const corrVala = mcVala
     ? Object.entries(mcVala.correlacoes_vala).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
     : [];
+  // PT2030 REMOVIDO (2025-05-30): pv_pt2030 = 0, não aparece nos componentes.
   const valaComponents = mcVala ? [
     { key: "val_base_ke",   label: "VAL_base (Ku)",  data: mcVala.val_base_ke },
     { key: "escudo_fiscal", label: "Escudo Fiscal",   data: mcVala.escudo_fiscal },
-    { key: "pv_pt2030",    label: "PT2030 líquido",  data: mcVala.pv_pt2030 },
+    // { key: "pv_pt2030", label: "PT2030 líquido", data: mcVala.pv_pt2030 }, // REMOVIDO 2025-05-30
     { key: "pv_rfai",      label: "RFAI",             data: mcVala.pv_rfai },
     { key: "vala",         label: "VALA total",       data: mcVala.vala, bold: true },
   ] : [];
@@ -1708,37 +1711,25 @@ function HubMonteCarloView({ ctx }) {
         <div className="grid-4">
           <KPI label="P(VALA > 0)"         value={fmt.pct(diag.prob_vala_positivo, 1)}                        tone="pos" sub="viabilidade APV total" />
           <KPI label="P(VAL_base > 0)"     value={fmt.pct(diag.prob_val_base_positivo, 1)}                    sub="puro operacional · sem fiscal" />
-          <KPI label="P(VALA>0 | PT2030 ✓)" value={fmt.pct(diag.prob_vala_positivo_dado_pt2030_aprovado, 1)} tone="pos" sub="se PT2030 aprovado" />
-          <KPI label="P(VALA>0 | PT2030 ✗)" value={fmt.pct(diag.prob_vala_positivo_dado_pt2030_rejeitado, 1)} tone={diag.prob_vala_positivo_dado_pt2030_rejeitado >= 0.5 ? "pos" : "neg"} sub="se PT2030 rejeitado" />
+          {/* PT2030 KPIs REMOVIDO (2025-05-30): Grande empresa sem elegibilidade */}
+          {/* <KPI label="P(VALA>0 | PT2030 ✓)" ... /> */}
+          {/* <KPI label="P(VALA>0 | PT2030 ✗)" ... /> */}
         </div>
 
         <div className="grid-2-3">
           <Panel title="Diagnóstico — Causa das Falhas" sub={`${diag.n_falhas} simulações com VALA < 0`}>
             <div style={{ textAlign: "center", padding: "20px 0 16px" }}>
               <div style={{ fontSize: 52, fontWeight: 800, lineHeight: 1, color: "var(--neg)", fontFamily: "var(--mono)" }}>
-                {fmt.pct(diag.pct_falhas_por_pt2030_rejeitado, 0)}
+                {fmt.pct(diag.pct_falhas_com_val_base_negativo, 0)}
               </div>
               <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 8, lineHeight: 1.5, maxWidth: 220, margin: "8px auto 0" }}>
-                das falhas devem-se à rejeição do PT2030
+                das falhas devem-se a VAL_base negativo (operacional)
               </div>
             </div>
-            <div style={{ borderTop: "1px solid var(--rule-strong)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-              {[
-                { label: "Com PT2030 aprovado",       val: diag.prob_vala_positivo_dado_pt2030_aprovado  },
-                { label: "Com PT2030 rejeitado",      val: diag.prob_vala_positivo_dado_pt2030_rejeitado },
-                { label: "Sem PT2030 e sem RFAI",    val: diag.prob_vala_sem_pt2030_positivo            },
-              ].map(row => (
-                <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
-                  <span style={{ color: "var(--muted)" }}>{row.label}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontWeight: 700, color: row.val >= 0.5 ? "var(--pos)" : "var(--neg)" }}>
-                    {fmt.pct(row.val, 1)}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {/* PT2030 diagnostic REMOVIDO (2025-05-30): Grande empresa sem elegibilidade */}
           </Panel>
 
-          <Panel title="Decomposição VALA — Percentis" sub="VAL_base(Ku) + Escudo Fiscal + PT2030 líquido + RFAI · P5 / médio / P95">
+          <Panel title="Decomposição VALA — Percentis" sub="VAL_base(Ku) + Escudo Fiscal + RFAI · P5 / médio / P95">
             <table className="ftable ftable--dense">
               <thead>
                 <tr>
@@ -1764,7 +1755,7 @@ function HubMonteCarloView({ ctx }) {
           </Panel>
         </div>
 
-        <Panel title="Stress Fiscal — Cenários Determinísticos" sub="3 cenários-limite sobre os drivers fiscais · VALA negativo indicado a vermelho">
+        <Panel title="Stress Fiscal — Cenários Determinísticos" sub="2 cenários-limite sobre os drivers fiscais · VALA negativo indicado a vermelho">
           <table className="ftable ftable--dense">
             <thead>
               <tr>
@@ -1772,7 +1763,7 @@ function HubMonteCarloView({ ctx }) {
                 <th className="mono num">VALA</th>
                 <th className="mono num">VAL_base (Ku)</th>
                 <th className="mono num">Escudo</th>
-                <th className="mono num">PV(PT2030)</th>
+                {/* PT2030 REMOVIDO (2025-05-30): pv_pt2030 = 0 sempre */}
                 <th className="mono num">PV(RFAI)</th>
               </tr>
             </thead>
@@ -1783,7 +1774,7 @@ function HubMonteCarloView({ ctx }) {
                   <td className="mono num" style={{ color: sv.vala < 0 ? "var(--neg)" : undefined }}>{fmt.eurC(sv.vala)}</td>
                   <td className="mono num">{fmt.eurC(sv.val_base_ke)}</td>
                   <td className="mono num">{fmt.eurC(sv.escudo_fiscal)}</td>
-                  <td className="mono num">{fmt.eurC(sv.pv_pt2030)}</td>
+                  {/* PT2030 REMOVIDO: pv_pt2030 = 0 */}
                   <td className="mono num">{fmt.eurC(sv.pv_rfai)}</td>
                 </tr>
               ))}
@@ -1793,7 +1784,7 @@ function HubMonteCarloView({ ctx }) {
 
         <Panel
           title="Correlação driver → VALA"
-          sub="Pearson r · inclui drivers fiscais adicionais (pt2030_approved, rfai_utilization, kd_shock)"
+          sub="Pearson r · drivers fiscais: rfai_utilization, kd_shock (PT2030 = €0 fixo, 2025-05-30)"
           right={<Legend items={[{ label: "correlação positiva", color: "var(--pos)" }, { label: "correlação negativa", color: "var(--neg)" }]} />}
         >
           <HBarChart items={corrVala.map(([k, val]) => ({ label: valaDriverLabels[k] || k, value: val }))} />

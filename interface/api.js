@@ -510,10 +510,11 @@ const API = (() => {
   }
 
   // ─── hubMonteCarloVala ─────────────────────────────────────────────────────
-  async function hubMonteCarloVala({ cenario = "Base", n = 1000, irc_taxa = GRESTEL.IRC_TAXA_EFETIVA, seed, pt2030_prob } = {}) {
+  // PT2030 REMOVIDO (2025-05-30): Grande empresa sem elegibilidade a fundo perdido.
+  // pt2030_prob parameter removed — PT2030 = €0 fixo.
+  async function hubMonteCarloVala({ cenario = "Base", n = 1000, irc_taxa = GRESTEL.IRC_TAXA_EFETIVA, seed } = {}) {
     const params = new URLSearchParams({ cenario, n: String(n), irc_taxa: String(irc_taxa) });
     if (seed != null) params.set("seed", String(seed));
-    if (pt2030_prob != null) params.set("pt2030_prob", String(pt2030_prob));
     const r = await fetch(BACKEND_URL + "/api/hub/monte-carlo-vala?" + params);
     if (!r.ok) throw new Error("Erro /hub/monte-carlo-vala: " + r.status);
     return await r.json();

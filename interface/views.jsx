@@ -1494,7 +1494,7 @@ function HubViabilidadeView({ ctx }) {
       {comp && (
         <Panel
           title="DR comparativo · Sem Hub vs. Com Hub"
-          sub={"cenário " + (comp.cenario || ctx.scenario) + " · diferença = Com Hub − Sem Hub · em €"}
+          sub={`Δ = Com Hub - Sem Hub · €M · ${(comp.cenario || ctx.scenario)}`}
         >
           <HubComparativoDR sem={comp.sem_hub?.dr || []} com={comp.com_hub?.dr || []} />
         </Panel>
@@ -1603,15 +1603,9 @@ function HubComparativoDR({ sem, com }) {
                 const delta = (s != null && c != null) ? c - s : null;
                 return (
                   <React.Fragment key={y}>
-                    <td className="mono num" style={{ fontSize: 11, color: "var(--muted)" }}>{s != null ? fmt.eur(s) : "—"}</td>
-                    <td className="mono num" style={{ fontSize: 11 }}>{c != null ? fmt.eur(c) : "—"}</td>
-                    <DeltaCell
-                      delta={delta}
-                      base={s}
-                      className={"mono num " + (delta > 0 ? "pos" : delta < 0 ? "neg" : "")}
-                      style={{ fontSize: 11, fontWeight: 600 }}
-                      heatMax={rowHeatMax}
-                    />
+                    <td className="mono num" style={{ fontSize: 11, color: "var(--muted)" }}>{s != null ? fmt.eurM(s) : "—"}</td>
+                    <td className="mono num" style={{ fontSize: 11 }}>{c != null ? fmt.eurM(c) : "—"}</td>
+                    <td className="mono num" style={{ fontSize: 10, color: delta != null ? (delta > 0 ? "var(--pos)" : "var(--neg)") : "var(--muted)", fontWeight: delta != null ? 600 : undefined }}>{delta != null ? (delta >= 0 ? "+" : "−") + fmt.eurM(Math.abs(delta)) : "—"}</td>
                   </React.Fragment>
                 );
               })}

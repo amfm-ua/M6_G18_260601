@@ -137,14 +137,19 @@ def pessoal_anual(
     custo_medio_2025 = custo_medio_2024 * (1 + taxa_2025)
     total_2025 = hc_2025 * custo_medio_2025
 
-    hub_ativo = a.raw.get("hub_logistico", {}).get("incluir_hub", False)
+    hub_cfg = a.raw.get("hub_logistico", {})
+    hub_ativo = hub_cfg.get("incluir_hub", False)
+    ben_hub = (
+        hub_cfg
+        .get("projeto_hub", {})
+        .get("beneficios_anuais", {})
+    )
+    hub_pessoal_derivado = ben_hub.get("pessoal_saving_derivado") is not None
 
     ep = a.raw.get("elasticidade_pessoal", {})
-    alpha = (
-        float(ep.get("alpha_com_hub", 0.15))
-        if hub_ativo
-        else float(ep.get("alpha_sem_hub", 0.40))
-    )
+    alpha_sem_hub = float(ep.get("alpha_sem_hub", 0.40))
+    alpha_com_hub = float(ep.get("alpha_com_hub", 0.15))
+    alpha = alpha_sem_hub if (not hub_ativo or hub_pessoal_derivado) else alpha_com_hub
 
     g_pessoal_yr = a.cresc_2026_2029("pessoal")
     vn_map = df_vn.set_index("ano")["vn_total"].to_dict()

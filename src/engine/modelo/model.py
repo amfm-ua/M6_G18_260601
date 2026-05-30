@@ -18,6 +18,7 @@ from ..operacional import vendas as vendas_mod
 from ..operacional import pessoal as pessoal_mod
 from ..operacional import producao as producao_mod
 from ..financiamento import tesouraria as teso_mod
+from ..projetos.hub_logistico.drivers import aplicar_drivers_derivados_hub
 
 
 try:
@@ -84,6 +85,19 @@ def run_model(
     df_prod = vendas_mod.vendas_anuais(a, base, sched)
     df_merc = vendas_mod.vendas_mercadorias_anuais(a, base)
     df_total = vendas_mod.resumo_anual(df_prod, df_merc)
+
+    if hub_on:
+        try:
+            aplicar_drivers_derivados_hub(
+                a,
+                base,
+                sched,
+                df_prod=df_prod,
+                df_merc=df_merc,
+                df_total=df_total,
+            )
+        except Exception as exc:
+            logger.warning("drivers derivados do hub falharam: %s", exc)
 
     vn_2024 = float(df_total[df_total.ano == 2024]["vn_total"].iloc[0])
     vn_2025 = float(df_total[df_total.ano == 2025]["vn_total"].iloc[0])

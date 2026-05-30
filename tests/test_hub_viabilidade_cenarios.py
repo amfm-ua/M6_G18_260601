@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR / "src"))
 
 from src.api.routes.hub import get_hub_viabilidade_cenarios, get_hub_viability
+from src.engine.modelo.model import run_model
 
 
 def test_hub_viabilidade_cenarios_ordem_val():
@@ -38,11 +39,19 @@ def test_hub_viability_respeita_cenario():
 # Trava de regressão: se falharem após uma alteração ao motor, ou o número do
 # relatório está desatualizado, ou houve regressão — confirmar antes de mexer
 # nas tolerâncias.
+#
+# Atualizados para o PLANO DE FINANCIAMENTO LEGAL (grande empresa): subsídio
+# PT2030 a fundo perdido = 0 (sem acesso de grande empresa a SI PME; teto de
+# auxílio regional 30 % satisfeito só pelo RFAI), RFAI 22,5 % (escalão Centro),
+# dívida recomposta (BEI+Garantia Mútua+comercial), WACC 6,37 %. A partir da
+# refatoração do Hub, a poupança de pessoal é derivada da elasticidade sobre VN
+# orgânico (share 40 %) e as quebras escalam com CMVMC_prod, evitando dupla contagem
+# com a DR consolidada.
 VAL_TIR_CANONICOS = {
-    "Base":     (2_493_769.74, 0.174928),
-    "Upside":   (3_710_054.43, 0.244336),
-    "Downside":     (26_600.51, 0.082230),
-    "Stress":  (-1_860_363.07, 0.001783),
+    "Base":     (1_342_474.04,  0.117170),
+    "Upside":   (3_146_363.12,  0.199388),
+    "Downside": (-1_337_074.68, 0.023670),
+    "Stress":   (-3_030_702.06, -0.043297),
 }
 
 
@@ -60,5 +69,29 @@ def test_hub_viabilidade_base_metricas_canonicas():
     """Métricas-síntese do cenário Base publicadas no relatório (IR e payback)."""
     base = get_hub_viability(cenario="Base", irc_taxa=None, wacc=None)
 
-    assert base["indice_rendibilidade"] == pytest.approx(1.4156, abs=1e-3)  # 1,42
-    assert base["payback_atualizado"] == pytest.approx(7.3665, abs=1e-2)    # 7,37 anos
+    assert base["indice_rendibilidade"] == pytest.approx(1.2237, abs=1e-3)  # 1,22
+    assert base["payback_atualizado"] == pytest.approx(9.2098, abs=1e-2)    # 9,21 anos
+
+
+def test_hub_pessoal_derivado_nao_duplica_alpha_consolidado():
+    """A poupança de pessoal do hub deve entrar uma vez: via série derivada."""
+    sem = run_model(
+        cenario="Base",
+        hub_on=False,
+        ecogres_on=True,
+        horizonte_maturidade=False,
+    )["dr"].set_index("ano")
+    com = run_model(
+        cenario="Base",
+        hub_on=True,
+        ecogres_on=True,
+        horizonte_maturidade=False,
+    )["dr"].set_index("ano")
+
+    for ano in [2026, 2027, 2028, 2029]:
+        gastos_sem = -float(sem.loc[ano, "gastos_pessoal"])
+        gastos_com = -float(com.loc[ano, "gastos_pessoal"])
+        saving_dr = gastos_sem - gastos_com
+        saving_hub = float(com.loc[ano, "hub_pessoal_reducao"])
+
+        assert saving_dr == pytest.approx(saving_hub, abs=1.0)

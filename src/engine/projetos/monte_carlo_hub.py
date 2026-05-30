@@ -272,6 +272,13 @@ def _apply_sample(hub_base: dict, s: dict[str, float]) -> tuple[dict, float]:
     h = copy.deepcopy(hub_base)
     proj = h["projeto_hub"]
 
+    def _scale_series(ben: dict, key: str, factor: float) -> None:
+        series = ben.get(key)
+        if not isinstance(series, dict):
+            return
+        for yr in list(series.keys()):
+            series[yr] = float(series[yr]) * factor
+
     # 1. Inventário via dias de DMI (driver físico). hub_inventario_release converte
     #    estes dias em € de libertação (dias/365 × CMVMC_prod): clearing one-time +
     #    step-down estrutural + recorrente. Substitui o antigo escalar libertacao_inventario.
@@ -297,7 +304,10 @@ def _apply_sample(hub_base: dict, s: dict[str, float]) -> tuple[dict, float]:
 
     # 4. Poupança operacional (pessoal + automação)
     ben = proj["beneficios_anuais"]
+    base_poup = float(ben.get("poupanca_operacional", 0.0))
+    pessoal_factor = s["pessoal"] / base_poup if base_poup else 1.0
     ben["poupanca_operacional"] = s["pessoal"]
+    _scale_series(ben, "pessoal_saving_derivado", pessoal_factor)
     quebras = float(ben.get("reducao_quebras", 0.0))
     opex = abs(float(
         ben.get("opex_incremental")

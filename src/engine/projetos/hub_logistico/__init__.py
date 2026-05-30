@@ -35,6 +35,11 @@ from .base import (
 )
 from .capex import hub_capex
 from .financiamento import hub_financing
+from .drivers import (
+    aplicar_drivers_derivados_hub,
+    hub_pessoal_saving_derivado,
+    hub_quebras_saving_derivado,
+)
 from .impacto import (
     pt2030_reconhecimento,
     hub_nfm,
@@ -65,6 +70,9 @@ __all__ = [
     "load",
     "hub_capex",
     "hub_financing",
+    "aplicar_drivers_derivados_hub",
+    "hub_pessoal_saving_derivado",
+    "hub_quebras_saving_derivado",
     "pt2030_reconhecimento",
     "hub_nfm",
     "hub_rfai",

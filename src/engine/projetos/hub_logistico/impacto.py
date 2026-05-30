@@ -369,6 +369,14 @@ def hub_dr_impact(
     poupanca_pessoal_base = poupanca_op * pessoal_pct
     poupanca_fse_base = poupanca_op * fse_pct
 
+    # Costura para a redação por driver: se o dict trouxer uma série de poupança
+    # de pessoal DERIVADA (€/ano, p.ex. da elasticidade α consolidada sobre VN
+    # orgânico), usa-se essa série em vez do escalar × (1+g)^n. Garante uma única
+    # fonte de verdade entre o VAL do hub e a DR consolidada e torna o benefício
+    # responsivo ao cenário (padrão "cozedura"). Ausente → comportamento atual.
+    pessoal_derivado = ben.get("pessoal_saving_derivado")
+    quebras_derivado = ben.get("quebras_saving_derivado")
+
     fse_opex_base = float(
         ben.get("opex_incremental")
         or proj.get("opex_detalhe", {}).get("total", 0)
@@ -420,9 +428,19 @@ def hub_dr_impact(
         fator = (1 + crescimento_anual) ** n
         ramp = float(ramp_up.get(y, 1.0))
 
-        pessoal_red = poupanca_pessoal_base * fator * ramp
+        if pessoal_derivado is not None:
+            pessoal_red = float(
+                pessoal_derivado.get(y, pessoal_derivado.get(str(y), 0.0))
+            )
+        else:
+            pessoal_red = poupanca_pessoal_base * fator * ramp
         fse_red = poupanca_fse_base * fator * ramp
-        cmvmc_red = reducao_quebras * fator * ramp
+        if quebras_derivado is not None:
+            cmvmc_red = float(
+                quebras_derivado.get(y, quebras_derivado.get(str(y), 0.0))
+            )
+        else:
+            cmvmc_red = reducao_quebras * fator * ramp
         fse_opex = fse_opex_base * fator  # OPEX existe desde o arranque, sem ramp-up
         subsidio_y = subsidio.get(y, 0.0)
 

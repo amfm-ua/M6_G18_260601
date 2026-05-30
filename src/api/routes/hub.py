@@ -19,8 +19,9 @@ from src.engine.projetos.hub_logistico import (
 from src.engine.projetos.monte_carlo_hub import monte_carlo_hub, monte_carlo_vala_hub
 from src.engine.projetos.ecogres import ecogres_dr, load as eco_load
 from src.engine.modelo.model import dataframe_to_records, run_model
-from src.engine.inputs.loader import _SCENARIO_OVERRIDES
-from src.engine.inputs.yaml_io import _deep_update
+from src.engine.inputs import load as assumptions_load
+from src.engine.operacional import vendas as vendas_mod
+from src.engine.projetos.hub_logistico.drivers import aplicar_drivers_derivados_hub
 from src.api.serializers import _wrap_rows
 
 router = APIRouter(prefix="/api")
@@ -29,15 +30,24 @@ _SC_VIAB = ["Base", "Upside", "Downside", "Stress"]
 
 
 def _hub_with_scenario(cenario: str) -> dict:
-    """Carrega o Hub e aplica os overrides hub_logistico do cenario escolhido."""
+    """Carrega o Hub com cenario e popula os drivers derivados do operacional."""
     if cenario not in _SC_VIAB:
         raise HTTPException(status_code=400, detail=f"Cenario invalido: {cenario}")
 
-    hub = copy.deepcopy(hub_load())
-    hub_overrides = _SCENARIO_OVERRIDES.get(cenario, {}).get("hub_logistico", {})
-    if hub_overrides:
-        hub = _deep_update(hub, hub_overrides)
-    return hub
+    a, base, sched = assumptions_load(cenario=cenario)
+    df_prod = vendas_mod.vendas_anuais(a, base, sched)
+    df_merc = vendas_mod.vendas_mercadorias_anuais(a, base)
+    df_total = vendas_mod.resumo_anual(df_prod, df_merc)
+
+    return aplicar_drivers_derivados_hub(
+        a,
+        base,
+        sched,
+        df_prod=df_prod,
+        df_merc=df_merc,
+        df_total=df_total,
+        hub=copy.deepcopy(a.raw.get("hub_logistico", hub_load())),
+    )
 
 
 @router.get("/hub/viability")
@@ -71,7 +81,7 @@ def get_hub_viability(
 
 @router.get("/hub/tornado")
 def get_hub_tornado(irc_taxa: float = Query(0.245)):
-    df = tornado_hub(irc_taxa=irc_taxa)
+    df = tornado_hub(hub_base=_hub_with_scenario("Base"), irc_taxa=irc_taxa)
     rows = [
         {
             "variavel": r["label"],
@@ -96,7 +106,7 @@ def get_hub_break_even(
     drivers: str = Query("pessoal,dmi_reducao_dias,capex,wacc,b2c,crescimento,pt2030_taxa"),
 ):
     """Ponto crítico por driver: valor que faz VAL = 0."""
-    hub = hub_load()
+    hub = _hub_with_scenario("Base")
     driver_list = [d.strip() for d in drivers.split(",")]
     results = []
     for drv in driver_list:
@@ -110,7 +120,7 @@ def get_hub_break_even(
 
 @router.get("/hub/debt-service")
 def get_hub_debt_service():
-    hub = hub_load()
+    hub = _hub_with_scenario("Base")
     df = mapa_servico_divida(hub)
     pt = mapa_servico_divida_por_tranche(hub)
     rows_por_tranche = {
@@ -274,16 +284,11 @@ def get_hub_viabilidade_cenarios(
     Aplica os overrides de hub_logistico de cada cenário sobre os pressupostos
     base do YAML, permitindo calcular o Valor Esperado E[VAL] = Σ(VAL_i × p_i).
     """
-    hub_base = hub_load()
     result = {}
 
     for sc in _SC_VIAB:
-        hub_sc = copy.deepcopy(hub_base)
-        hub_overrides = _SCENARIO_OVERRIDES.get(sc, {}).get("hub_logistico", {})
-        if hub_overrides:
-            hub_sc = _deep_update(hub_sc, hub_overrides)
-
         try:
+            hub_sc = _hub_with_scenario(sc)
             res = viabilidade_hub(hub_sc, irc_taxa=irc_taxa, wacc=wacc)
             result[sc] = {
                 "val": res["val"],

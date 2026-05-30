@@ -720,6 +720,13 @@ def sensibilidade_hub(
     if hub_base is None:
         hub_base = load()
 
+    def _scale_series(ben: dict, key: str, factor: float) -> None:
+        series = ben.get(key)
+        if not isinstance(series, dict):
+            return
+        for yr in list(series.keys()):
+            series[yr] = float(series[yr]) * factor
+
     rows = []
 
     for v in valores:
@@ -736,6 +743,8 @@ def sensibilidade_hub(
             ben["reducao_quebras"] = (
                 float(ben["reducao_quebras"]) * factor
             )
+            _scale_series(ben, "pessoal_saving_derivado", factor)
+            _scale_series(ben, "quebras_saving_derivado", factor)
 
         elif driver == "capex":
             old = float(proj["capex"]["base"])
@@ -778,7 +787,11 @@ def sensibilidade_hub(
                 dmi["DMI_MP_reducao_dias"] = v / 2.0
 
         elif driver == "quebras":
-            proj["beneficios_anuais"]["reducao_quebras"] = v
+            ben = proj["beneficios_anuais"]
+            base_q = float(ben.get("reducao_quebras", 0.0))
+            factor = v / base_q if base_q else 1.0
+            ben["reducao_quebras"] = v
+            _scale_series(ben, "quebras_saving_derivado", factor)
 
         elif driver == "crescimento":
             proj["beneficios_anuais"]["crescimento_anual"] = v
@@ -791,7 +804,10 @@ def sensibilidade_hub(
         elif driver == "pessoal":
             # v = poupança operacional total (€/ano); base = 380 000 €
             ben = proj["beneficios_anuais"]
+            base_poup = float(ben.get("poupanca_operacional", 0.0))
+            factor = v / base_poup if base_poup else 1.0
             ben["poupanca_operacional"] = v
+            _scale_series(ben, "pessoal_saving_derivado", factor)
             quebras = float(ben.get("reducao_quebras", 0))
             opex = abs(float(
                 ben.get("opex_incremental")

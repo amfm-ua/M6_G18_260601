@@ -152,21 +152,43 @@ projeto_hub:
   ano_inicio_beneficios: 2026
 
   financiamento:
-    Banco_Hub:
-      montante: 3000000         # 50 % do CAPEX — CGD / BPI, fase obra civil (2025)
-      taxa_juro: 0.0415
-      amortizacao_anual: 300000 # 10 anos a partir de 2028
-      inicio_amortizacao: 2028  # carência 3 anos: 2025-26 obra + 2027 ramp-up
-      desembolso: 2025
+    # ─────────────────────────────────────────────────────────────────────────
+    # PLANO DE FINANCIAMENTO — CORRIGIDO PARA CONFORMIDADE LEGAL (grande empresa)
+    # A Grestel é GRANDE EMPRESA (734 trab., R&C 2024). Implicações vinculativas:
+    #   • SI Inovação Produtiva PT2030 é exclusivo de PME → SEM acesso a fundo
+    #     perdido neste programa.
+    #   • Teto de auxílio com finalidade regional (mapa PT 2022-2027, Região de
+    #     Aveiro/Centro, grande empresa) = 30 % do CAPEX. RFAI + subsídio incidem
+    #     sobre o mesmo investimento e SOMAM, ficando capados a 30 % (CFI art. 43.º
+    #     + Portaria 297/2015).
+    # Mix prudente adoptado: equity 25 % + dívida 75 % (parte garantida/bonificada)
+    #   + RFAI (único apoio regional sólido p/ grande empresa) + subsídio = 0 (upside).
+    # Dívida recomposta para aliviar a tesouraria (caixa €0,54 M e alavancagem
+    #   ~4× Dívida Líq./EBITDA em 2024): a Garantia Mútua liberta colateral (já
+    #   onerado em hipotecas BPI) e a bonificação BEI baixa o spread. ≥2 fontes
+    #   de capitais alheios distintas ✓ (requisito PEF M6).
+    # ─────────────────────────────────────────────────────────────────────────
     Linha_BEI:
-      montante: 1500000         # 25 % do CAPEX — linha protocolada BEI/PME (fase equipamento 2026)
-      taxa_juro: 0.0375         # Euribor 3m + spread protocolado ~1 % (vs. 1,65 % mercado)
-      amortizacao_anual: 150000 # 10 anos a partir de 2028
-      inicio_amortizacao: 2028  # carência alinhada com Banco_Hub (ramp-up 2027)
+      montante: 1800000         # 30 % do CAPEX — linha BEI verde/digital (solar+AMR+software), intermediada Banco de Fomento
+      taxa_juro: 0.0370         # bonificação ~45 bp por elegibilidade Clima/Digital do BEI
+      amortizacao_anual: 180000 # 10 anos a partir de 2028
+      inicio_amortizacao: 2028  # carência 3 anos: 2025-26 obra + 2027 ramp-up
       desembolso: 2026          # desembolso na fase de aquisição de equipamento
+    Linha_Fomento_GM:
+      montante: 1700000         # 28 % do CAPEX — linha Banco de Fomento c/ Garantia Mútua (não exige colateral real)
+      taxa_juro: 0.0385         # spread reduzido ~30 bp pela garantia mútua (FGM)
+      amortizacao_anual: 170000 # 10 anos a partir de 2028
+      inicio_amortizacao: 2028
+      desembolso: 2025          # desembolso na fase de obra civil
+    Banco_Comercial:
+      montante: 1000000         # 17 % do CAPEX — crédito bancário comercial residual (CGD/BPI), minimizado dada a alavancagem
+      taxa_juro: 0.0415
+      amortizacao_anual: 100000 # 10 anos a partir de 2028
+      inicio_amortizacao: 2028
+      desembolso: 2025
     PT2030:
-      montante: 2700000         # subsídio não reembolsável (45 % do CAPEX — majoração REGIOSTARS 2024)
-      ano_recebimento: 2027     # aprovação esperada após arranque operacional
+      montante: 0               # subsídio fundo perdido = 0 (base prudente): grande empresa sem acesso a SI PME; qualquer subsídio é upside e fica ≤ teto 30 % somado ao RFAI
+      ano_recebimento: 2027     # mantido p/ integridade da chave do motor; sem efeito com montante 0
 
   beneficios_anuais:
     # Poupança operacional = fases 1+2: 6 VLMs + 5 AMRs + Box-on-Demand
@@ -175,9 +197,26 @@ projeto_hub:
     # Ajuste M6 (realismo): reduzido de 480 k€; incorpora risco de ramp-up parcial no arranque
     # e possível reafectação de 1 FTE ao invés de supressão líquida (prudência face à escala da Grestel)
     poupanca_operacional: 440000  # fase 1: 350 k€ + fase 2: +90 k€ (2 AMRs adicionais + Box-on-Demand)
+    # Driver derivado: a parcela de pessoal deixa de ser um escalar cego.
+    # O motor calcula a diferenca de gastos com pessoal entre alpha_sem_hub e
+    # alpha_com_hub sobre o VN organico do cenario (sem vendas incrementais do
+    # proprio hub) e atribui ao projeto apenas uma fracao conservadora. Esta
+    # fracao aproxima um sub-pool de logistica/manuseamento (~18 FTE em 2029),
+    # mantendo o VAL na ordem de grandeza publicada e evitando dupla contagem.
+    pessoal_driver:
+      aplicar: true
+      modo: alpha_diff_vn_organico
+      share_alpha_diff: 0.40
+      aplicar_ramp_up: true
     # Redução de quebras: benchmark Box-on-Demand (embalagem por medida) → redução de 60-70 % das
     # quebras por embalagem imprecisa; mantém margem para defeitos de produção não relacionados
     reducao_quebras: 65000        # ajustado de 80 k€: eliminação parcial (não total) de desperdício embalagem
+    # Quebras passam a escalar com CMVMC_prod organico (volume/custo de produto manuseado),
+    # em vez de crescerem mecanicamente a crescimento_anual.
+    quebras_driver:
+      aplicar: true
+      modo: cmvmc_prod_organico
+      aplicar_ramp_up: true
     # OPEX incremental aumentado: manutenção contratada VLMs (+10 k€/módulo/ano para 6 módulos = 60 k€)
     # + AMRs (+8 k€/unidade/ano × 5 = 40 k€) + Digital Twin licenças + técnico IA = 225 k€ base
     # (era 210 k€; revisão upward prudente dada escala do sistema integrado fase 1+2)
@@ -409,22 +448,25 @@ projeto_hub:
     # Crédito de imposto dedutível directamente à colecta de IRC.
     # Gerado sobre o CAPEX elegível realizado em 2025-2026.
     #
-    # Taxa aplicável (art. 23.º §1 al. b) CFI):
-    #   10 % para investimentos em regiões assistidas (Centro/Aveiro).
+    # Taxa aplicável (art. 23.º §1 al. a) CFI) — regiões do art. 107.º(3)(a) TFUE
+    #   (Norte/Centro/Alentejo): 25 % das aplicações relevantes até 5 M€ + 10 % no
+    #   excedente. CAPEX 6 M€ → 25 %×5 M€ + 10 %×1 M€ = 1 350 k€ → taxa efetiva 22,5 %.
+    #   (O valor anterior de 10 % subavaliava o RFAI elegível na Região de Aveiro;
+    #   é o ÚNICO apoio com finalidade regional acessível à Grestel como grande empresa.)
     #
     # CAPEX elegível adoptado = 6 000 k€ (alinhado com capex.base capitalizável).
     # Exclui 45 k€ honorários afundados (sunk cost pré-decisão — CFI art. 22.º-23.º
     # incide sobre investimento realizado a partir da decisão de investimento) e
     # 105 k€ formação inicial (gasto do exercício — NCRF 6 §21, não cria ativo
     # intangível separável e controlável).
-    # Crédito total gerado: 10 % × 6 000 k€ = 600 k€.
+    # Crédito total gerado: 22,5 % × 6 000 k€ = 1 350 k€ (escalões 25 %/10 %).
     # CAPEX elegível/ATL_operacional = 6 000 k€ / 39 570 k€ = 15,16 % ≥ 15 % (limiar PEF M6).
     #
     # Limites (art. 23.º §6 CFI):
     #   • Máximo anual: 50 % do IRC liquidado no exercício pela empresa
     #   • Carry-forward: saldo não utilizado transportável até 10 exercícios
     aplicar: true
-    taxa: 0.10
+    taxa: 0.225               # taxa efetiva ponderada dos escalões 25 %/10 % (Centro) — ver nota acima
     capex_elegivel: 6000000   # alinhado com capex.base; exclui 45 k€ sunk + 105 k€ formação (NCRF 6/7)
     limite_irc_pct: 0.50
     carry_forward_anos: 10
@@ -466,9 +508,9 @@ projeto_hub:
 
   viabilidade:
     # Fluxos nominais (preços correntes) — WACC nominal 6,46 % derivado dos componentes CAPM.
-    # Cálculo: w_e × Ke + w_d × Kd × (1−t) = 0,25 × 16,62 % + 0,75 × 4,02 % × 0,765 = 6,46 %
+    # Cálculo: w_e × Ke + w_d × Kd × (1−t) = 0,25 × 16,62 % + 0,75 × 3,86 % × 0,765 = 6,37 %
     # Pressupostos actualizados: Damodaran 5-jan-2026; BPstat/Pordata média 2025; OE2025.
-    wacc: 0.0646
+    wacc: 0.0637
     # Taxa combinada IRC: 20,0 % IRC (OE2025) + 2,0 % derrama estadual (escalão € 1,5–7,5 M, taxa efectiva Grestel) + 1,5 % derrama municipal (Vagos) = 23,5 %
     irc_taxa: 0.235
     eur_usd_base: 1.08
@@ -492,7 +534,7 @@ projeto_hub:
     #   o financiamento específico do projeto (€4,5 M banco + €1,5 M equity).
     ke: 0.16622                # Custo do capital próprio — CAPM: rf 3,10 % + β_l 2,34 × ERP 5,78 %
                                # β_l = β_u × (1 + (1−t) × D/E) = 0,71 × (1 + 0,765 × 3) = 2,3395 ≈ 2,34
-    kd: 0.0402                 # Custo médio ponderado da dívida: (3M×4,15%+1,5M×3,75%)/4,5M = 4,02 %
+    kd: 0.03857                # Custo médio ponderado: (1,8M×3,70%+1,7M×3,85%+1,0M×4,15%)/4,5M = 3,86 %
     ku: 0.07204                # Custo de capital DESALAVANCADO — CAPM com β_u: rf 3,10 % + β_u 0,71 × ERP 5,78 % = 7,20 %
                                # Usado para descontar o caso-base do APV (operações 100 % CP, sem benefícios fiscais).
                                # NÃO usar o Ke alavancado no caso-base (penaliza fluxos unlevered com risco financeiro).

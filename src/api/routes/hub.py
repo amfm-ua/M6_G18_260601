@@ -262,6 +262,12 @@ def get_hub_investment_map():
         if isinstance(v, dict) and "amortizacao_anual" in v
     ]
 
+    rfai_cfg = proj.get("rfai", {})
+    rfai_aplicar = bool(rfai_cfg.get("aplicar", False))
+    rfai_taxa = float(rfai_cfg.get("taxa", 0.0)) if rfai_aplicar else 0.0
+    rfai_capex_elegivel = float(rfai_cfg.get("capex_elegivel", 0.0)) if rfai_aplicar else 0.0
+    rfai_credito_total = rfai_taxa * rfai_capex_elegivel
+
     return {
         "capex_base": capex_base,
         "pools": capex_rows,
@@ -271,6 +277,13 @@ def get_hub_investment_map():
         "pt2030_ano": int(pt["ano_recebimento"]),
         "emprestimos": emprestimos,
         "sintese": sintese,
+        "rfai": {
+            "aplicar": rfai_aplicar,
+            "taxa": rfai_taxa,
+            "capex_elegivel": rfai_capex_elegivel,
+            "credito_total": round(rfai_credito_total, 2),
+            "teto_pct_capex": 0.30,
+        },
     }
 
 
@@ -367,6 +380,8 @@ def get_hub_vala(
         "escudo_fiscal_por_tranche": result["escudo_fiscal_por_tranche"],
         "pv_pt2030_liquido": result["pv_pt2030_liquido"],
         "pv_rfai": result["pv_rfai"],
+        "pv_soft_loan": result["pv_soft_loan"],
+        "soft_loan_por_tranche": result["soft_loan_por_tranche"],
         "pt2030_net_por_ano": result["pt2030_net_por_ano"],
         "rfai_por_ano": result["rfai_por_ano"],
         "fcf_ajuste_pt2030_por_ano": result["fcf_ajuste_pt2030_por_ano"],
@@ -433,7 +448,7 @@ def get_hub_vala_sensibilidade(
 
     result = {}
 
-    result["base"] = {"label": "Base — PT2030=45%, RFAI, IRC=24,5%", **_run(hub_base, irc_eff)}
+    result["base"] = {"label": "Base — PT2030=€0 (grande empresa), RFAI, IRC=24,5%", **_run(hub_base, irc_eff)}
 
     h = copy.deepcopy(hub_base)
     h["projeto_hub"]["financiamento"]["PT2030"]["montante"] = capex_base * 0.30

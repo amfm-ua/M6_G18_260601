@@ -4,6 +4,19 @@
 # detalhe_mp: fracções de cada matéria-prima no cip_unitario (MP = soma das parcelas).
 # Dados 2024 (sales_mix, pvu_base): ver historico/2024/produtos.yaml
 
+# Custeio fixo/variável — vista analítica de absorção no Orçamento de Produção.
+# Fração VARIÁVEL de cada componente do CIIP (1 − fração = parcela fixa).
+# A parcela fixa não escala com volume → captura a alavancagem operacional
+# (o custo fixo/unidade desce quando a produção sobe). Display-only: NÃO altera
+# o CUP headline (CIIP), o CMVMC nem a valorização de stock.
+custeio_fixo_variavel:
+  MP:  1.00   # matéria-prima: consumida por unidade → 100% variável
+  MOD: 0.50   # mão-de-obra direta: ~metade fixa (núcleo de staffing permanente)
+  GGF: 0.20   # gastos gerais de fabrico: sobretudo fixos (amortizações, supervisão)
+  # Energia fabril alocada ao CUP (vista analítica): fração da FSE de energia
+  # imputada à produção. Reutiliza pct_producao das FSE (default 0,40).
+  energia_pct_producao: 0.40
+
 product_families:
   Pratos:
     cip_unitario: 6.963

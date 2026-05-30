@@ -148,6 +148,7 @@ def producao_anual(
     base: Base2024,
     sched: Schedules,
     coz_fse_reducao: "dict[int, float] | None" = None,
+    energia_fabril_by_year: "dict[int, float] | None" = None,
 ) -> pd.DataFrame:
     """Produção anual por produto 2024-2029 (CIIP = MPSC+MOD+GGF).
 
@@ -157,7 +158,17 @@ def producao_anual(
 
     coz_fse_reducao: quando fornecido (toggle cozedura_on ativo), adiciona
     colunas analíticas delta_energia_unit, delta_materia_unit, cup_cozedura.
-    Estas colunas são display-only; não alimentam a DR/CMVMC/EBITDA.
+
+    energia_fabril_by_year: FSE de energia (gás+eletricidade, valor positivo)
+    por ano. Quando fornecido, adiciona a VISTA ANALÍTICA DE ABSORÇÃO:
+      - cup_variavel_unit / cup_fixo_unit: decomposição fixo/variável do CIIP,
+        com o custo fixo/unidade a refletir a alavancagem operacional (desce
+        quando o volume sobe);
+      - energia_unit: energia fabril imputada por unidade (ponderada por GGF);
+      - cup_absorcao (CIIP fixo+variável) e cup_energia (CIIP + energia).
+
+    TODAS estas colunas são display-only: NÃO alteram cup, cmvmc_*, qty nem
+    alimentam a DR/CMVMC/EBITDA/stock (que continuam a usar o CIIP headline).
     """
     from .vendas import vendas_anuais
 
@@ -263,30 +274,106 @@ def producao_anual(
 
     df = pd.DataFrame(rows)
 
+    # ── Vista analítica de absorção: decomposição fixo/variável + energia ─────
+    # Display-only — NÃO altera cup/cmvmc_*/qty (CIIP headline preservado).
+    # Base de volume: qty_produzida (a energia consome-se ao produzir e o custo
+    # fixo absorve-se sobre o que se produz). Em 2024 (factor=1, qty=qty_2024)
+    # cup_absorcao == cup == cip_unitario, preservando a calibração auditada.
+    if energia_fabril_by_year is not None:
+        fv = a.custeio_fv
+        est = a.product_families
+
+        def _shares(p):
+            ec = (est.get(p) or {}).get("estrutura_custos") or {}
+            return float(ec.get("MP", 0.0)), float(ec.get("MOD", 0.0)), float(ec.get("GGF", 0.0))
+
+        pct_var: dict[str, float] = {}
+        ggf_unit: dict[str, float] = {}
+        for p in PRODUTOS:
+            mp_s, mod_s, ggf_s = _shares(p)
+            pct_var[p] = mp_s * fv["MP"] + mod_s * fv["MOD"] + ggf_s * fv["GGF"]
+            ggf_unit[p] = cips[p] * ggf_s
+
+        en_pct = float(fv.get("energia_pct_producao", 0.40))
+
+        qty_prod_2024 = df[df["ano"] == 2024].set_index("produto")["qty_produzida"].to_dict()
+        qty_prod_idx = {
+            (int(r["ano"]), r["produto"]): float(r["qty_produzida"]) for _, r in df.iterrows()
+        }
+        # Denominador de imputação da energia (overhead): Σ(ggf_unit × qty) por ano.
+        ggf_qty_ano: dict[int, float] = {}
+        for _, r in df.iterrows():
+            y = int(r["ano"])
+            ggf_qty_ano[y] = ggf_qty_ano.get(y, 0.0) + ggf_unit[r["produto"]] * float(r["qty_produzida"])
+
+        var_u, fix_u, en_u, cup_abs, cup_en = [], [], [], [], []
+        for _, row in df.iterrows():
+            y, p, f = int(row["ano"]), row["produto"], factors[int(row["ano"])]
+            qprod = qty_prod_idx.get((y, p), 0.0)
+            qbase = qty_prod_2024.get(p, 0.0)
+
+            variavel = cips[p] * pct_var[p] * f
+            fixo_unit_base = cips[p] * (1.0 - pct_var[p]) * f
+            # Custo fixo/unidade = pool fixo (cresce c/ inflação, não c/ volume) / volume.
+            fixo = (fixo_unit_base * qbase / qprod) if qprod > 0 else fixo_unit_base
+
+            energia_tot = en_pct * float(energia_fabril_by_year.get(y, 0.0))
+            denom = ggf_qty_ano.get(y, 0.0)
+            energia = energia_tot * ggf_unit[p] / denom if denom > 0 else 0.0
+
+            var_u.append(variavel)
+            fix_u.append(fixo)
+            en_u.append(energia)
+            cup_abs.append(variavel + fixo)
+            cup_en.append(variavel + fixo + energia)
+
+        df["cup_variavel_unit"] = var_u
+        df["cup_fixo_unit"] = fix_u
+        df["energia_unit"] = en_u
+        df["cup_absorcao"] = cup_abs
+        df["cup_energia"] = cup_en
+
+    # ── Overlay Cozedura BT: poupança de energia − custo da pasta reformulada ──
     if coz_fse_reducao is not None:
         from ..projetos.cozedura.impacto import _ramp
         coz = a.raw.get("cozedura_baixa_temp", {})
         cmvmc_pct = float(coz.get("cmvmc_incremento_pct", 0.0))
         mp_pct = _mp_fraction_per_produto(a)
 
-        # Alocação uniforme da poupança de energia por unidade produzida.
-        # Premissa ilustrativa: €/peça = FSE_saving_total_ano / qty_total_ano.
+        # Quando a energia está no CUP (vista de absorção), a poupança é imputada
+        # com a mesma ponderação por GGF que a energia; caso contrário, uniforme.
+        ggf_unit_coz: dict[str, float] = {}
+        ggf_qty_prod: dict[int, float] = {}
+        if energia_fabril_by_year is not None:
+            for p in PRODUTOS:
+                ggf_s = float(((est.get(p) or {}).get("estrutura_custos") or {}).get("GGF", 0.0))
+                ggf_unit_coz[p] = cips[p] * ggf_s
+            for _, r in df.iterrows():
+                y = int(r["ano"])
+                ggf_qty_prod[y] = ggf_qty_prod.get(y, 0.0) + ggf_unit_coz[r["produto"]] * float(r["qty_produzida"])
         qty_per_year = df.groupby("ano")["qty_produzida"].sum().to_dict()
+
+        base_cup_col = "cup_energia" if "cup_energia" in df.columns else "cup"
 
         d_en, d_mat, cup_coz = [], [], []
         for _, row in df.iterrows():
             y = int(row["ano"])
             p = row["produto"]
-            qty_y = qty_per_year.get(y, 0.0)
             fse_red = float(coz_fse_reducao.get(y, 0.0))
             ramp = _ramp(coz, y)
 
-            delta_en = fse_red / qty_y if qty_y > 0 else 0.0
+            if ggf_qty_prod.get(y, 0.0) > 0:
+                # poupança/un = fse_red × ggf_unit[p] / Σ(ggf_unit × qty_prod)
+                delta_en = fse_red * ggf_unit_coz[p] / ggf_qty_prod[y]
+            else:
+                qty_y = qty_per_year.get(y, 0.0)
+                delta_en = fse_red / qty_y if qty_y > 0 else 0.0
+
             cup_mpsc = cips[p] * mp_pct[p] * factors[y]
             delta_mat = ramp * cmvmc_pct * cup_mpsc
             d_en.append(delta_en)
             d_mat.append(delta_mat)
-            cup_coz.append(row["cup"] - delta_en + delta_mat)
+            cup_coz.append(row[base_cup_col] - delta_en + delta_mat)
 
         df["delta_energia_unit"] = d_en
         df["delta_materia_unit"] = d_mat

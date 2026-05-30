@@ -16,7 +16,7 @@ VAL_determinístico; preço/câmbio log-normais → assimétricas com cauda dire
   dmi_pa_reducao      Triangular(8, 12, 15 dias)  — VLMs (VDMA); convertido em € via CMVMC_prod
   dmi_mp_reducao      Triangular(8,  8, 12 dias)  — Digital Twin (VDMA); idem
   dmi_clearing_dias   Triangular(12, 24, 36 dias) — clearing one-time de stock-excesso (mode≈€950 k)
-  pt2030_taxa         Triangular(30 %, 45 %, 60 %)              — simétrica; mean = mode = 45 %
+  pt2030_taxa         Triangular(0 %, 4 %, 7,5 %)               — subsídio residual sob teto regional
   b2c                 Normal truncada N(1,0; σ=0,20) ∈ [0,3; 2,0] — incerteza de mercado
   pessoal             Triangular(70 %, 100 %, 130 % do cenário) — simétrica; mean = mode
   wacc                Triangular(WACC−2 p.p., WACC_cenário, WACC+2 p.p.) — simétrica; mean = wacc_cenário
@@ -66,13 +66,16 @@ DEFAULT_DISTRIBUTIONS: dict[str, dict] = {
         "mode": 24.0,
         "max": 36.0,
     },
-    # Triangular simétrica (mean = mode = 45 %): incerteza simétrica em torno
-    # do cenário base PT2030 (45 %), range ±15 p.p.
+    # Subsídio PT2030 (fundo perdido) como intensidade sobre o CAPEX. A Grestel,
+    # grande empresa, não tem acesso ao SI PME → um eventual apoio é residual e
+    # fica sob o teto de auxílio com finalidade regional (RFAI + subsídio ≤ 30 %
+    # do CAPEX, CFI art. 43.º). Triangular(0 %; 4 %; 7,5 %) — o máximo de 7,5 %
+    # é o espaço que sobra do teto após o RFAI (22,5 %).
     "pt2030_taxa": {
         "type": "triangular",
-        "min": 0.30,
-        "mode": 0.45,
-        "max": 0.60,
+        "min": 0.0,
+        "mode": 0.04,
+        "max": 0.075,
     },
     # Normal truncada: incerteza de mercado em torno do cenário base (×1.0).
     "b2c": {
@@ -141,7 +144,7 @@ DRIVERS = [
 # Drivers e distribuições adicionais para Monte Carlo VALA (APV)
 # ---------------------------------------------------------------------------
 
-# pt2030_approved : Bernoulli(p=0.75) — 0 = rejeitado, 1 = aprovado
+# pt2030_approved : Bernoulli(p=0.15) — aprovação rara (grande empresa, sem SI PME)
 # rfai_utilization: Triangular(0.5, 1.0, 1.0) — fração do crédito RFAI efetivamente absorvida
 # kd_shock        : Triangular(−100 bps, 0, +200 bps) — choque aditivo ao Kd bancário
 VALA_EXTRA_DRIVERS = ["pt2030_approved", "rfai_utilization", "kd_shock"]
@@ -149,7 +152,7 @@ VALA_EXTRA_DRIVERS = ["pt2030_approved", "rfai_utilization", "kd_shock"]
 DEFAULT_VALA_EXTRA_DISTRIBUTIONS: dict[str, dict] = {
     "pt2030_approved": {
         "type": "bernoulli",
-        "p": 0.75,
+        "p": 0.15,
     },
     "rfai_utilization": {
         "type": "triangular",
@@ -298,9 +301,19 @@ def _apply_sample(hub_base: dict, s: dict[str, float]) -> tuple[dict, float]:
     if rfai_cfg.get("aplicar", False) and "capex_elegivel" in rfai_cfg:
         rfai_cfg["capex_elegivel"] = float(rfai_cfg["capex_elegivel"]) * factor
 
-    # 3. PT2030 — montante em € = taxa amostrada × CAPEX amostrado.
-    #    (O subsídio é definido como % do CAPEX, logo ambos variam em conjunto.)
-    proj["financiamento"]["PT2030"]["montante"] = s["pt2030_taxa"] * s["capex"]
+    # 3. PT2030 — subsídio (fundo perdido) = intensidade amostrada × CAPEX,
+    #    capado ao teto de auxílio com finalidade regional: o RFAI e o subsídio
+    #    incidem sobre o mesmo investimento e somam, ficando ≤ 30 % do CAPEX
+    #    (CFI art. 43.º + Portaria 297/2015). Garante coerência legal na cauda.
+    capex_amostra = s["capex"]
+    subsidio = s["pt2030_taxa"] * capex_amostra
+    credito_rfai = (
+        float(rfai_cfg.get("taxa", 0.0)) * float(rfai_cfg.get("capex_elegivel", 0.0))
+        if rfai_cfg.get("aplicar", False) else 0.0
+    )
+    teto_regional = 0.30 * capex_amostra
+    subsidio = max(0.0, min(subsidio, teto_regional - credito_rfai))
+    proj["financiamento"]["PT2030"]["montante"] = subsidio
 
     # 4. Poupança operacional (pessoal + automação)
     ben = proj["beneficios_anuais"]
@@ -654,7 +667,7 @@ def _stress_fiscal(hub_base: dict, irc_taxa_base: float) -> dict[str, dict]:
         }
 
     result: dict[str, dict] = {
-        "base": {"label": "Base — PT2030=45%, RFAI, IRC nominal", **_run(hub_base, irc_taxa_base)},
+        "base": {"label": "Base — PT2030=€0 (upside), RFAI, IRC nominal", **_run(hub_base, irc_taxa_base)},
     }
 
     h = copy.deepcopy(hub_base)

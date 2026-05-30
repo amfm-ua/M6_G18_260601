@@ -1168,8 +1168,48 @@ def vala_hub(
         for y in YEARS
     )
 
-    # ── 5. VALA ───────────────────────────────────────────────────────────────
-    vala = val_base + total_escudo_fiscal + pv_pt2030 + pv_rfai
+    # ── 5. Subsídio implícito de taxa bonificada (grant-equivalent), VA a rf ──
+    # As linhas bonificadas (BEI Clima/Digital, Garantia Mútua) emprestam abaixo
+    # da taxa de mercado. A poupança de juros face a uma taxa de referência é um
+    # benefício de financiamento — "fundo perdido implícito" — que o APV capta
+    # como camada própria, à imagem do RFAI/PT2030. Líquido de imposto na parcela
+    # expensed (menos juros ⇒ menos escudo fiscal) e pleno na parcela capitalizada
+    # (NCRF 10, sem escudo corrente). Descontado a rf (poupança quasi-determinística,
+    # taxa fixa). Gated em financiamento.taxa_mercado_ref: ausente/0 ⇒ camada = 0
+    # (retrocompatível — não altera o plano base nem os testes existentes).
+    taxa_ref = float(proj["financiamento"].get("taxa_mercado_ref", 0.0) or 0.0)
+    soft_loan_por_tranche: dict[str, dict] = {}
+    total_soft_loan = 0.0
+    if taxa_ref > 0:
+        for nome, tranche in _iter_emprestimos(proj):
+            capital = float(tranche["montante"])
+            kd_tr = float(tranche["taxa_juro"])
+            amort_anual = float(tranche["amortizacao_anual"])
+            inicio_amort = int(tranche["inicio_amortizacao"])
+            desembolso_ano = int(tranche["desembolso"])
+            spread = taxa_ref - kd_tr  # > 0 se a tranche for bonificada
+            saldo = 0.0
+            net_por_ano: dict[int, float] = {}
+            for y in todos_anos:
+                if y == desembolso_ano:
+                    saldo = capital
+                saving_y = saldo * spread
+                cap_y = jc_ativo and jc_ini <= y <= jc_fim
+                net_por_ano[y] = saving_y if cap_y else saving_y * (1 - irc_taxa)
+                amort_y = amort_anual if (y >= inicio_amort and saldo > 0) else 0.0
+                amort_y = min(amort_y, saldo)
+                saldo = max(saldo - amort_y, 0.0)
+            pv_t = sum(net_por_ano[y] / (1.0 + rf) ** _t(y) for y in todos_anos)
+            soft_loan_por_tranche[nome] = {
+                "taxa_juro": kd_tr,
+                "taxa_mercado_ref": taxa_ref,
+                "spread": round(spread, 6),
+                "pv_grant_equivalent": round(pv_t, 2),
+            }
+            total_soft_loan += pv_t
+
+    # ── 6. VALA ───────────────────────────────────────────────────────────────
+    vala = val_base + total_escudo_fiscal + pv_pt2030 + pv_rfai + total_soft_loan
 
     # ── Metadados ─────────────────────────────────────────────────────────────
     rfai_cfg = proj.get("rfai", {})
@@ -1220,6 +1260,18 @@ def vala_hub(
                     f"a rf={rf:.2%}."
                 ),
             },
+            {
+                "componente": "Subsídio implícito (taxa bonificada)",
+                "valor": round(total_soft_loan, 2),
+                "descricao": (
+                    "PV(poupança de juros face à taxa de referência "
+                    f"{taxa_ref:.2%}) por tranche, líquido de imposto na parcela "
+                    f"expensed, a rf={rf:.2%}. Captura o grant-equivalent das "
+                    "linhas bonificadas (BEI/Garantia Mútua)."
+                    if taxa_ref > 0 else
+                    "Camada inativa (taxa_mercado_ref ausente) — sem benefício modelado."
+                ),
+            },
         ],
         # ── Valores individuais para dashboards ───────────────────────────────
         "val_base_ku": round(val_base, 2),       # caso-base unlevered a Ku (APV)
@@ -1228,6 +1280,8 @@ def vala_hub(
         "escudo_fiscal_por_tranche": escudo_por_tranche,
         "pv_pt2030_liquido": round(pv_pt2030, 2),
         "pv_rfai": round(pv_rfai, 2),
+        "pv_soft_loan": round(total_soft_loan, 2),
+        "soft_loan_por_tranche": soft_loan_por_tranche,
         # ── Detalhes por ano ───────────────────────────────────────────────────
         "pt2030_net_por_ano": pt2030_net_por_ano,
         "rfai_por_ano": rfai_por_ano,
@@ -1247,6 +1301,8 @@ def vala_hub(
             "pt2030_ano_recebimento": pt2030_ano_rec,
             "rfai_total_gerado": rfai_total_gerado,
             "rfai_aplicado_horizonte": rfai_aplicado,
+            "taxa_mercado_ref": taxa_ref,
+            "pv_soft_loan": round(total_soft_loan, 2),
             "capex_base": capex_base_val,
         },
         "nota_metodologica": (

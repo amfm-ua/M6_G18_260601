@@ -703,6 +703,48 @@ function RollingView({ ctx }) {
   );
 }
 
+// ---- Hub Logístico — helpers partilhados -----------------------------------
+
+const TRANCHE_PALETTE = [
+  "oklch(0.34 0.075 40)",
+  "oklch(0.48 0.095 45)",
+  "oklch(0.60 0.110 48)",
+  "oklch(0.70 0.095 52)",
+];
+
+function fmtCarencia(t) {
+  const fim = (t.inicio_amortizacao || 2028) - 1;
+  return (t.desembolso || "?") + "–" + fim + " (só juros)";
+}
+
+function buildWaterfallFromDecomposicao(vala) {
+  const decomp = vala.decomposicao || [];
+  if (decomp.length === 0) return [];
+  const items = [
+    { label: decomp[0].componente, value: decomp[0].valor, type: "total" },
+  ];
+  for (let i = 1; i < decomp.length; i++) {
+    items.push({ label: "+ " + decomp[i].componente, value: decomp[i].valor, type: "delta" });
+  }
+  items.push({ label: "VALA Total", value: vala.vala, type: "total" });
+  return items;
+}
+
+function SoftLoanBadge({ active, valor }) {
+  if (active) {
+    return (
+      <span className="chip-static mono" style={{ background: "var(--pos-soft)", borderColor: "transparent", color: "var(--pos)", fontSize: 11 }}>
+        Subsídio implícito ativo: {fmt.eurC(valor)}
+      </span>
+    );
+  }
+  return (
+    <span className="chip-static muted" style={{ fontSize: 11 }}>
+      Subsídio implícito (taxa bonificada): inativo — <code>taxa_mercado_ref</code> não definida
+    </span>
+  );
+}
+
 // ---- Hub Logístico ---------------------------------------------------------
 // Wrapper com 5 subtabs: Plano de Financiamento OE4 · Viabilidade · VALA · Plano de Contingência · Monte Carlo
 // Cada subtab faz lazy-load das suas APIs e fica montada após a primeira visita.
@@ -808,7 +850,7 @@ function HubViabilidadeView({ ctx }) {
   if (error && !viab) return <ErrorBanner message={error} onRetry={() => setError(null)} />;
   if (!viab) return null;
 
-  const wacc = viab.parametros?.wacc || 0.073;
+  const wacc = viab.parametros?.wacc || 0;
   const fcfSeries = [
     { labels: (viab.anos || []).map(String), values: viab.fcf || [], color: "var(--ink)" },
     { labels: (viab.anos || []).map(String), values: viab.fcf_cumulativo || [], color: "var(--accent)", fill: true },
@@ -959,14 +1001,14 @@ function HubViabilidadeView({ ctx }) {
             <KV k="Benefício líquido base" v={fmt.eurC(p.beneficio_liquido_anual || 310000) + " / ano"} />
             <KV k="Crescimento benefícios" v={"+" + fmt.pct(p.crescimento_anual || 0.04, 1) + " / ano"} />
             <KV k="Libertação inventário 2026" v={fmt.eurC(p.libertacao_inventario || 1727000)} />
-            <KV k="Redução de DMI (Hub)" v={fmt.num(p.dmi_reducao_dias || 20, 0) + " dias"} />
+            <KV k="Redução de DMI (Hub)" v={fmt.num(p.dmi_reducao_dias || 0, 0) + " dias"} />
             {p.emprestimos
               ? Object.entries(p.emprestimos).map(([nome, tr]) => (
                   <KV key={nome} k={nome.replace(/_/g, " ")} v={fmt.eurC(tr.montante) + " @ " + fmt.pct(tr.taxa_juro, 2)} />
                 ))
-              : <KV k="Capital alheio" v={fmt.eurC(p.banco_montante || 4500000) + " @ " + fmt.pct(p.banco_taxa_juro || 0.040, 2)} />
+              : <KV k="Capital alheio" v={fmt.eurC(p.banco_montante || 0) + " @ " + fmt.pct(p.banco_taxa_juro || 0, 2)} />
             }
-            <KV k="PT2030" v={fmt.eurC(p.pt2030_montante || 2700000) + " · " + (p.pt2030_ano || 2027)} />
+            <KV k="PT2030" v={fmt.eurC(p.pt2030_montante ?? 0) + " · " + (p.pt2030_ano || 2027)} />
             <KV k="RFAI crédito total" v={fmt.eurC(p.rfai_credito_total_gerado || 0)} />
             <KV k="Índice rendibilidade" v={viab.indice_rendibilidade != null ? viab.indice_rendibilidade.toFixed(2) + "×" : "—"} />
           </dl>
@@ -1784,9 +1826,9 @@ function HubOE4View({ ctx }) {
   if (!ds || !im) return null;
 
   const totalCapex   = im.capex_base;
-  const emprestimo   = im.sintese?.capital_alheio  ?? 4_500_000;  // total dívida (todas as tranches)
-  const pt2030       = im.pt2030_montante;
-  const capProprio   = im.sintese?.fundos_proprios ?? 1_500_000;
+  const emprestimo   = im.sintese?.capital_alheio  ?? 0;
+  const pt2030       = im.pt2030_montante ?? 0;
+  const capProprio   = im.sintese?.fundos_proprios ?? 0;
   const fundingTotal = emprestimo + capProprio;  // CAPEX = capital alheio + capital próprio (PT2030 é separado)
   const nfmTotal    = im.nfm.reduce((a, r) => a + r.delta_nfm, 0);
   const dscrMin     = 1.20;
@@ -1826,10 +1868,15 @@ function HubOE4View({ ctx }) {
       <div className="grid-4">
         <KPI label="CAPEX total"      value={fmt.eurC(totalCapex)} sub={capexByYear.map(y => y.ano + " " + fmt.eurC(y.capex)).join(" · ")} />
         <KPI label="Capital alheio"   value={fmt.eurC(emprestimo)} sub={
-          (im.emprestimos || []).map(t => t.nome.replace(/_/g, " ") + " " + fmt.eurC(t.montante)).join(" · ") || "Banco Hub · Linha BEI"
+          (im.emprestimos || []).map(t => t.nome.replace(/_/g, " ") + " " + fmt.eurC(t.montante)).join(" · ") || "—"
         } />
-        <KPI label="Subsídio PT2030"  value={fmt.eurC(pt2030)} tone="pos" sub={"fundo perdido · " + fmt.pct((im.sintese?.pt2030_pct_capex ?? 0.45), 0) + " CAPEX · " + im.pt2030_ano} />
-        <KPI label="Capital próprio"  value={fmt.eurC(capProprio)} sub={"CAPEX − dívida · " + fmt.pct((im.sintese?.fundos_proprios_pct ?? 0.25), 0) + " · NFM " + fmt.eurC(nfmTotal)} />
+        <KPI label="Subsídio PT2030"  value={fmt.eurC(pt2030)} tone={pt2030 > 0 ? "pos" : undefined} sub={
+          pt2030 > 0
+            ? "fundo perdido · " + fmt.pct(im.sintese?.pt2030_pct_capex ?? 0, 0) + " CAPEX · " + im.pt2030_ano
+            : "grande empresa, sem SI PME · upside potencial"
+        } />
+        <KPI label="RFAI"             value={fmt.eurC(im.rfai?.credito_total ?? 0)} tone="pos" sub={"apoio regional · " + fmt.pct(im.rfai?.taxa ?? 0, 1) + " × CAPEX elegível (art. 22-23 CFI)"} />
+        <KPI label="Capital próprio"  value={fmt.eurC(capProprio)} sub={"CAPEX − dívida · " + fmt.pct(im.sintese?.fundos_proprios_pct ?? 0, 0) + " · NFM " + fmt.eurC(nfmTotal)} />
       </div>
 
       <Panel
@@ -1887,65 +1934,89 @@ function HubOE4View({ ctx }) {
         </div>
       </Panel>
 
-      <Panel title="Estrutura de Financiamento" sub="2 tranches de capital alheio + capital próprio · cobertura do CAPEX">
+      <Panel title="Estrutura de Financiamento" sub={`${(im.emprestimos || []).length} tranches de capital alheio + capital próprio · cobertura do CAPEX`}>
         {/* Barra: capital alheio por tranche + capital próprio — soma = CAPEX */}
         <StackedBar
           items={[
             ...((im.emprestimos || []).map((t, i) => ({
               label: t.nome.replace(/_/g, " "),
-              value: t.montante / fundingTotal,
+              value: fundingTotal > 0 ? t.montante / fundingTotal : 0,
               amount: t.montante,
-              color: i === 0 ? "oklch(0.34 0.075 40)" : "oklch(0.48 0.095 45)",
+              color: TRANCHE_PALETTE[i % TRANCHE_PALETTE.length],
               textColor: "var(--surface)",
             }))),
-            { label: "Capital próprio", value: capProprio / fundingTotal, amount: capProprio, color: "oklch(0.78 0.060 75)", textColor: "var(--ink)" },
+            { label: "Capital próprio", value: fundingTotal > 0 ? capProprio / fundingTotal : 0, amount: capProprio, color: "oklch(0.78 0.060 75)", textColor: "var(--ink)" },
           ]}
           height={40}
         />
-        {/* PT2030: subsídio — não financia CAPEX diretamente, reduz custo líquido */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "6px 10px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 12 }}>
-          <span style={{ color: "var(--pos)", fontWeight: 600 }}>PT2030</span>
-          <span style={{ color: "var(--pos)" }}>Subsídio a fundo perdido {fmt.eurC(pt2030)} · reduz CAPEX líquido para {fmt.eurC(im.sintese?.capex_liquido_efetivo ?? totalCapex - pt2030)} · recebimento {im.pt2030_ano}</span>
-        </div>
+        {/* PT2030 / RFAI banner — condicional conforme montante PT2030 */}
+        {pt2030 > 0 ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "6px 10px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 12 }}>
+            <span style={{ color: "var(--pos)", fontWeight: 600 }}>PT2030</span>
+            <span style={{ color: "var(--pos)" }}>Subsídio a fundo perdido {fmt.eurC(pt2030)} · reduz CAPEX líquido para {fmt.eurC(im.sintese?.capex_liquido_efetivo ?? totalCapex - pt2030)} · recebimento {im.pt2030_ano}</span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, padding: "6px 10px", background: "oklch(0.96 0.04 80)", borderRadius: 6, fontSize: 12 }}>
+            <span style={{ fontWeight: 600, color: "var(--ink-2)" }}>Apoio regional</span>
+            <span style={{ color: "var(--ink-2)" }}>PT2030 = €0 na base (grande empresa, sem acesso a SI PME) · Apoio via <b>RFAI</b>: {fmt.eurC(im.rfai?.credito_total ?? 0)} crédito de imposto ({fmt.pct(im.rfai?.taxa ?? 0, 1)} × CAPEX elegível, CFI art. 22-23, teto {fmt.pct(im.rfai?.teto_pct_capex ?? 0.30, 0)} CAPEX)</span>
+          </div>
+        )}
         <div className="grid-4" style={{ marginTop: 14 }}>
           {(im.emprestimos || []).map((t, i) => (
             <FundingCard
               key={t.nome}
               label={t.nome.replace(/_/g, " ")}
               value={fmt.eur(t.montante)}
-              pct={t.montante / fundingTotal}
-              color={i === 0 ? "oklch(0.34 0.075 40)" : "oklch(0.48 0.095 45)"}
+              pct={fundingTotal > 0 ? t.montante / fundingTotal : 0}
+              color={TRANCHE_PALETTE[i % TRANCHE_PALETTE.length]}
               meta={[
                 ["Desembolso", String(t.desembolso)],
                 ["Taxa", fmt.pct(t.taxa_juro, 2) + " a.a."],
-                ["Carência", t.desembolso + "–2027 (só juros)"],
-                ["Amortização", fmt.eur(t.amortizacao_anual) + " / ano (2028+)"],
-                ["% CAPEX", fmt.pct(t.montante / totalCapex, 0)],
+                ["Carência", fmtCarencia(t)],
+                ["Amortização", fmt.eur(t.amortizacao_anual) + " / ano (" + t.inicio_amortizacao + "+)"],
+                ["% CAPEX", fmt.pct(totalCapex > 0 ? t.montante / totalCapex : 0, 0)],
               ]}
             />
           ))}
           <FundingCard
-            label="Subsídio PT2030"
+            label={pt2030 > 0 ? "Subsídio PT2030" : "PT2030 (upside)"}
             value={fmt.eur(pt2030)}
-            pct={pt2030 / totalCapex}
-            color="oklch(0.54 0.115 45)"
-            meta={[
+            pct={totalCapex > 0 ? pt2030 / totalCapex : 0}
+            color="oklch(0.72 0.050 80)"
+            meta={pt2030 > 0 ? [
               ["Natureza", "Fundo perdido (não reembolsável)"],
-              ["Cobertura", fmt.pct(im.sintese?.pt2030_pct_capex ?? 0.45, 0) + " do CAPEX"],
+              ["Cobertura", fmt.pct(im.sintese?.pt2030_pct_capex ?? 0, 0) + " do CAPEX"],
               ["Recebimento", im.pt2030_ano + " (após arranque)"],
               ["Reconhecimento", "Linear · proporcional às dep."],
+            ] : [
+              ["Estado", "€0 na base (prudente)"],
+              ["Razão", "Grande empresa — sem SI Inovação PME"],
+              ["Upside", "Se aprovado ≤ teto regional 30% − RFAI"],
+              ["Recebimento", im.pt2030_ano + " (se aprovado)"],
+            ]}
+          />
+          <FundingCard
+            label="RFAI (apoio regional)"
+            value={fmt.eur(im.rfai?.credito_total ?? 0)}
+            pct={totalCapex > 0 ? (im.rfai?.credito_total ?? 0) / totalCapex : 0}
+            color="oklch(0.54 0.115 45)"
+            meta={[
+              ["Natureza", "Crédito de imposto (IRC)"],
+              ["Taxa RFAI", fmt.pct(im.rfai?.taxa ?? 0, 1) + " efectiva (escalões 25%/10%)"],
+              ["CAPEX elegível", fmt.eur(im.rfai?.capex_elegivel ?? 0)],
+              ["Teto regional", fmt.pct(im.rfai?.teto_pct_capex ?? 0.30, 0) + " CAPEX (CFI art. 43.º)"],
             ]}
           />
           <FundingCard
             label="Capital próprio (Grestel)"
             value={fmt.eur(capProprio)}
-            pct={capProprio / fundingTotal}
+            pct={fundingTotal > 0 ? capProprio / fundingTotal : 0}
             color="oklch(0.78 0.060 75)"
             meta={[
               ["Origem", "Fluxo de caixa operacional Grestel"],
-              ["% CAPEX", fmt.pct(im.sintese?.fundos_proprios_pct ?? 0.25, 0)],
+              ["% CAPEX", fmt.pct(im.sintese?.fundos_proprios_pct ?? 0, 0)],
               ["NFM acumulada (2026–29)", fmt.eur(nfmTotal)],
-              ["RFAI gerado", fmt.eur(600_000) + " (CFI art. 22-23)"],
+              ["RFAI crédito total", fmt.eur(im.rfai?.credito_total ?? 0) + " (CFI art. 22-23)"],
             ]}
           />
         </div>
@@ -2034,7 +2105,7 @@ function HubOE4View({ ctx }) {
           <div className="sub-section" style={{ marginTop: 20 }}>
             <div className="sub-label" style={{ marginBottom: 12 }}>Detalhe por fonte de capital alheio</div>
             {Object.entries(ds.rows_por_tranche).map(([nome, trRows], ti) => {
-              const trColor = ti === 0 ? "oklch(0.34 0.075 40)" : "oklch(0.48 0.095 45)";
+              const trColor = TRANCHE_PALETTE[ti % TRANCHE_PALETTE.length];
               const trLabel = nome.replace(/_/g, " ");
               const trSomaJuros = trRows.reduce((a, r) => a + r.juros_pagos_total, 0);
               const trSomaAmort = trRows.reduce((a, r) => a + r.amortizacao_capital, 0);
@@ -2187,46 +2258,35 @@ function HubVALAView({ ctx }) {
   const params    = vala.parametros || {};
   const cenarios  = sens.cenarios   || {};
 
-  // Waterfall items — bridge VAL_base → VALA
-  const wfItems = [
-    { label: "VAL base (Ku)",   value: vala.val_base_ke,        type: "total" },
-    { label: "+ Escudo Fiscal", value: vala.escudo_fiscal_total, type: "delta" },
-    { label: "+ PT2030 líquido",value: vala.pv_pt2030_liquido,  type: "delta" },
-    { label: "+ RFAI",          value: vala.pv_rfai,            type: "delta" },
-    { label: "VALA Total",      value: valaVal,                 type: "total" },
-  ];
+  // Waterfall data-driven a partir da decomposicao do backend (inclui a 5.ª camada automaticamente)
+  const wfItems = buildWaterfallFromDecomposicao(vala);
 
   // % attribution (APV view)
   const pctOps = valaVal !== 0 ? vala.val_base_ke / valaVal : 0;
   const pctFin = 1 - pctOps;
 
-  // Sensitivity table rows (ordered)
+  // Sensitivity table rows — labels vêm do backend (evita strings desalinhadas com o plano de financiamento)
   const sensList = [
-    { key: "base",          label: "Base (PT2030=45%, RFAI, IRC=24,5%)" },
-    { key: "pt2030_30pct",  label: "PT2030 reduzido → 30% CAPEX" },
-    { key: "sem_pt2030",    label: "Sem PT2030 (RFAI mantido)" },
-    { key: "sem_subsidios", label: "Sem PT2030 nem RFAI" },
-    { key: "irc_21pct",     label: "IRC reduzido → 21%" },
-    { key: "kd_plus100bps", label: "Kd +100 bps" },
-  ];
+    "base", "pt2030_30pct", "sem_pt2030", "sem_subsidios", "irc_21pct", "kd_plus100bps",
+  ].map(key => ({ key, label: cenarios[key]?.label ?? key }));
   const baseVala = cenarios["base"]?.vala ?? valaVal;
 
-  // Semáforo thresholds
+  // Semáforo thresholds — enquadramento correto: base=PT2030 €0, upside=PT2030 aprovado
   const semaforoItems = [
     {
       vala: cenarios["base"]?.vala ?? valaVal,
-      title: "PT2030 confirmado (45% CAPEX)",
-      desc:  "Subsídio PT2030 + RFAI + Escudo Fiscal aprovados na totalidade.",
+      title: "Base — RFAI + Escudo Fiscal",
+      desc:  "PT2030=€0 (grande empresa). Valor sustentado por operações + RFAI + escudo fiscal da dívida.",
     },
     {
-      vala: cenarios["pt2030_30pct"]?.vala ?? 0,
-      title: "PT2030 reduzido (30% CAPEX)",
-      desc:  "Aprovação parcial ou redução do montante subsidiado.",
+      vala: cenarios["pt2030_30pct"]?.vala ?? cenarios["base"]?.vala ?? valaVal,
+      title: "Upside — PT2030 aprovado (30% CAPEX)",
+      desc:  "Se PT2030 obtiver aprovação parcial (teto 30% menos RFAI já utilizado). Acréscimo potencial.",
     },
     {
       vala: cenarios["sem_subsidios"]?.vala ?? vala.val_base_ke,
-      title: "Sem PT2030 nem RFAI",
-      desc:  "Projeto dependente apenas de operações e escudo fiscal da dívida.",
+      title: "Sem apoios fiscais",
+      desc:  "Projeto dependente apenas de operações e escudo fiscal da dívida (sem RFAI nem PT2030).",
     },
   ];
 
@@ -2248,13 +2308,21 @@ function HubVALAView({ ctx }) {
         <KPI label="VALA (APV)"      value={fmt.eurC(valaVal)}                 tone={valaVal >= 0 ? "pos" : "neg"} sub="Myers 1974 · APV" />
         <KPI label="VAL base (Ku)"   value={fmt.eurC(vala.val_base_ke)}        tone={vala.val_base_ke >= 0 ? "pos" : "neg"} sub={"Ku=" + fmt.pct(params.ku ?? 0, 2) + " · unlevered"} />
         <KPI label="Escudo Fiscal"   value={fmt.eurC(vala.escudo_fiscal_total)} tone="pos" sub="Miles-Ezzell · kd por tranche" />
-        <KPI label="PT2030 + RFAI"   value={fmt.eurC((vala.pv_pt2030_liquido ?? 0) + (vala.pv_rfai ?? 0))} tone="pos" sub={"rf=" + fmt.pct(params.rf ?? 0, 2) + " · NCRF 22"} />
+        <KPI
+          label={(vala.pv_pt2030_liquido ?? 0) > 0 ? "PT2030 + RFAI" : "RFAI"}
+          value={fmt.eurC((vala.pv_pt2030_liquido ?? 0) + (vala.pv_rfai ?? 0))}
+          tone="pos"
+          sub={(vala.pv_pt2030_liquido ?? 0) > 0
+            ? "rf=" + fmt.pct(params.rf ?? 0, 2) + " · NCRF 22"
+            : "apoio regional · rf=" + fmt.pct(params.rf ?? 0, 2)
+          }
+        />
       </div>
 
       {/* ── Waterfall decomposition ──────────────────────────────────────── */}
       <Panel
         title="Decomposição APV — Bridge VALA"
-        sub="VALA = VAL base(Ku) + Escudo Fiscal + PT2030 líquido + RFAI"
+        sub="VALA = VAL base(Ku) + Escudo Fiscal + PT2030 líquido + RFAI + Subsídio implícito (taxa bonificada)"
         right={<span className="chip-static mono">VALA {fmt.eurC(valaVal)}</span>}
       >
         <WaterfallChart items={wfItems} height={240} />
@@ -2288,6 +2356,9 @@ function HubVALAView({ ctx }) {
             </tr>
           </tbody>
         </table>
+        <div style={{ marginTop: 10 }}>
+          <SoftLoanBadge active={(params.taxa_mercado_ref ?? 0) > 0} valor={vala.pv_soft_loan ?? 0} />
+        </div>
       </Panel>
 
       {/* ── Comparativo VAL (WACC) vs VALA (APV) ────────────────────────── */}
@@ -2339,7 +2410,7 @@ function HubVALAView({ ctx }) {
               <td className="mono num muted">Embutido no WACC</td>
               <td className="mono num pos">{fmt.pct(pctFin, 1)}</td>
               <td className="mono num muted">—</td>
-              <td className="muted" style={{ fontSize: 11.5 }}>Escudo fiscal + PT2030 + RFAI</td>
+              <td className="muted" style={{ fontSize: 11.5 }}>Escudo fiscal + PT2030 + RFAI + subsídio implícito</td>
             </tr>
           </tbody>
         </table>
@@ -2440,12 +2511,14 @@ function HubVALAView({ ctx }) {
           lineHeight: 1.5,
           borderTop: "1px solid var(--rule)",
         }}>
-          <b>Conclusão:</b> O projeto <b>cria valor só pelas operações</b> — o VAL base
-          (Ku, unlevered) é positivo em {fmt.eurC(vala.val_base_ke)} e mantém-se positivo
-          ({fmt.eurC(cenarios["sem_subsidios"]?.vala ?? vala.val_base_ke)}) mesmo no cenário
-          {" "}<i>Sem PT2030 nem RFAI</i>. Os benefícios fiscais <b>reforçam — não sustentam</b>{" "}
-          a viabilidade: representam {fmt.pct(Math.abs(pctFin), 0)} do VALA (PT2030 + RFAI +
-          escudo fiscal da dívida), enquanto {fmt.pct(Math.abs(pctOps), 0)} provém das operações puras.
+          <b>Conclusão:</b> A Grestel é <b>grande empresa</b> — sem PT2030 a fundo perdido (€0 na base;
+          é upside). O Hub é viável pelas <b>operações</b> (VAL base Ku = {fmt.eurC(vala.val_base_ke)},
+          positivo mesmo sem apoios — {fmt.eurC(cenarios["sem_subsidios"]?.vala ?? vala.val_base_ke)}{" "}
+          sem qualquer benefício fiscal). É <b>reforçado</b> por apoios sólidos para grande empresa:{" "}
+          <b>RFAI</b> (apoio regional, 22,5% × CAPEX elegível, teto 30% CFI art. 43.º),{" "}
+          <b>escudo fiscal da dívida</b> (Miles-Ezzell) e o <b>subsídio implícito</b> das linhas
+          bonificadas (BEI/Garantia Mútua), atualmente inativo. Os apoios fiscais representam{" "}
+          {fmt.pct(Math.abs(pctFin), 0)} do VALA; {fmt.pct(Math.abs(pctOps), 0)} provém das operações puras.
         </div>
       </Panel>
     </>
@@ -4375,9 +4448,10 @@ function ProducaoView({ ctx }) {
                 <th>Produto</th>
                 <th className="mono num">Qty Prod.</th>
                 <th className="mono num">PVU (€/un.)</th>
-                <th className="mono num">CUP (€/un.)</th>
-                {ctx.cozeduraOn && <th className="mono num" title="Vista analítica de absorção total; a poupança de energia já está refletida nas FSE/EBITDA — não é somada duas vezes">CUP c/ cozedura (€/un.) ⓘ</th>}
-                {ctx.cozeduraOn && <th className="mono num" title="Poupança de energia alocada por unidade (via FSE); líquida da cozedura BT">Δ energia €/peça</th>}
+                <th className="mono num" title="CIIP auditado (MP+MOD+GGF), sem FSE. Alimenta CMVMC, stock e margem.">CUP (€/un.) ⓘ</th>
+                <th className="mono num" title="Custo de absorção total = Variável + Fixo (c/ alavancagem) + Energia fabril. Vista analítica; ver detalhe completo abaixo. Não altera CMVMC/EBITDA.">CUP c/ energia (€/un.) ⓘ</th>
+                {ctx.cozeduraOn && <th className="mono num" title="CUP c/ energia líquido da poupança da cozedura e do custo da pasta reformulada. A poupança já está nas FSE/EBITDA.">CUP c/ cozedura (€/un.) ⓘ</th>}
+                {ctx.cozeduraOn && <th className="mono num" title="Poupança de energia da cozedura por unidade, ponderada por GGF e faseada pelo ramp-up.">Δ energia €/peça ⓘ</th>}
                 <th className="mono num">Margem (€/un.)</th>
                 <th className="mono num">Margem (%)</th>
                 <th className="mono num">CMVMC Prod.</th>
@@ -4398,6 +4472,7 @@ function ProducaoView({ ctx }) {
                     <td className="mono num">{fmt.num(Math.round(r.qty_produzida || 0))}</td>
                     <td className="mono num">{fmt.eur2(pvu)}</td>
                     <td className="mono num">{fmt.eur2(cup)}</td>
+                    <td className="mono num">{fmt.eur2(r.cup_energia != null ? r.cup_energia : cup)}</td>
                     {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(cupCoz)}</td>}
                     {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(r.delta_energia_unit || 0)}</td>}
                     <td className={"mono num " + (margem_val >= 0 ? "pos" : "neg")}>{fmt.eur2(margem_val)}</td>
@@ -4415,10 +4490,13 @@ function ProducaoView({ ctx }) {
               <tr className="is-total">
                 <td>Total</td>
                 <td className="mono num">{fmt.num(Math.round(rows2025.reduce((s, r) => s + (r.qty_produzida || 0), 0)))}</td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
+                <td></td>{/* PVU */}
+                <td></td>{/* CUP */}
+                <td></td>{/* CUP c/ energia */}
+                {ctx.cozeduraOn && <td></td>}
+                {ctx.cozeduraOn && <td></td>}
+                <td></td>{/* Margem € */}
+                <td></td>{/* Margem % */}
                 <td className="mono num">{fmt.eur(rows2025.reduce((s, r) => s + (r.cmvmc_prod || 0), 0))}</td>
                 <td className="mono num">{fmt.eur(rows2025.reduce((s, r) => s + (r.pa_stock_ef || 0), 0))}</td>
                 <td className="mono num">{fmt.eur(rows2025.reduce((s, r) => s + (r.var_pa || 0), 0))}</td>
@@ -4454,9 +4532,14 @@ function ProducaoView({ ctx }) {
               <th className="mono num">Qty Vendida</th>
               <th className="mono num">Qty Produzida</th>
               <th className="mono num">PVU (€/un.)</th>
-              <th className="mono num">CUP (€/un.)</th>
-              {ctx.cozeduraOn && <th className="mono num" title="Vista analítica de absorção total; a poupança de energia já está refletida nas FSE/EBITDA — não é somada duas vezes">CUP c/ cozedura (€/un.) ⓘ</th>}
-              {ctx.cozeduraOn && <th className="mono num" title="Poupança de energia alocada uniformemente por unidade produzida; faseada pelo ramp-up">Δ energia €/peça ⓘ</th>}
+              <th className="mono num" title="CIIP auditado (MP+MOD+GGF), sem FSE. Alimenta CMVMC, stock e margem.">CUP (€/un.) ⓘ</th>
+              <th className="mono num" title="Parte variável do CIIP (matéria-prima + fração variável de MOD/GGF). Escala com volume.">Variável (€/un.) ⓘ</th>
+              <th className="mono num" title="Parte fixa do CIIP (amortizações, supervisão, núcleo de MOD). Custo fixo/unidade desce quando o volume sobe — alavancagem operacional.">Fixo (€/un.) ⓘ</th>
+              <th className="mono num" title="Variável + Fixo, com alavancagem operacional. Difere do CUP (CIIP, escala uniforme) pelo efeito do volume: acima do CUP quando o volume está abaixo de 2024, abaixo quando o volume sobe.">CUP absorção (€/un.) ⓘ</th>
+              <th className="mono num" title="Energia fabril (gás+eletricidade × pct_produção) imputada por unidade, ponderada pelo GGF. Vista analítica — não duplica a FSE da DR.">Energia (€/un.) ⓘ</th>
+              <th className="mono num" title="Custo de absorção total = CUP absorção + Energia. Vista analítica; não altera CMVMC/EBITDA.">CUP c/ energia (€/un.) ⓘ</th>
+              {ctx.cozeduraOn && <th className="mono num" title="CUP c/ energia, líquido da poupança da cozedura (−energia) e do custo da pasta reformulada (+matéria). A poupança já está nas FSE/EBITDA — esta coluna é só a leitura por unidade.">CUP c/ cozedura (€/un.) ⓘ</th>}
+              {ctx.cozeduraOn && <th className="mono num" title="Poupança de energia da cozedura por unidade, ponderada por GGF e faseada pelo ramp-up.">Δ energia €/peça ⓘ</th>}
               <th className="mono num">Margem (€/un.)</th>
               <th className="mono num">Margem (%)</th>
               <th className="mono num">CMVMC Vendas</th>
@@ -4480,6 +4563,11 @@ function ProducaoView({ ctx }) {
                   <td className="mono num">{fmt.num(Math.round(r.qty_produzida || 0))}</td>
                   <td className="mono num">{fmt.eur2(pvu)}</td>
                   <td className="mono num">{fmt.eur2(cup)}</td>
+                  <td className="mono num">{fmt.eur2(r.cup_variavel_unit != null ? r.cup_variavel_unit : 0)}</td>
+                  <td className="mono num">{fmt.eur2(r.cup_fixo_unit != null ? r.cup_fixo_unit : 0)}</td>
+                  <td className="mono num">{fmt.eur2(r.cup_absorcao != null ? r.cup_absorcao : cup)}</td>
+                  <td className="mono num">{fmt.eur2(r.energia_unit != null ? r.energia_unit : 0)}</td>
+                  <td className="mono num">{fmt.eur2(r.cup_energia != null ? r.cup_energia : cup)}</td>
                   {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(cupCoz)}</td>}
                   {ctx.cozeduraOn && <td className="mono num pos">{fmt.eur2(r.delta_energia_unit || 0)}</td>}
                   <td className={"mono num " + (margem_val >= 0 ? "pos" : "neg")}>{fmt.eur2(margem_val)}</td>
@@ -4500,14 +4588,21 @@ function ProducaoView({ ctx }) {
               <td>Total {year}</td>
               <td className="mono num">{fmt.num(Math.round(sumYear("qty_vendida")))}</td>
               <td className="mono num">{fmt.num(Math.round(sumYear("qty_produzida")))}</td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
+              <td></td>{/* PVU */}
+              <td></td>{/* CUP */}
+              <td></td>{/* Variável */}
+              <td></td>{/* Fixo */}
+              <td></td>{/* CUP absorção */}
+              <td></td>{/* Energia */}
+              <td></td>{/* CUP c/ energia */}
+              {ctx.cozeduraOn && <td></td>}
+              {ctx.cozeduraOn && <td></td>}
+              <td></td>{/* Margem € */}
+              <td></td>{/* Margem % */}
               <td className="mono num">{fmt.eur(sumYear("cmvmc_vendas"))}</td>
               <td className="mono num">{fmt.eur(sumYear("cmvmc_prod"))}</td>
-              <td></td>
-              <td></td>
+              <td></td>{/* Stock EI */}
+              <td></td>{/* Stock EF */}
               <td className="mono num">{fmt.eur(sumYear("var_pa"))}</td>
             </tr>
           </tbody>

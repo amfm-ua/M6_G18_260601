@@ -206,14 +206,26 @@ def run_model(
     # Orçamento de produção anual (por produto, 2024-2029)
     try:
         coz_fse_red_by_year = None
-        if cozedura_on and "dr" in dfs:
+        energia_fabril_by_year = None
+        if "dr" in dfs:
             dr_df = dfs["dr"]
-            if "cozedura_fse_reducao" in dr_df.columns:
+            # Energia fabril (gás + eletricidade, valor positivo) p/ a vista de
+            # absorção do CUP. Display-only — não realimenta a DR.
+            _gas = "fse_gas_natural"
+            _ele = "fse_eletricidade"
+            if _gas in dr_df.columns and _ele in dr_df.columns:
+                energia_fabril_by_year = {
+                    int(r["ano"]): abs(float(r[_gas])) + abs(float(r[_ele]))
+                    for _, r in dr_df.iterrows()
+                }
+            if cozedura_on and "cozedura_fse_reducao" in dr_df.columns:
                 coz_fse_red_by_year = {
                     int(r["ano"]): float(r["cozedura_fse_reducao"])
                     for _, r in dr_df.iterrows()
                 }
-        dfs["producao_anual"] = producao_mod.producao_anual(a, base, sched, coz_fse_red_by_year)
+        dfs["producao_anual"] = producao_mod.producao_anual(
+            a, base, sched, coz_fse_red_by_year, energia_fabril_by_year
+        )
     except Exception as exc:
         logger.warning("producao_anual falhou: %s", exc)
         dfs["producao_anual"] = pd.DataFrame(

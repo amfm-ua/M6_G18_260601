@@ -122,6 +122,13 @@ class Assumptions:
         return (self.produtos_raw or {}).get("raw_materials", {})
 
     @property
+    def custeio_fv(self) -> dict[str, float]:
+        """Frações variáveis por componente do CIIP (vista analítica de absorção)."""
+        defaults = {"MP": 1.00, "MOD": 0.50, "GGF": 0.20, "energia_pct_producao": 0.40}
+        cfg = (self.produtos_raw or {}).get("custeio_fixo_variavel", {}) or {}
+        return {**defaults, **{k: float(v) for k, v in cfg.items()}}
+
+    @property
     def merchandise_families(self) -> dict[str, Any]:
         return (self.mercadorias_raw or {}).get("merchandise_families", {})
 

@@ -108,6 +108,10 @@ from ..inputs import ALL_YEARS, YEARS
 from ..demonstracoes.nfm import ciclo_caixa_dias
 from ..operacional.clientes import iva_efetivo_vendas
 
+# Janela da fase de maturidade (mesma convenção de extensao_maturidade: 2030-2034).
+# Usada para estender os KPIs operacionais/ESG em regime de cruzeiro.
+ANOS_MATURIDADE = list(range(2030, 2035))
+
 
 def _effective_tax_rate(dr_row: pd.Series) -> float:
     """Calcula taxa efetiva de IRC a partir da DR.
@@ -145,7 +149,11 @@ def build_kpis(
     iva_compra_cmvmc = float(a.impostos.get("IVA_CMVMC", 0.23)) if a is not None else 0.23
     iva_compra_fse   = float(a.impostos.get("IVA_FSE", 0.15)) if a is not None else 0.0
 
-    for y in ALL_YEARS:
+    # Itera sobre os anos efetivamente presentes na DR — assim os KPIs estendem-se
+    # automaticamente a 2030-2034 quando o horizonte de maturidade está ligado, e
+    # mantêm-se em 2024-2029 quando não está (sem hardcode de ALL_YEARS).
+    anos_kpi = sorted(int(y) for y in df_dr["ano"].unique())
+    for y in anos_kpi:
         dr = df_dr[df_dr.ano == y].iloc[0]
         bs = df_balanco[df_balanco.ano == y].iloc[0]
 
@@ -355,9 +363,17 @@ def gas_por_peca_anual(a, base) -> pd.DataFrame:
     prev_pecas = pecas_base
     prev_gpeca = gpeca_base
 
-    for y in YEARS:
-        prev_pecas = prev_pecas * (1 + _rate(cresc_pecas, y, 0.03))
-        prev_gpeca = prev_gpeca * (1 - _rate(efic_gas, y, 0.0))
+    # Regime de cruzeiro (2030-2034): a produção cresce à inflação (mesma taxa g
+    # da extensão das demonstrações) e a eficiência do gás estabiliza (sem novos
+    # ganhos) — coerente com o estado estacionário, conservador para o ESG.
+    from ..demonstracoes.extensao_maturidade import G_MATURIDADE_DEFAULT
+    for y in list(YEARS) + ANOS_MATURIDADE:
+        if y <= 2029:
+            prev_pecas = prev_pecas * (1 + _rate(cresc_pecas, y, 0.03))
+            prev_gpeca = prev_gpeca * (1 - _rate(efic_gas, y, 0.0))
+        else:
+            prev_pecas = prev_pecas * (1 + G_MATURIDADE_DEFAULT)
+            # prev_gpeca mantido (eficiência estável em cruzeiro)
 
         gas_total = prev_pecas * prev_gpeca
         var = (prev_gpeca / gpeca_base - 1) if gpeca_base else 0.0
@@ -409,6 +425,14 @@ def ecommerce_pct_anual(a, df_vn=None) -> pd.DataFrame:
                 pct = base_pct
         
         result[y] = pct
-    
-    rows = [{"ano": y, "ecommerce_pct": result[y]} for y in ALL_YEARS]
+
+    # Regime de cruzeiro (2030-2034): mix de canais mantido constante ao nível de
+    # 2029 — a quota do E-Commerce consolida-se na sua quota madura (sem re-crescer,
+    # o que contrariaria o estado estacionário).
+    pct_2029 = result.get(2029, result.get(max(result), 0.0))
+    for y in ANOS_MATURIDADE:
+        result[y] = pct_2029
+
+    anos_out = list(ALL_YEARS) + ANOS_MATURIDADE
+    rows = [{"ano": y, "ecommerce_pct": result[y]} for y in anos_out]
     return pd.DataFrame(rows)

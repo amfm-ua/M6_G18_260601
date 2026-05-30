@@ -528,6 +528,15 @@ const API = (() => {
     return await r.json();
   }
 
+  // ─── hubDecomposicao ───────────────────────────────────────────────────────
+  async function hubDecomposicao({ cenario = "Base", irc_taxa } = {}) {
+    const params = new URLSearchParams({ cenario });
+    if (irc_taxa != null) params.set("irc_taxa", irc_taxa);
+    const r = await fetch(BACKEND_URL + "/api/hub/decomposicao-beneficios?" + params);
+    if (!r.ok) throw new Error("Erro /hub/decomposicao-beneficios: " + r.status);
+    return await r.json();
+  }
+
   // ─── hubValaSensibilidade ──────────────────────────────────────────────────
   async function hubValaSensibilidade({ cenario = "Base", irc_taxa } = {}) {
     const params = new URLSearchParams({ cenario });
@@ -896,5 +905,5 @@ const API = (() => {
     URL.revokeObjectURL(url);
   }
 
-  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, valuationMCOperacional, valuationMCComparativo, FSE_RUBRICAS, listCustomScenarios, createCustomScenario, deleteCustomScenario };
+  return { useMock, health, assumptions, projecao, vendasAnalise, producaoAnalise, smartTracker, hubViability, hubTornado, hubBreakEven, hubComparativo, hubConsolidado, hubMonteCarlo, hubMonteCarloVala, hubVala, hubDecomposicao, hubValaSensibilidade, hubDebtService, hubInvestmentMap, listYamlFiles, getYamlContent, putYamlContent, restoreYamlContent, sensibilidade, cenariosAll, cenariosHubDelta, hubViabilidadeCenarios, exportExcel, exportM3, rollingForecast, valuationMCOperacional, valuationMCComparativo, FSE_RUBRICAS, listCustomScenarios, createCustomScenario, deleteCustomScenario };
 })();

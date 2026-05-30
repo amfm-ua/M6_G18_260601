@@ -9,6 +9,7 @@ from src.engine.projetos.hub_logistico import (
     tornado_hub,
     viabilidade_hub,
     vala_hub,
+    decomposicao_beneficios_hub,
     ponto_critico_hub,
     mapa_servico_divida,
     mapa_servico_divida_por_tranche,
@@ -368,6 +369,32 @@ def get_hub_vala(
         "parametros": result["parametros"],
         "nota_metodologica": result["nota_metodologica"],
     }
+
+
+@router.get("/hub/decomposicao-beneficios")
+def get_hub_decomposicao_beneficios(
+    cenario: str = Query("Base"),
+    irc_taxa: float = Query(None),
+):
+    """Decomposição do valor do Hub por origem do benefício (camadas APV).
+
+    Separa a criação de valor em três alavancas que somam ao VALA:
+
+    ```
+    VALA = Operacional + Comercial + Fiscal
+    ```
+
+    - **Operacional**: núcleo puro (poupança pessoal/FSE, quebras, inventário,
+      OPEX) a Ku, SEM receita comercial e SEM apoios fiscais.
+    - **Comercial**: margem bruta incremental dos canais diretos B2C/Horeca
+      destravados pelo Hub (acréscimo de val_base ao reativar a receita).
+    - **Fiscal**: escudo da dívida (Miles-Ezzell) + PT2030 líquido + RFAI.
+
+    Útil para responder «de onde vem o valor?» num único gráfico de cascata.
+    """
+    hub = _hub_with_scenario(cenario)
+    result = decomposicao_beneficios_hub(hub, irc_taxa=irc_taxa)
+    return {"cenario": cenario, **result}
 
 
 @router.get("/hub/vala-sensibilidade")

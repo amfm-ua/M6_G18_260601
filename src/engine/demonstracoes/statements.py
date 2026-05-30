@@ -52,7 +52,7 @@ def build_statements(
     df_prod: "pd.DataFrame | None" = None,
     df_merc: "pd.DataFrame | None" = None,
     df_total: "pd.DataFrame | None" = None,
-    horizonte_maturidade: bool = False,
+    horizonte_maturidade: bool = True,
     g_maturidade: "float | None" = None,
 ) -> dict[str, pd.DataFrame]:
     """

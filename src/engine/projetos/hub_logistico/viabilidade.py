@@ -626,6 +626,90 @@ def viabilidade_hub(
     }
 
 
+def decomposicao_beneficios_hub(
+    hub: dict | None = None,
+    irc_taxa: float | None = None,
+) -> dict:
+    """Decomposição do valor do Hub por origem do benefício (camadas APV).
+
+    Separa a criação de valor em três alavancas mutuamente exclusivas, em
+    valor presente, reconciliando exatamente com o VALA (APV, Myers 1974):
+
+        VALA = Operacional + Comercial + Fiscal
+
+    Camadas («com vs. sem projeto» — princípio incremental, Brealey-Myers Cap. 6)
+    ----------------------------------------------------------------------------
+    • Operacional — núcleo puro do Hub: poupança de pessoal/FSE, redução de
+      quebras, libertação de inventário e OPEX incremental, descontado ao Ku
+      (caso-base unlevered). Calculado SEM benefícios comerciais e SEM apoios
+      fiscais — é o `val_base_ku` de um Hub despido de receita comercial.
+    • Comercial — margem bruta incremental dos canais diretos B2C/Horeca
+      destravados pelo Hub (fulfillment 24-48 h, +SKUs, Box-on-Demand). Medido
+      como o acréscimo de `val_base_ku` ao reativar `beneficios_comerciais`.
+    • Fiscal — apoios e escudos: escudo fiscal da dívida (Miles-Ezzell),
+      PT2030 líquido de IRC (NCRF 22) e crédito RFAI (CFI art. 22.º-23.º),
+      todos descontados às respetivas taxas no APV.
+
+    A soma das três camadas é, por construção, igual ao VALA.
+    """
+    if hub is None:
+        hub = load()
+
+    # ── VALA completo: operações+comercial (val_base_ku) e camada fiscal ──────
+    full = vala_hub(hub, irc_taxa=irc_taxa)
+    val_base_com_comercial = float(full["val_base_ku"])
+    escudo = float(full["escudo_fiscal_total"])
+    pt2030 = float(full["pv_pt2030_liquido"])
+    rfai = float(full["pv_rfai"])
+    fiscal = escudo + pt2030 + rfai
+    vala = float(full["vala"])
+
+    # ── Núcleo operacional puro: re-corre o APV sem benefícios comerciais ─────
+    hub_sem_com = copy.deepcopy(hub)
+    bc = hub_sem_com["projeto_hub"].get("beneficios_comerciais", {})
+    vn_map = bc.get("vn_incremental", {})
+    if vn_map:
+        bc["vn_incremental"] = {y: 0.0 for y in vn_map}
+    sem_com = vala_hub(hub_sem_com, irc_taxa=irc_taxa)
+    operacional = float(sem_com["val_base_ku"])
+
+    comercial = val_base_com_comercial - operacional
+
+    p = full.get("parametros", {})
+    return {
+        # ── Camadas (valor presente, €) — somam ao VALA ───────────────────────
+        "operacional": round(operacional, 2),
+        "comercial": round(comercial, 2),
+        "fiscal": round(fiscal, 2),
+        "total_vala": round(vala, 2),
+        # ── Detalhe da camada fiscal ──────────────────────────────────────────
+        "fiscal_detalhe": {
+            "escudo_fiscal": round(escudo, 2),
+            "pt2030_liquido": round(pt2030, 2),
+            "rfai": round(rfai, 2),
+        },
+        # ── Subtotais úteis para narrativa («2 alavancas») ────────────────────
+        "operacional_mais_comercial": round(operacional + comercial, 2),
+        "val_wacc_referencia": full.get("val_wacc_referencia"),
+        # ── Parâmetros ────────────────────────────────────────────────────────
+        "parametros": {
+            "ku": p.get("ku"),
+            "rf": p.get("rf"),
+            "wacc": p.get("wacc"),
+            "irc_taxa": p.get("irc_taxa"),
+            "horizonte_anos": p.get("horizonte_anos"),
+            "capex_base": p.get("capex_base"),
+        },
+        "nota_metodologica": (
+            "Decomposição APV em três alavancas (com vs. sem projeto): "
+            "Operacional = val_base unlevered a Ku sem receita comercial; "
+            "Comercial = acréscimo de val_base ao reativar a margem B2C/Horeca; "
+            "Fiscal = escudo da dívida + PT2030 líquido + RFAI. "
+            "Operacional + Comercial + Fiscal = VALA."
+        ),
+    }
+
+
 def sensibilidade_hub(
     driver: str,
     valores: Sequence[float],
@@ -858,12 +942,14 @@ def vala_hub(
 
     Componentes
     -----------
-    VAL_base(Ke)
-        FCFF puro — excluindo o reconhecimento NCRF 22 do PT2030 do EBIT —
-        descontado ao custo do capital próprio desalavancado (Ke, CAPM).
-        Ajuste por período: FCF_clean_y = FCF_hub_y − accrual_PT2030_y × (1 − t)
-        onde FCF_hub_y já vem de viabilidade_hub() (inclui valor terminal no
-        último fluxo). Cobre o horizonte completo 2025-2034.
+    VAL_base(Ku)
+        FCFF puro UNLEVERED e SEM apoios fiscais — excluindo tanto o
+        reconhecimento NCRF 22 do PT2030 (em EBIT) como o crédito RFAI (que
+        reduz o IRC no fcf_livre) — descontado ao custo de capital desalavancado
+        (Ku, CAPM). Obtido re-correndo viabilidade_hub() com PT2030 = 0 e RFAI
+        desligado, para que esses benefícios entrem APENAS pelas suas camadas
+        dedicadas (sem dupla contagem). O valor terminal (VLC + NFM) é
+        independente dos apoios, logo inalterado. Cobre o horizonte 2025-2034.
 
     Escudo Fiscal
         VA(juros_expensed_y × irc_taxa) por tranche, descontado à taxa kd de
@@ -943,17 +1029,39 @@ def vala_hub(
         zip(df_fcf_full["ano"].astype(int), df_fcf_full["ebit_impact"].astype(float))
     )
 
-    cfs_clean: list[float] = []
-    fcf_ajuste_pt2030: dict[int, float] = {}
-    for y, fcf_y in zip(anos_via, cfs_com_vt):
-        accrual_y = accrual_map.get(y, 0.0)
-        ebit_y = ebit_map.get(y, 0.0)
-        # Remover lucro líquido do reconhecimento não-caixa do NOPAT:
-        #   FCF_hub = FCF_pure + accrual_y×(1-t)   [quando EBIT > 0]
-        #   ⇒ FCF_pure = FCF_hub − accrual_y×(1-t)
-        ajuste = accrual_y * (1.0 - irc_taxa) if (ebit_y > 0 and accrual_y > 0) else 0.0
-        cfs_clean.append(fcf_y - ajuste)
-        fcf_ajuste_pt2030[y] = round(ajuste, 2)
+    # ── Caso-base APV: FCFF UNLEVERED e SEM apoios fiscais ───────────────────
+    # O FCF de viabilidade_hub embute DOIS benefícios fiscais que o APV trata em
+    # camadas DEDICADAS abaixo: (1) o reconhecimento NCRF 22 do PT2030 no EBIT e
+    # (2) o crédito RFAI, que reduz o IRC dentro do próprio fcf_livre. Mantê-los
+    # no caso-base sobreporia-os às camadas pv_pt2030 / pv_rfai (dupla contagem —
+    # corrigido nesta versão; o ajuste-por-fórmula anterior limpava só o PT2030 e,
+    # mesmo esse, falhava quando o EBIT do ano era ≤ 0).
+    #
+    # Solução robusta: re-correr o motor com PT2030 = 0 e RFAI desligado para
+    # obter um FCFF genuinamente limpo. O cash-in do subsídio e o crédito entram
+    # exclusivamente pelas suas camadas. O valor terminal (VLC + NFM) é
+    # independente dos apoios fiscais, logo permanece inalterado.
+    hub_unlevered = copy.deepcopy(hub)
+    hub_unlevered["projeto_hub"]["financiamento"]["PT2030"]["montante"] = 0.0
+    if "rfai" in hub_unlevered["projeto_hub"]:
+        hub_unlevered["projeto_hub"]["rfai"]["aplicar"] = False
+    res_clean = viabilidade_hub(
+        hub_unlevered,
+        irc_taxa=irc_taxa,
+        wacc=wacc_real,
+        incluir_inventario=incluir_inventario,
+    )
+    cfs_clean = list(res_clean["cashflows_val"])
+    anos_clean = list(res_clean["fcf_df"]["ano"].astype(int))
+
+    # Ajuste informativo: diferença por ano entre o FCF cheio e o caso-base limpo
+    # (reconhecimento PT2030 líquido + crédito RFAI removidos do caso-base).
+    _fcf_full_map = dict(zip(anos_via, cfs_com_vt))
+    _fcf_clean_map = dict(zip(anos_clean, cfs_clean))
+    fcf_ajuste_pt2030: dict[int, float] = {
+        y: round(_fcf_full_map.get(y, 0.0) - _fcf_clean_map.get(y, 0.0), 2)
+        for y in anos_via
+    }
 
     # APV (Myers 1974): o caso-base unlevered desconta-se ao Ku, NÃO ao Ke.
     val_base = _npv(cfs_clean, ku)

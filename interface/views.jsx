@@ -704,19 +704,19 @@ function RollingView({ ctx }) {
 }
 
 // ---- Hub Logístico ---------------------------------------------------------
-// Wrapper com 3 subtabs: Viabilidade · Monte Carlo · Plano de Financiamento OE4
+// Wrapper com 5 subtabs: Plano de Financiamento OE4 · Viabilidade · VALA · Plano de Contingência · Monte Carlo
 // Cada subtab faz lazy-load das suas APIs e fica montada após a primeira visita.
 function HubView({ ctx }) {
-  const [subtab, setSubtab] = React.useState("viabilidade");
-  const [seen, setSeen] = React.useState({ viabilidade: true });
+  const [subtab, setSubtab] = React.useState("oe4");
+  const [seen, setSeen] = React.useState({ oe4: true });
   React.useEffect(() => { setSeen(s => ({ ...s, [subtab]: true })); }, [subtab]);
 
   const tabs = [
+    { id: "oe4",          label: "Plano de Financiamento" },
     { id: "viabilidade",  label: "Viabilidade" },
-    { id: "monte_carlo",  label: "Monte Carlo" },
-    { id: "oe4",          label: "Plano de Financiamento OE4" },
-    { id: "vala",         label: "VALA (APV)" },
+    { id: "vala",         label: "VALA" },
     { id: "contingencia", label: "Plano de Contingência" },
+    { id: "monte_carlo",  label: "Monte Carlo" },
   ];
 
   return (
@@ -757,6 +757,7 @@ function HubViabilidadeView({ ctx }) {
   const [torn, setTorn] = React.useState(null);
   const [comp, setComp] = React.useState(null);
   const [consol, setConsol] = React.useState(null);
+  const [decomp, setDecomp] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
 
@@ -795,6 +796,14 @@ function HubViabilidadeView({ ctx }) {
     return () => { cancelled = true; };
   }, [ctx.ircTaxaEfetiva]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    API.hubDecomposicao({ cenario: ctx.scenario, irc_taxa: ctx.ircTaxaEfetiva })
+      .then(d => { if (!cancelled) setDecomp(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [ctx.scenario, ctx.ircTaxaEfetiva]);
+
   if (loading && !viab) return <LoadingShell />;
   if (error && !viab) return <ErrorBanner message={error} onRetry={() => setError(null)} />;
   if (!viab) return null;
@@ -821,7 +830,7 @@ function HubViabilidadeView({ ctx }) {
         <KPI label={"VAL @ " + fmt.pct(wacc, 1)} value={fmt.eurC(viab.vpl)} tone={viab.vpl >= 0 ? "pos" : "neg"} sub={"horizonte 10 anos · VR ativos " + fmt.eurC(viab.valor_residual_ativos || 0) + " + NFM " + fmt.eurC(viab.nfm_recovery_terminal || 0)} />
         <KPI label="TIR" value={viab.tir != null ? fmt.pct(viab.tir, 1) : "—"} tone={viab.tir != null && viab.tir >= wacc ? "pos" : "neg"} sub={"vs WACC " + fmt.pct(wacc, 1)} />
         <KPI label="Payback simples" value={fmtPayback(viab.payback_simples)} sub="anos a partir de 2024" />
-        <KPI label="Payback actualizado" value={fmtPayback(viab.payback_atualizado)} sub={"descontado a " + fmt.pct(wacc, 1)} />
+        <KPI label="Payback atualizado" value={fmtPayback(viab.payback_atualizado)} sub={"descontado a " + fmt.pct(wacc, 1)} />
       </div>
 
       {/* ── FCF ─────────────────────────────────────────────────────────── */}
@@ -835,6 +844,71 @@ function HubViabilidadeView({ ctx }) {
           <div className="legend-row"><span className="swatch" style={{ background: "var(--accent)" }} /><span>FCF acumulado</span></div>
         </div>
       </Panel>
+
+      {/* ── Origem do valor: decomposição por alavanca ──────────────────────── */}
+      {decomp && (
+        <Panel
+          title="Origem do valor · Operacional vs. Comercial vs. Fiscal"
+          sub="VALA (APV) repartido em três alavancas mutuamente exclusivas que somam ao valor total — princípio incremental «com vs. sem projeto» (Brealey-Myers, Cap. 6)."
+        >
+          <WaterfallChart
+            items={[
+              { label: "Operacional", value: decomp.operacional, type: "delta" },
+              { label: "Comercial",   value: decomp.comercial,   type: "delta" },
+              { label: "Fiscal",      value: decomp.fiscal,      type: "delta" },
+              { label: "VALA",        value: decomp.total_vala,  type: "total" },
+            ]}
+            height={300}
+          />
+          <table className="ftable ftable--dense" style={{ marginTop: 16 }}>
+            <thead>
+              <tr>
+                <th>Alavanca</th>
+                <th className="mono num">Valor presente</th>
+                <th className="mono num">% do VALA</th>
+                <th>Origem do benefício</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Benefícios operacionais</td>
+                <td className={"mono num " + (decomp.operacional >= 0 ? "pos" : "neg")}>{fmt.eurC(decomp.operacional)}</td>
+                <td className="mono num">{decomp.total_vala ? fmt.pct(decomp.operacional / decomp.total_vala, 0) : "—"}</td>
+                <td style={{ fontSize: 11 }}>Poupança pessoal/FSE, redução de quebras e libertação de inventário, líq. de OPEX — descontado a Ku</td>
+              </tr>
+              <tr>
+                <td>Benefícios comerciais</td>
+                <td className={"mono num " + (decomp.comercial >= 0 ? "pos" : "neg")}>{fmt.eurC(decomp.comercial)}</td>
+                <td className="mono num">{decomp.total_vala ? fmt.pct(decomp.comercial / decomp.total_vala, 0) : "—"}</td>
+                <td style={{ fontSize: 11 }}>Margem bruta incremental dos canais diretos B2C/Horeca destravados pelo Hub (fulfillment 24-48 h, +SKUs)</td>
+              </tr>
+              <tr>
+                <td>Benefícios fiscais</td>
+                <td className={"mono num " + (decomp.fiscal >= 0 ? "pos" : "neg")}>{fmt.eurC(decomp.fiscal)}</td>
+                <td className="mono num">{decomp.total_vala ? fmt.pct(decomp.fiscal / decomp.total_vala, 0) : "—"}</td>
+                <td style={{ fontSize: 11 }}>Escudo fiscal da dívida (Miles-Ezzell) + PT2030 líquido (NCRF 22) + crédito RFAI</td>
+              </tr>
+              <tr style={{ fontWeight: 600, borderTop: "2px solid var(--rule)" }}>
+                <td>VALA (total)</td>
+                <td className="mono num">{fmt.eurC(decomp.total_vala)}</td>
+                <td className="mono num">100 %</td>
+                <td style={{ fontSize: 11 }}>Valor Atualizado Líquido Ajustado (APV — Myers 1974)</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 12, fontSize: 12, color: "var(--muted)" }}>
+            <span><strong style={{ color: "var(--ink-2)" }}>Detalhe fiscal</strong></span>
+            <span>Escudo da dívida: <span className="mono">{fmt.eurC(decomp.fiscal_detalhe.escudo_fiscal)}</span></span>
+            <span>PT2030 líquido: <span className="mono">{fmt.eurC(decomp.fiscal_detalhe.pt2030_liquido)}</span></span>
+            <span>RFAI: <span className="mono">{fmt.eurC(decomp.fiscal_detalhe.rfai)}</span></span>
+          </div>
+          <p className="muted" style={{ fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
+            Operacional + comercial = <span className="mono">{fmt.eurC(decomp.operacional_mais_comercial)}</span> — valor criado sem apoios fiscais.
+            O Hub é viável por duas alavancas independentes: mesmo sem apoios, a margem comercial sustenta o VALA positivo.
+            Camadas em valor presente (APV); reconciliam com o VALA da sub-tab homónima.
+          </p>
+        </Panel>
+      )}
 
       {/* ── Tornado + Parâmetros ──────────────────────────────────────────── */}
       <div className="grid-2">
@@ -1446,14 +1520,14 @@ function HubMonteCarloView({ ctx }) {
             </label>
             <button className="btn-ghost" onClick={() => setParams({ n, seed })} disabled={loading}
                     style={{ background: "var(--ink)", color: "var(--surface)", borderColor: "var(--ink)" }}>
-              {loading ? "A simular…" : "Re-executar"}
+              {loading ? "A simular…" : "Recalcular"}
             </button>
           </div>
         }
       >
         <div className="legend" style={{ fontSize: 12 }}>
           <div className="legend-row"><span className="swatch" style={{ background: "var(--accent)" }} /><span>Distribuição estocástica · histograma sobre {mc.n_simulations} saídas</span></div>
-          <div className="legend-row"><span className="swatch" style={{ background: "var(--neg)" }} /><span>VAL determinístico (hubViability) — linha tracejada</span></div>
+          <div className="legend-row"><span className="swatch" style={{ background: "var(--neg)" }} /><span>VAL determinístico do modelo — linha tracejada</span></div>
         </div>
       </Panel>
 
@@ -1868,7 +1942,7 @@ function HubOE4View({ ctx }) {
             pct={capProprio / fundingTotal}
             color="oklch(0.78 0.060 75)"
             meta={[
-              ["Origem", "Cash-flow operacional Grestel"],
+              ["Origem", "Fluxo de caixa operacional Grestel"],
               ["% CAPEX", fmt.pct(im.sintese?.fundos_proprios_pct ?? 0.25, 0)],
               ["NFM acumulada (2026–29)", fmt.eur(nfmTotal)],
               ["RFAI gerado", fmt.eur(600_000) + " (CFI art. 22-23)"],
@@ -2048,7 +2122,7 @@ function HubOE4View({ ctx }) {
             <KV k="Margem sobre covenant" v={dscrMinObs != null ? "+" + ((dscrMinObs / dscrMin - 1) * 100).toFixed(0) + " %" : "—"} />
             <KV k="EBITDA Hub 2029" v={fmt.eur(ds.rows[ds.rows.length - 1].ebitda_hub_incremental)} />
             <KV k="Serviço dívida 2029" v={fmt.eur(ds.rows[ds.rows.length - 1].servico_total_divida)} />
-            <KV k="Headroom EBITDA · 2029" v={fmt.eur(ds.rows[ds.rows.length - 1].ebitda_hub_incremental - ds.rows[ds.rows.length - 1].servico_total_divida * dscrMin)} />
+            <KV k="Folga EBITDA · 2029" v={fmt.eur(ds.rows[ds.rows.length - 1].ebitda_hub_incremental - ds.rows[ds.rows.length - 1].servico_total_divida * dscrMin)} />
           </dl>
           <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-2)", lineHeight: 1.55 }}>
             No primeiro ano sem carência ({ds.rows.find(r => !r.periodo_carencia && r.dscr_hub > 0)?.ano}), o EBITDA incremental do Hub cobre o serviço da dívida com margem confortável acima do covenant tipicamente exigido por CGD/BPI em project finance (DSCR ≥ 1,20×).
@@ -2068,7 +2142,7 @@ function FundingCard({ label, value, pct, color, meta }) {
           {label}
         </div>
         <div className="mono" style={{ fontSize: 22, fontWeight: 500, marginTop: 6, letterSpacing: "-0.01em" }}>{value}</div>
-        <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{fmt.pct(pct, 1)} do funding</div>
+        <div className="muted mono" style={{ fontSize: 11, marginTop: 2 }}>{fmt.pct(pct, 1)} do financiamento</div>
       </div>
       <div style={{ padding: "8px 14px 12px" }}>
         <dl className="kv">
@@ -2209,7 +2283,7 @@ function HubVALAView({ ctx }) {
             <tr className="is-total">
               <td>VALA Total</td>
               <td className={"mono num " + (valaVal >= 0 ? "pos" : "neg")}>{fmt.eur(valaVal)}</td>
-              <td className="mono num">100,0%</td>
+              <td className="mono num">100,0 %</td>
               <td></td>
             </tr>
           </tbody>
@@ -2523,7 +2597,7 @@ function HubContingenciaView({ ctx }) {
           {/* S1 — VN Incremental */}
           <div style={{ background: bgOf(statusVN), border: borderOf(statusVN), borderRadius: 8, padding: "14px 16px" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: clrOf(statusVN), textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
-              {dotOf(statusVN)} Volume Faturação Incremental
+              {dotOf(statusVN)} Volume de Faturação Incremental
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: clrOf(statusVN), fontFamily: "var(--mono)", marginBottom: 2 }}>
               {fmt.eurC(minDeltaVN)} mín.
@@ -2593,7 +2667,7 @@ function HubContingenciaView({ ctx }) {
               {impactRow("VALA sem PT2030", valaSemPt2030, false)}
             </div>
             <div style={{ fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5 }}>
-              <b style={{ color: "var(--pos)" }}>Mitigação:</b> Linha revolving €500k · Suporte acionistas · Amortização extraordinary desloca-se 2027 → 2028
+              <b style={{ color: "var(--pos)" }}>Mitigação:</b> Linha revolving €500k · Suporte acionistas · Amortização extraordinária desloca-se 2027 → 2028
             </div>
           </div>
 
@@ -2693,7 +2767,7 @@ function HubContingenciaView({ ctx }) {
       {/* ── Comparativo por Cenário ──────────────────────────────────────── */}
       <Panel
         title="Viabilidade do Hub por Cenário"
-        sub="VAL · TIR · Payback · VN Hub acumulado 2026–2029 — use o selector de cenário para actualizar o gráfico VN acima"
+        sub="VAL · TIR · Payback · VN Hub acumulado 2026–2029 — use o seletor de cenário para atualizar o gráfico VN acima"
       >
         <table className="ftable">
           <thead>

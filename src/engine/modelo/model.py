@@ -33,7 +33,7 @@ def run_model(
     ecogres_on: bool = True,
     cozedura_on: bool = False,
     assumptions_overrides: dict[str, Any] | None = None,
-    horizonte_maturidade: bool = False,
+    horizonte_maturidade: bool = True,
 ) -> dict[str, pd.DataFrame]:
     """
     Executa o modelo financeiro anual.

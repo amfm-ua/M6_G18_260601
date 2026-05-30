@@ -58,6 +58,7 @@ from .viabilidade import (
     sensibilidade_hub,
     tornado_hub,
     vala_hub,
+    decomposicao_beneficios_hub,
 )
 
 __all__ = [
@@ -78,4 +79,5 @@ __all__ = [
     "sensibilidade_hub",
     "tornado_hub",
     "vala_hub",
+    "decomposicao_beneficios_hub",
 ]

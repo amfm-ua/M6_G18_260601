@@ -84,14 +84,19 @@ def test_kpis_tem_todos_os_campos_oficiais(kpis_df):
     assert not missing, f"KPIs em falta: {sorted(missing)}"
 
 
-def test_kpis_tem_uma_linha_por_ano(kpis_df):
-    """Uma linha por ano em ALL_YEARS (2024..2029)."""
-    anos_kpis = set(kpis_df["ano"].astype(int).tolist())
-    anos_esperados = set(ALL_YEARS)
-    assert anos_kpis == anos_esperados, (
-        f"Anos no KPIs DataFrame: {sorted(anos_kpis)}; "
-        f"esperados: {sorted(anos_esperados)}"
+def test_kpis_tem_uma_linha_por_ano(kpis_df, base_data):
+    """Uma linha de KPIs por cada ano presente na DR (sem faltas nem duplicados).
+
+    Os KPIs acompanham o horizonte das demonstrações: 2024-2029 no motor base e
+    2024-2034 quando o horizonte de maturidade está ligado (default). Compara-se
+    com os anos da DR em vez de fixar ALL_YEARS, para ser robusto ao horizonte.
+    """
+    anos_kpis = sorted(kpis_df["ano"].astype(int).tolist())
+    anos_dr = sorted(base_data["dr"]["ano"].astype(int).unique().tolist())
+    assert anos_kpis == anos_dr, (
+        f"Anos no KPIs DataFrame: {anos_kpis}; esperados (anos da DR): {anos_dr}"
     )
+    assert len(anos_kpis) == len(set(anos_kpis)), "Há anos duplicados nos KPIs"
 
 
 # ============================================================

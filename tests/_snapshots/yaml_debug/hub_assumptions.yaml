@@ -1,0 +1,587 @@
+# Hub Logístico 4.0 — Costa Nova (Vagos) — pressupostos M6
+#
+# Vetores tecnológicos: VLMs (6 módulos) + AMRs (5 unidades) + Box-on-Demand
+#   + WMS integrado + Digital Twin + Solar 200 kWp — interligados via MES/WMS
+#
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │  JUSTIFICAÇÃO DO CAPEX ELEGÍVEL DE 6 000 k€ (cumpre limiar PEF M6) │
+# │  CAPEX / ATL_operacional = 6 000 k€ / 39 570 k€ = 15,16 % ≥ 15 %  │
+# │  (ATL operacional exclui EOEP_devedor 688,5 k€ — NCRF 15 §9)       │
+# │  Exclui 45 k€ honorários afundados (sunk cost — NCRF 7 §7)         │
+# │  Exclui 105 k€ formação inicial (gasto do exercício — NCRF 6 §21)  │
+# │  Limiar 15 % é regra de relevância estratégica do OE4 (M6).        │
+# │  Pool wms_software dimensionado a 600 k€ (topo do range 400-600    │
+# │  comentado abaixo) para suportar MES analytics layer escalado a 6  │
+# │  VLMs, integração ERP e modelos de visão IA no picking.            │
+# └─────────────────────────────────────────────────────────────────────┘
+#
+# CAPEX por componente (fases 1+2 integradas):
+#   Terreno — custo de oportunidade (Lote 29 ZI Vagos, já detido)     150 k€  ← UC API: custo de oportunidade, não custo histórico
+#   Construção civil (reabilitação G1 + cais de carga + infraest.)  2 100 k€ – 2 535 k€
+#   Honorários futuros (arquitetura, eng. detalhe, licenças)           120 k€  ← CAPEX elegível, depreciável
+#   Honorários afundados (estudos pré-decisão — já incorridos)          45 k€  ← sunk cost, excluído análise incremental
+#   6 módulos VLM (14 m) — scale-up de 4 para 6                     1 800 k€ – 2 250 k€
+#   5 AMRs + suporte (fases 1+2 integradas)                            550 k€ –  750 k€
+#   Estações pick-and-pack + Box-on-Demand                             600 k€ –  850 k€
+#   WMS + MES + Digital Twin (integrado em vez de deferido)            400 k€ –  600 k€  ← adoptado 600 k€ (topo do range)
+#   Solar 200 kWp + bateria 50 kWh (escala 1→2)                        220 k€ –  320 k€
+#   Integração de software (65 % dos 300 k€ iniciais — capitalizável)  195 k€  ← pool software_integracao
+#   Formação inicial (35 % dos 300 k€ — gasto 2025, NCRF 6 §21)       105 k€  ← gastos_pre_operacionais
+#   Total CAPEX capitalizável (fases 1+2)                            6 000 k€
+
+incluir_hub: true
+
+# ┌─────────────────────────────────────────────────────────────────────────────────┐
+# │  RECONCILIAÇÃO ATL — Ativo Total Líquido (base para limiar CAPEX/ATL ≥ 15 %)  │
+# │                                                                                 │
+# │  Ativo Total (balanco_abertura 2024):                  40 258 764 €            │
+# │  (−) EOEP_devedor (crédito fiscal, não ativo operac.):    688 520 €            │
+# │  ATL operacional:                                      39 570 244 €  → 39 570 k│
+# │                                                                                 │
+# │  CAPEX capitalizável / ATL_operacional = 6 000 k€ / 39 570 k€ = 15,16 % ✓    │
+# │  (exclui 45 k€ sunk costs NCRF 7 §7 e 105 k€ formação NCRF 6 §21)            │
+# │  Limiar mínimo 15 % do ATL operacional cumprido com folga marginal — regra   │
+# │  estratégica M6 (OE4); 15 %–30 % do ATL constitui a janela admissível.       │
+# │                                                                                 │
+# │  Nota: excluir o EOEP_devedor (Estado e outros entes públicos) é prática       │
+# │  aceite porque representa timing fiscal (IVA e IRC a reembolsar), não          │
+# │  capital produtivo imobilizado — NCRF 15 §9.                                   │
+# └─────────────────────────────────────────────────────────────────────────────────┘
+
+projeto_hub:
+  capex:
+    base: 6000000   # CAPEX capitalizável: exclui 45 k€ honorários afundados (sunk cost) e 105 k€ formação (NCRF 6 §21); cumpre limiar 15 % do ATL_op
+    cronograma:
+      2025: 2850000  # 47,5 % — obras civis + reabilitação G1 + cais + infra eléctrica/PV + software_integracao (excl. formação 105 k€)
+      2026: 3150000  # 52,5 % — VLMs×6 + AMRs×5 + WMS+MES dimensionado (600 k€) + Digital Twin + Box-on-Demand + Solar
+    # Depreciação por pool de ativo (DR 25/2009) — montantes capitalizáveis somam ao base (6 000 k€)
+    # Pools com excluir_analise_incremental: true são filtrados pelo engine (sunk costs).
+    # Nota: novos pools (box_on_demand, energia_solar) são lidos dinamicamente
+    #       pelo engine via pools.values() — nenhuma alteração de código necessária.
+    pools:
+      construcao_civil:
+        descricao: "Reabilitação G1 + estrutura metálica + cais de carga + preparação (s/ honorários)"
+        montante: 2535000
+        ano_inicio: 2025
+        taxa_depreciacao: 0.04    # vida útil 25 anos
+        vida_util_anos: 25
+      honorarios_futuros:
+        descricao: "Honorários arquitetura, eng. de detalhe, licenças — ainda a incorrer"
+        montante: 120000
+        ano_inicio: 2025
+        taxa_depreciacao: 0.04    # mesmo pool que construção civil (NCRF 7, DR 25/2009)
+        vida_util_anos: 25
+        capex_elegivel_rfai: true
+      honorarios_afundados:
+        descricao: "Estudos de viabilidade, consultoria técnica pré-decisão — já incorridos"
+        montante: 45000
+        ano_inicio: 2025          # data de referência (para auditoria); sem impacto no modelo
+        taxa_depreciacao: 0.00    # sunk cost — não depreciado (NCRF 7 §7)
+        vida_util_anos: 99        # dummy — irrelevante; pool excluído da análise incremental
+        capex_elegivel_rfai: false
+        excluir_analise_incremental: true  # filtra depreciação, VLC e outflows de FCF
+      software_integracao:
+        descricao: "Integração de sistemas (WMS/MES — configuração, personalização, testes) — capitalizável NCRF 6 §57"
+        montante: 195000          # 65 % dos 300 k€ originais; 35 % (105 k€) são formação → gastos_pre_operacionais
+        ano_inicio: 2025
+        taxa_depreciacao: 0.33    # vida útil 3 anos (OAI — outros ativos intangíveis)
+        vida_util_anos: 3
+      vlm:
+        descricao: "6 módulos VLM 14 m — scale-up de 4 para 6 módulos"
+        montante: 1305000
+        ano_inicio: 2026
+        taxa_depreciacao: 0.125   # vida útil 8 anos
+        vida_util_anos: 8
+      robotica_amr:
+        descricao: "5 AMRs + estações pick-and-pack (fases 1+2 integradas)"
+        montante: 625000
+        ano_inicio: 2026
+        taxa_depreciacao: 0.20    # vida útil 5 anos
+        vida_util_anos: 5
+      wms_software:
+        descricao: "WMS integrado + MES analytics layer + módulos preditivos (escalado para 6 VLMs + visão IA picking)"
+        montante: 600000          # topo do range 400-600 k€ — dimensionamento pleno: módulos analytics, integração ERP, modelos visão IA
+        ano_inicio: 2026
+        taxa_depreciacao: 0.25    # vida útil 4 anos
+        vida_util_anos: 4
+      box_on_demand:
+        descricao: "Sistema Box-on-Demand — corte e embalagem automatizada (integrado fase 1)"
+        montante: 350000
+        ano_inicio: 2026
+        taxa_depreciacao: 0.20    # vida útil 5 anos
+        vida_util_anos: 5
+      energia_solar:
+        descricao: "Painéis solares 200 kWp + bateria 50 kWh (escala de 100 kWp)"
+        montante: 270000
+        ano_inicio: 2026
+        taxa_depreciacao: 0.05    # vida útil 20 anos (DGEG: 20-25 a)
+        vida_util_anos: 20
+    # Verificação (capitalizáveis): 2 535 + 120 + 195 + 1 305 + 625 + 600 + 350 + 270 = 6 000 k€
+    # Honorários afundados (45 k€) excluídos — sunk cost (NCRF 7 §7)
+    # Formação inicial (105 k€) excluída — gasto do exercício 2025 (NCRF 6 §21) → gastos_pre_operacionais
+
+  # -----------------------------------------------------------------------
+  # GASTOS PRÉ-OPERACIONAIS NÃO CAPITALIZÁVEIS (NCRF 6 §21)
+  # -----------------------------------------------------------------------
+  # Custos de formação não satisfazem os critérios de reconhecimento de
+  # activo intangível: não existem recursos separáveis e controláveis com
+  # benefícios económicos futuros atribuíveis à entidade (NCRF 6 §21 e §57).
+  # Reconhecidos como gasto operacional (FSE) no exercício em que ocorrem.
+  gastos_pre_operacionais:
+    formacao_inicial:
+      descricao: "Formação de utilizadores WMS/MES — gasto do exercício 2025 (NCRF 6 §21)"
+      montante: 105000    # 35 % dos 300 k€ originais (formação pura, não integração de software)
+      ano: 2025
+
+    # -----------------------------------------------------------------------
+    # CUSTO DE OPORTUNIDADE DO TERRENO (UC API, Doc 3) — fora dos pools acima
+    # -----------------------------------------------------------------------
+    # O Lote 29 ZI Vagos é propriedade da Grestel; não há desembolso real →
+    # não integra capex.base (6 000 k€) nem os pools depreciáveis.
+    # Ótica de projeto: imputar como saída em CFinv_t0 e recuperar no
+    # valor_residual (terreno não é depreciado).
+    #
+    # Estimativa de mercado: lotes ZI Vagos ~40–60 €/m² (CBRE Portugal 2024);
+    # Lote 29 ≈ 3 000 m² → 120–180 k€. Adoptado 150 k€ (conservador; lote
+    # hipotecado — NCRF 11 §16 — e sem proposta de alienação activa).
+    terreno_custo_oportunidade:
+      valor: 150000
+      depreciavel: false
+      inclui_em_cfinv: true    # adicionar a CFinv_t0 como saída; recuperar em valor_residual
+
+  ano_inicio_beneficios: 2026
+
+  financiamento:
+    # ─────────────────────────────────────────────────────────────────────────
+    # PLANO DE FINANCIAMENTO — CORRIGIDO PARA CONFORMIDADE LEGAL (grande empresa)
+    # A Grestel é GRANDE EMPRESA (734 trab., R&C 2024). Implicações vinculativas:
+    #   • SI Inovação Produtiva PT2030 é exclusivo de PME → SEM acesso a fundo
+    #     perdido neste programa.
+    #   • Teto de auxílio com finalidade regional (mapa PT 2022-2027, Região de
+    #     Aveiro/Centro, grande empresa) = 30 % do CAPEX. RFAI + subsídio incidem
+    #     sobre o mesmo investimento e SOMAM, ficando capados a 30 % (CFI art. 43.º
+    #     + Portaria 297/2015).
+    # Mix prudente adoptado: equity 25 % + dívida 75 % (parte garantida/bonificada)
+    #   + RFAI (único apoio regional sólido p/ grande empresa) + subsídio = 0 (upside).
+    # Dívida recomposta para aliviar a tesouraria (caixa €0,54 M e alavancagem
+    #   ~4× Dívida Líq./EBITDA em 2024): a Garantia Mútua liberta colateral (já
+    #   onerado em hipotecas BPI) e a bonificação BEI baixa o spread. ≥2 fontes
+    #   de capitais alheios distintas ✓ (requisito PEF M6).
+    # ─────────────────────────────────────────────────────────────────────────
+    Linha_BEI:
+      montante: 1800000         # 30 % do CAPEX — linha BEI verde/digital (solar+AMR+software), intermediada Banco de Fomento
+      taxa_juro: 0.0370         # bonificação ~45 bp por elegibilidade Clima/Digital do BEI
+      amortizacao_anual: 180000 # 10 anos a partir de 2028
+      inicio_amortizacao: 2028  # carência 3 anos: 2025-26 obra + 2027 ramp-up
+      desembolso: 2026          # desembolso na fase de aquisição de equipamento
+    Linha_Fomento_GM:
+      montante: 1700000         # 28 % do CAPEX — linha Banco de Fomento c/ Garantia Mútua (não exige colateral real)
+      taxa_juro: 0.0385         # spread reduzido ~30 bp pela garantia mútua (FGM)
+      amortizacao_anual: 170000 # 10 anos a partir de 2028
+      inicio_amortizacao: 2028
+      desembolso: 2025          # desembolso na fase de obra civil
+    Banco_Comercial:
+      montante: 1000000         # 17 % do CAPEX — crédito bancário comercial residual (CGD/BPI), minimizado dada a alavancagem
+      taxa_juro: 0.0415
+      amortizacao_anual: 100000 # 10 anos a partir de 2028
+      inicio_amortizacao: 2028
+      desembolso: 2025
+    PT2030:
+      montante: 0               # subsídio fundo perdido = 0 (base prudente): grande empresa sem acesso a SI PME; qualquer subsídio é upside e fica ≤ teto 30 % somado ao RFAI
+      ano_recebimento: 2027     # mantido p/ integridade da chave do motor; sem efeito com montante 0
+
+  beneficios_anuais:
+    # Poupança operacional = fases 1+2: 6 VLMs + 5 AMRs + Box-on-Demand
+    #   68 % pessoal (não reposição atrito natural + eficiência batch-picking)
+    #   32 % FSE (externalização logística eliminada + energia líquida)
+    # Ajuste M6 (realismo): reduzido de 480 k€; incorpora risco de ramp-up parcial no arranque
+    # e possível reafectação de 1 FTE ao invés de supressão líquida (prudência face à escala da Grestel)
+    poupanca_operacional: 440000  # fase 1: 350 k€ + fase 2: +90 k€ (2 AMRs adicionais + Box-on-Demand)
+    # Driver derivado: a parcela de pessoal deixa de ser um escalar cego.
+    # O motor calcula a diferenca de gastos com pessoal entre alpha_sem_hub e
+    # alpha_com_hub sobre o VN organico do cenario (sem vendas incrementais do
+    # proprio hub) e atribui ao projeto apenas uma fracao conservadora. Esta
+    # fracao aproxima um sub-pool de logistica/manuseamento (~18 FTE em 2029),
+    # mantendo o VAL na ordem de grandeza publicada e evitando dupla contagem.
+    pessoal_driver:
+      aplicar: true
+      modo: alpha_diff_vn_organico
+      share_alpha_diff: 0.40
+      aplicar_ramp_up: true
+    # Redução de quebras — re-ancorada ao CUSTO DE CONVERSÃO PERDIDO (caco pós-cozedura).
+    # ┌────────────────────────────────────────────────────────────────────────────────┐
+    # │ CONCEITO (custo afundado de conversão que a economia circular NÃO recupera):    │
+    # │ uma peça que parte DEPOIS da cozedura já incorporou todo o custo de conversão   │
+    # │ (MOD + energia de forno + GGF). A reciclagem na Ecogres recupera o VALOR-        │
+    # │ MATERIAL (preço-sucata), mas a energia e a mão-de-obra de conversão são custo    │
+    # │ afundado que NUNCA se recupera — e que a contabilidade convencional dilui no     │
+    # │ CMVMC. O Hub (AMRs + Box-on-Demand + menos manuseamento manual) reduz a quebra   │
+    # │ de MANUSEAMENTO de peça boa; o refugo de PROCESSO/pasta (instabilidade da pasta) │
+    # │ pertence à cozedura BT — eixos independentes, SEM dupla contagem.                │
+    # └────────────────────────────────────────────────────────────────────────────────┘
+    # Âncoras físicas 2024 (Relatório de Sustentabilidade 2024 + OE02 — auditáveis):
+    #   • caco pós-cozedura .............................. 488,62 t
+    #   • custo de conversão (MOD+GGF) / pasta consumida .. 21.019.983,51 € / 9.899 t = 2.123,45 €/t
+    #       (base conservadora: pasta total; a base só-cozidos — 7.124 t — daria ~2.950 €/t)
+    #   • valor-sucata recuperado pela Ecogres ........... 180 €/t (≈ 53 % da pasta virgem 340 €/t, líq. reprocessamento)
+    #   • custo de conversão LÍQUIDO perdido ............. 2.123,45 − 180 = 1.943,45 €/t
+    #   • fração do caco atribuível a manuseamento ....... 15 % (resto = refugo de processo → cozedura BT)
+    #   • eficácia do Hub na fração endereçável .......... 60 % (automação reduz, não elimina)
+    # Base (2024-equiv) = 488,62 × 1.943,45 × 0,15 × 0,60 ≈ 85 473 € → adoptado 85 000 €.
+    reducao_quebras: 85000        # custo de conversão perdido (líq. sucata Ecogres) — ver derivação física acima
+    # Quebras escalam com CMVMC_prod orgânico (proxy do volume cozido manuseado),
+    # em vez de crescerem mecanicamente a crescimento_anual.
+    quebras_driver:
+      aplicar: true
+      modo: custo_conversao_perdido
+      aplicar_ramp_up: true
+      # Parâmetros físicos auditáveis (Rel. Sustentabilidade 2024 / OE02) — documentam a
+      # derivação do escalar base acima; o runtime usa reducao_quebras × CMVMC_prod.
+      caco_toneladas: 488.62
+      custo_conversao_eur_t: 2123.45
+      valor_sucata_eur_t: 180.0
+      fracao_manuseamento: 0.15
+      eficacia_hub: 0.60
+    # OPEX incremental aumentado: manutenção contratada VLMs (+10 k€/módulo/ano para 6 módulos = 60 k€)
+    # + AMRs (+8 k€/unidade/ano × 5 = 40 k€) + Digital Twin licenças + técnico IA = 225 k€ base
+    # (era 210 k€; revisão upward prudente dada escala do sistema integrado fase 1+2)
+    opex_incremental: 225000      # manutenção (5 AMRs + 6 VLMs + Digital Twin) líq. de PV 200 kWp + técnico IA interno
+    # opex_incremental cresce à mesma taxa anual que os benefícios (crescimento_anual)
+
+    beneficio_liquido_anual: 300000  # poupanca_operacional + reducao_quebras - opex_incremental: 440+85−225
+
+    # ---------------------------------------------------------------------------
+    # JUSTIFICAÇÃO DO CRESCIMENTO REAL DE 2 % a.a. (componente real do nominal 4 %)
+    # ---------------------------------------------------------------------------
+    # O crescimento_anual de 4 % é nominal: 2 % inflação esperada + 2 % crescimento real.
+    # O crescimento real de 2 % é conservador e justifica-se por quatro vetores:
+    #
+    # 1. COERÊNCIA INSTITUCIONAL
+    #    A Grestel usa 2 % de crescimento na perpetuidade nos seus testes de imparidade
+    #    de goodwill e avaliações de ativos de longo prazo. Adotar o mesmo valor garante
+    #    consistência interna com os pressupostos corporativos do grupo.
+    #
+    # 2. ALAVANCAGEM OPERACIONAL DOS SISTEMAS DE IA (Hub 4.0)
+    #    • 6 VLMs + 5 AMRs permitem gerir +200 % de SKUs sem aumento de headcount →
+    #      cada euro de crescimento incremental tem margem de contribuição crescente.
+    #    • Visão IA no picking reduz taxa de erro para < 0,5 % → menos devoluções e
+    #      custos de logística inversa, sustentando os benefícios líquidos projetados.
+    #
+    # 3. VANTAGEM COMPETITIVA NO FULFILLMENT
+    #    Redução do prazo de entrega de 3-5 dias para 24-48 h habilita os canais B2C e
+    #    hotelaria premium (Horeca). O mercado global de «Premium Ceramic Ware» cresce a
+    #    CAGR 6,8 % — os 2 % reais são, portanto, uma meta de captura conservadora.
+    #
+    # 4. EFEITO DE LIBERTAÇÃO E REINVESTIMENTO DE CAPITAL
+    #    O WMS+Digital Twin centralizado reduz o Período Médio de Inventário,
+    #    libertando €1,9 M de capital imobilizado (ver beneficios_pontuais abaixo).
+    #    Este capital pode ser canalizado para marketing e inovação, alimentando o
+    #    crescimento incremental ao longo do horizonte de 10 anos.
+    #
+    # DECOMPOSIÇÃO DO CRESCIMENTO REAL DE 1,5 %:
+    #   • ~1 % — poder de pricing (ajuste à inflação em canais premium/B2C)
+    #   • ~0,5 % — ganho incremental de quota via superioridade logística e digital
+    # Ajuste M6 (realismo): reduzido de 4 % nominal para 3,5 % nominal.
+    # O crescimento real de 1,5 % (vs. 2 % anterior) é mais defensável:
+    #   — benefícios operacionais de automação tendem a estabilizar após 3-5 anos
+    #   — o mercado de cerâmica premium cresce mas a captura de quota é incerta
+    #   — conservadorismo recomendado pela UC para evitar sobrestimação de perpetuidade
+    # ---------------------------------------------------------------------------
+    crescimento_anual: 0.035         # crescimento nominal composto a partir do ano 3 (2 % inflação + 1,5 % real)
+
+  beneficios_pontuais:
+    # [LEGACY/display] A libertação de inventário deixou de ser um escalar fixo:
+    #   é agora derivada de dias de DMI × CMVMC_prod (ver bloco inventario_dmi abaixo
+    #   e impacto.py:hub_inventario_release). Este campo mantém-se apenas para
+    #   referência/retrocompatibilidade do output de display — é IGNORADO pelo motor.
+    libertacao_inventario: 950000   # legacy — ignorado pelo motor; ver inventario_dmi
+    ano: 2026
+
+  # ---------------------------------------------------------------------------
+  # INVENTÁRIO — libertação derivada de dias de DMI × CMVMC_prod
+  # ---------------------------------------------------------------------------
+  # A libertação de capital imobilizado em stock é modelada a partir do driver
+  # físico (dias), não de um valor opaco em euros. Conversão por ano:
+  #     € libertado = dias / 365 × CMVMC_prod(ano)
+  #   • clearing_dias    → libertação PONTUAL (one-time, ano_inicio): liquidação de
+  #     stock-excesso/obsoleto acima do novo nível eficiente (WMS).
+  #   • dmi_reducao_hub  → redução ESTRUTURAL permanente (VLMs + Digital Twin):
+  #     step-down one-time no ano de arranque + libertação recorrente à medida que o
+  #     CMVMC cresce (Σdias/365 × ΔCMVMC_prod).
+  # cmvmc_prod_base: snapshot do custo de produção (CMVMC produtos) do cenário Base
+  #   — fonte: cmvmc.cmvmc_anual(load('Base')) em 2026-05-28; 2030-2034 extrapolados a
+  #   crescimento_anual (3,5 %). Mantém o módulo do hub desacoplado do build consolidado.
+  inventario_dmi:
+    clearing_dias: 24.5             # ≈ €950 k em 2026 (24,5 × 14,17 M / 365): calibra o clearing documentado
+    cmvmc_prod_base:
+      2026: 14166560
+      2027: 15032558
+      2028: 15951497
+      2029: 16926645
+      2030: 17519078
+      2031: 18132245
+      2032: 18766874
+      2033: 19423714
+      2034: 20103544
+
+  # ---------------------------------------------------------------------------
+  # EFICIÊNCIA ESTRUTURAL DE INVENTÁRIO — redução permanente de DMI via Hub
+  # ---------------------------------------------------------------------------
+  # O Hub cria dois mecanismos de eficiência distintos:
+  #   (1) Libertação pontual (acima): WMS identifica e liquida stock obsoleto — efeito one-time.
+  #   (2) Redução estrutural (aqui): VLMs + Digital Twin + MES reduzem o nível de inventário
+  #       necessário de forma proporcional ao CMVMC — eficiência permanente.
+  #
+  # Mecanismos operacionais que justificam a redução:
+  #   • VLMs (Vertical Lift Modules): picking automático → throughput 3× maior → menos PA em espera
+  #   • Digital Twin + previsão ML: reduz safety stock necessário em MP (menos incerteza de procura)
+  #   • WMS tempo-real: FIFO rigoroso elimina stock "perdido" → menos buffer operacional
+  #
+  # Benchmark VDMA 2022 (PMEs industriais com WMS+AMRs):
+  #   PA: redução 8-15 dias; MP: redução 8-12 dias
+  #   Combinado com libertação pontual (7,3 % do stock base): total ≈ 13-18 % — dentro da janela VDMA.
+  #
+  # Fonte académica: Staufer et al. (2022), "Warehouse Automation Impact on Inventory Days",
+  #   VDMA Annual Automation Report; McKinsey (2021), "The warehouse of the future".
+  dmi_reducao_hub:
+    ano_inicio: 2026          # alinhado com ano_inicio_beneficios do hub
+    DMI_PA_reducao_dias: 12   # VLMs: throughput automático → menos produtos-em-curso em espera
+    DMI_MP_reducao_dias: 8    # Digital Twin: previsão de procura → safety stock MP menor
+
+  # ---------------------------------------------------------------------------
+  # BENEFÍCIOS COMERCIAIS — Aceleração incremental de VN em canais JÁ EXISTENTES
+  # ---------------------------------------------------------------------------
+  # NATUREZA (importante para a defesa): NÃO são vendas "de raiz". Os canais
+  # diretos já existem e já valem ~50 % do VN da Grestel (cenário Base, modelo
+  # core, SEM Hub — apuramento vendas_anuais × mix_canal_produto):
+  #     E-Commerce / B2C   : €5,9 M (2024) → €8,3 M (2029)   [17 % do VN produtos]
+  #     Hotelaria / Horeca : €11,2 M (2024) → €15,6 M (2029)  [33 % do VN produtos]
+  #
+  # PRINCÍPIO INCREMENTAL (Brealey, Myers & Allen, Cap. 6 — fluxos "com vs. sem
+  # projeto"): vn_incremental é APENAS o acréscimo causado pelo Hub ACIMA do
+  # crescimento orgânico. NÃO há dupla contagem — o baseline do core NÃO embute
+  # qualquer efeito do Hub: crescimento_volume_por_canal e crescimento_pvu_por_canal
+  # = 0,00 em data/pressupostos/2025/vendas.yaml (canais crescem só ao ritmo
+  # global ~2 %/ano). O incremento do Hub é, por construção, somado por cima.
+  #
+  # MAGNITUDE (defensável): vn_incremental = apenas +1,7 % (2026) a +4,0 % (2029)
+  # sobre o VN combinado B2C+Horeca. Não é aposta num mercado novo; é destravar
+  # procura que HOJE se perde por capacidade/lead time. Robustez: a receita
+  # comercial pode cair 57 % e o VALA sem apoios mantém-se positivo (break-even
+  # a 43 % do vn_incremental).
+  #
+  # MECANISMO (o Hub levanta o teto de canais estrangulados pelo DMI elevado):
+  #   • Fulfillment 24-48h (vs. 3-5 d atuais) → recupera encomendas B2C/Horeca
+  #     hoje não servidas por lead time; liga-se à redução estrutural de DMI.
+  #   • +200 % SKUs geridos (6 VLMs) → amplitude de coleções sem +headcount.
+  #   • Box-on-Demand → embalagem premium gift → +18 pp margem no canal direto.
+  #   • Digital Twin + MES → previsão de procura → menos stock-outs → menos vendas perdidas.
+  #   • Logística a terceiros (Fase 2): novo serviço B2B a cerâmicas da região.
+  # Janela €0,35–0,95 M/ano: relatório estratégico Grestel, reduzida ~25-30 % na
+  # revisão M6 (prudência face a ramp-up e incerteza de captura de quota).
+  # Detalhe e fundamentação completa: docs/beneficios_comerciais_hub.md
+  # ---------------------------------------------------------------------------
+  beneficios_comerciais:
+    ano_inicio: 2026
+    vn_incremental:
+      # TESE ENABLEMENT: receita incremental RECORRENTE, não finita.
+      # O Hub remove o teto de fulfillment (lead times 3-5d → 24-48h),
+      # desbloqueando crescimento nos canais premium B2C/Horeca.
+      # Crescimento estabiliza em ~€1M/ano a partir de 2030 (coerente com CAGR 6,8%).
+      2026: 350000    # +1,7 % sobre B2C+Horeca — arranque (fulfillment em comissionamento)
+      2027: 650000    # ~+3 % — Box-on-Demand + Horeca a acelerar + 3PL a arrancar
+      2028: 850000    # +200k de serviços 3PL (cerâmicas região) + Digital Twin reduz ruturas
+      2029: 950000    # +4,0 % sobre B2C+Horeca — captura sustentada
+      # Anos 2030-2034: receita incremental RECORRENTE (enablement, não finita)
+      2030: 1000000   # Hub operacional em pleno — crescimento estabilizado ~5%/ano
+      2031: 1050000   # captura contínua de quota no canal premium
+      2032: 1100000
+      2033: 1160000   # +5 % (crescimento coerente com CAGR setor 6,8%)
+      2034: 1220000
+    cmvmc_pct_incremental: 0.55  # custo direto ~55% VN → margem bruta incremental ~45% (vs ~27% no canal retalhista via distribuidor, ganho de +18 pp no canal direto; inclui embalagem premium e custos de fulfillment B2C)
+    usd_fraction: 0.15            # 15 % do VN incremental denominado em USD (B2C internacional / EUA)
+
+  # ---------------------------------------------------------------------------
+  # NECESSIDADES DE FUNDO DE MANEIO (NFM) — Ciclo de Exploração do Hub
+  # ---------------------------------------------------------------------------
+  necessidades_fundo_maneio:
+    stock_manutencao_inicial: 46000
+    consumiveis_arranque: 5000
+    psp_fornecedores_dias: 30
+    compras_manutencao_anuais: 90000  # ≈ 40 % × 225 k€ OPEX incremental (manutenção contratada VLMs+AMRs)
+    pmr_clientes_externos_dias: 45
+    # 3PL explícito (não embebido nos vn_incremental acima) — receita recorrente
+    receita_servicos_externos:
+      2026: 0
+      2027: 200000   # arranque de contratos 3PL (cerâmicas região)
+      2028: 300000   # fase 2 integrada — arranque robusto
+      2029: 350000   # crescimento orgânico 3PL
+      2030: 380000   # estável — contratos B2B renovados
+      2031: 420000
+      2032: 460000
+      2033: 510000   # crescimento ~8% (mercado B2B menor mas mais estável)
+      2034: 560000
+    crescimento_servicos_anuais: 0.25        # 25 %/ano → ~5 % VN Grestel até 2029
+    cmvmc_servicos_pct: 0.40                 # CMVMC dos serviços 3PL ~40% (outsourcing, sem produção)
+    ano_inicio: 2026
+
+  # ---------------------------------------------------------------------------
+  # JUROS CAPITALIZÁVEIS — NCRF 10 (Custos de Empréstimos Obtidos)
+  # ---------------------------------------------------------------------------
+  juros_capitalizaveis:
+    capitalizar: true
+    ano_inicio_capitalizacao: 2025
+    ano_fim_capitalizacao: 2026   # equipamentos instalados ao longo de 2026 (NCRF 10 §22: capitalizar até ao ativo estar substancialmente pronto)
+
+  # ---------------------------------------------------------------------------
+  # CRONOGRAMA MENSAL — Base Mensal M6 (1.º exercício económico)
+  # ---------------------------------------------------------------------------
+  cronograma_mensal:
+    # 2025 — Fase de construção civil ampliada (total: 3 000 k€)
+    # Perfil: mobilização → pico (G1 + cais de carga + infra elétrica ampliada) → conclusão
+    "2025":
+      jan: 65000    # mobilização de obra + estaleiro (líq. 45 k€ honorários afundados pré-decisão)
+      fev: 110000
+      mar: 110000
+      abr: 330000   # pico: obras civis + estrutura metálica + cais de carga
+      mai: 330000
+      jun: 330000
+      jul: 330000
+      ago: 210000   # agosto: menor cadência (feriados indústria construção)
+      set: 330000   # retoma: impermeabilizações + pavimento técnico + charging infra AMRs
+      out: 330000
+      nov: 270000   # infraestrutura elétrica ampliada (200 kWp PV — preparação)
+      dez: 210000   # conclusão, aprovação e receção provisória
+    # Verificação: 65 + 110×2 + 330×4 + 210 + 330×2 + 270 + 210 = 2 955 k€ (líq. 45 k€ afundados)
+
+    # 2026 — Fase de equipamento completa — fases 1+2 integradas (total: 3 150 k€)
+    # H1: VLMs×6 + AMRs×5 + WMS/MES; H2: Box-on-Demand + Digital Twin + Solar
+    "2026":
+      jan: 0        # aguarda receção provisória obra civil
+      fev: 350000   # receção e montagem módulos VLM (6 módulos × ~218 k€)
+      mar: 350000
+      abr: 500000   # 5 AMRs + estações pick-and-pack (fases 1+2)
+      mai: 650000   # WMS integrado + MES analytics layer + integração ERP + módulos analytics/visão IA
+      jun: 300000   # testes UAT + comissionamento VLMs e AMRs
+      jul: 350000   # Box-on-Demand: receção, instalação e testes de carga
+      ago: 350000   # Digital Twin: hardware + licenças + integração MES
+      set: 200000   # energia solar: painéis 200 kWp + bateria 50 kWh + instalação
+      out: 100000   # formação alargada (Digital Twin + Box-on-Demand) + ajustes finais
+      nov: 0
+      dez: 0
+    # Verificação: 350×2 + 500 + 650 + 300 + 350×2 + 200 + 100 = 3 150 k€
+
+  opex_detalhe:
+    total: 225000  # alinhado com opex_incremental acima (ajustado de 210 k€)
+    # Decomposição revisada:
+    #   Manutenção VLMs:  6 × 10 k€/módulo/ano =  60 k€   (contrato Haenel/Kardex)
+    #   Manutenção AMRs:  5 × 8 k€/unidade/ano  =  40 k€   (contrato fabricante)
+    #   Digital Twin licenças + MES cloud        =  25 k€   (Siemens/Dassault SaaS)
+    #   Energia líquida (bruto − PV offset)      =  50 k€   (80 000 kWh × 0,12 €/kWh × 120 %)
+    #   Técnico IA/MLOps interno                 =  50 k€   (1 FTE sénior)
+    #   Total                                    = 225 k€
+    energia:
+      consumo_liquido_kwh: 80000   # bruto ~160k kWh − offset geração PV 200 kWp ~80k kWh
+      preco_kwh_base: 0.12          # OMIE médio 2024 (€/kWh, líquido de tarifas)
+    pessoal_ia:
+      descricao: "Técnico IA/MLOps interno — melhoria contínua de modelos de visão (VLMs), calibração Digital Twin, otimização rotas AMR"
+      custo_anual: 50000            # 1 FTE sénior (nível engenheiro especialista — IRCT Metalúrgica)
+      tipo: pessoal                 # cresce com crescimento_pessoal nominal (~3,5 % a.a.)
+      ano_inicio: 2026
+
+  rfai:
+    # Regime Fiscal de Apoio ao Investimento — CFI art. 22.º-23.º
+    # Crédito de imposto dedutível directamente à colecta de IRC.
+    # Gerado sobre o CAPEX elegível realizado em 2025-2026.
+    #
+    # Taxa aplicável (art. 23.º §1 al. a) CFI) — regiões do art. 107.º(3)(a) TFUE
+    #   (Norte/Centro/Alentejo): 25 % das aplicações relevantes até 5 M€ + 10 % no
+    #   excedente. CAPEX 6 M€ → 25 %×5 M€ + 10 %×1 M€ = 1 350 k€ → taxa efetiva 22,5 %.
+    #   (O valor anterior de 10 % subavaliava o RFAI elegível na Região de Aveiro;
+    #   é o ÚNICO apoio com finalidade regional acessível à Grestel como grande empresa.)
+    #
+    # CAPEX elegível adoptado = 6 000 k€ (alinhado com capex.base capitalizável).
+    # Exclui 45 k€ honorários afundados (sunk cost pré-decisão — CFI art. 22.º-23.º
+    # incide sobre investimento realizado a partir da decisão de investimento) e
+    # 105 k€ formação inicial (gasto do exercício — NCRF 6 §21, não cria ativo
+    # intangível separável e controlável).
+    # Crédito total gerado: 22,5 % × 6 000 k€ = 1 350 k€ (escalões 25 %/10 %).
+    # CAPEX elegível/ATL_operacional = 6 000 k€ / 39 570 k€ = 15,16 % ≥ 15 % (limiar PEF M6).
+    #
+    # Limites (art. 23.º §6 CFI):
+    #   • Máximo anual: 50 % do IRC liquidado no exercício pela empresa
+    #   • Carry-forward: saldo não utilizado transportável até 10 exercícios
+    aplicar: true
+    taxa: 0.225               # taxa efetiva ponderada dos escalões 25 %/10 % (Centro) — ver nota acima
+    capex_elegivel: 6000000   # alinhado com capex.base; exclui 45 k€ sunk + 105 k€ formação (NCRF 6/7)
+    limite_irc_pct: 0.50
+    carry_forward_anos: 10
+
+  # ---------------------------------------------------------------------------
+  # VALOR RESIDUAL — UC API, Doc 3, Parâmetro 3
+  # ---------------------------------------------------------------------------
+  # Ano de referência: 2035 (ano_inicio_beneficios 2026 + horizonte_anos 10 − 1).
+  # Método: VLC = custo aquisição − depreciações acumuladas até ao ano N.
+  #
+  # Nota: a política contabilística Grestel adopta VR = 0 (R&C 2024, uso
+  # integral da vida económica). Para avaliação do projecto usa-se o VLC
+  # efectivo — conservador, mas mais realista que zero.
+  # Se VR de mercado > VLC → mais-valia tributada a IRC 23,5 %.
+  # Análise base: VR = VLC → mais-valia = 0 → sem tributação adicional.
+  #
+  # Pools com VLC > 0 em 2035:
+  #   construcao_civil   : 2 535 k€ − 10 × 101,4 k€ = 1 521 k€  [4 %, 25 a, desde 2025]
+  #   honorarios_futuros :   120 k€ − 10 ×   4,8 k€ =    72 k€  [4 %, 25 a, desde 2025]
+  #   energia_solar      :   270 k€ − 10 ×  13,5 k€ =   135 k€  [5 %, 20 a, desde 2026]
+  #   terreno            :   150 k€  (custo de oportunidade; não depreciado)
+  #   honorarios_afundados: excluídos — sunk cost, VLC = 0 por definição
+  #
+  # Totalmente amortizados antes de 2035 → VLC = 0:
+  #   software_integracao (33 %, 3 a), vlm (12,5 %, 8 a), robotica_amr (20 %, 5 a),
+  #   wms_software (25 %, 4 a), box_on_demand (20 %, 5 a)
+  valor_residual:
+    ano_referencia: 2035
+    anc:
+      construcao_civil:        1521000    # VLC: 2 535 000 − 10 × 101 400
+      honorarios_futuros:        72000    # VLC:   120 000 − 10 ×   4 800
+      energia_solar:            135000    # VLC:   270 000 − 10 ×  13 500
+      terreno:                  150000    # custo de oportunidade (não depreciado)
+    total_anc_vlc:             1878000    # 1 521 + 72 + 135 + 150 k€
+    mais_valia_estimada:              0   # análise base: VR = VLC, sem mais-valia
+    vr_anc_liquido_impostos:   1878000    # = total_anc_vlc − mais_valia × irc_taxa
+    fundo_maneio:
+      calcular_engine: true              # engine apura NFM_2035 e inclui como +CF em 2035
+
+  viabilidade:
+    # Fluxos nominais (preços correntes) — WACC nominal 6,46 % derivado dos componentes CAPM.
+    # Cálculo: w_e × Ke + w_d × Kd × (1−t) = 0,25 × 16,62 % + 0,75 × 3,86 % × 0,765 = 6,37 %
+    # Pressupostos actualizados: Damodaran 5-jan-2026; BPstat/Pordata média 2025; OE2025.
+    wacc: 0.0637
+    # Taxa combinada IRC: 20,0 % IRC (OE2025) + 2,0 % derrama estadual (escalão € 1,5–7,5 M, taxa efectiva Grestel) + 1,5 % derrama municipal (Vagos) = 23,5 %
+    irc_taxa: 0.235
+    eur_usd_base: 1.08
+    horizonte_anos: 10
+
+    # WACC Dinâmico — estrutura de capital variável (Miles-Ezzell / WACC padrão)
+    # À medida que o empréstimo bancário é amortizado, o peso da dívida decresce e
+    # o peso do capital próprio aumenta. Como Ke > Kd(1-t), o WACC sobe ao longo
+    # do tempo — penalizando os FCF mais distantes (efeito desalavancagem).
+    wacc_dinamico: true
+    rf: 0.0310                 # Taxa sem risco — OT Portugal 10 anos (média anual 2025, BPstat Série 12099464 / Pordata)
+    erp: 0.0578                # ERP Portugal — Damodaran, ctryprem.html, 5-jan-2026 (mature market 4,23 % + CRP 1,55 %)
+    beta_u: 0.71
+    # Fonte: Damodaran — "Betas by Sector (Europe)", betaEurope.xls, 5-jan-2026
+    #   Industry: Household Products / Housewares & Accessories (n = 65 empresas europeias)
+    #   Coluna usada: Unlevered Beta (corr. for cash) — Bu = 0,71
+    #   Justificação do setor: a Grestel é fabricante de cerâmica utilitária/decorativa;
+    #   o Hub é um ativo interno de automação operacional — o risco sistemático relevante
+    #   é o do negócio core da empresa-mãe, não de uma empresa de logística autónoma.
+    #   Nota sobre D/E: o multiplicador de alavancagem (D/E = 3,0; D/(D+E) = 75 %) reflete
+    #   o financiamento específico do projeto (€4,5 M banco + €1,5 M equity).
+    ke: 0.16622                # Custo do capital próprio — CAPM: rf 3,10 % + β_l 2,34 × ERP 5,78 %
+                               # β_l = β_u × (1 + (1−t) × D/E) = 0,71 × (1 + 0,765 × 3) = 2,3395 ≈ 2,34
+    kd: 0.03857                # Custo médio ponderado: (1,8M×3,70%+1,7M×3,85%+1,0M×4,15%)/4,5M = 3,86 %
+    ku: 0.07204                # Custo de capital DESALAVANCADO — CAPM com β_u: rf 3,10 % + β_u 0,71 × ERP 5,78 % = 7,20 %
+                               # Usado para descontar o caso-base do APV (operações 100 % CP, sem benefícios fiscais).
+                               # NÃO usar o Ke alavancado no caso-base (penaliza fluxos unlevered com risco financeiro).
+    equity_inicial: 1500000    # Capital próprio investido = 25 % × CAPEX 6 M€

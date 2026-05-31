@@ -109,4 +109,16 @@ A folga estreita-se sobretudo nos cenários adversos: sem a almofada do subsídi
 
 ---
 
+## 6.4. Estrutura de capital no período de continuidade (2030–2034)
+
+O horizonte de avaliação estende-se a dez anos: aos cinco anos de projeção explícita (2025–2029) segue-se um **período de continuidade (2030–2034)** que materializa o valor terminal. A premissa de estrutura de capital adotada neste período é uma **decisão deliberada de alocação de capital**, e não um artefacto do modelo — pelo que se explicita aqui.
+
+> **Nota de assunção (estrutura de capital terminal):** no período de continuidade assume-se **alavancagem constante** (dívida fixada ao nível de 2029) com **distribuição do excedente de tesouraria como dividendo residual** (*cash sweep*). Esta é a premissa coerente com um valor terminal de perpetuidade (Gordon): preserva a estrutura de capital em estado estacionário, mantém o WACC estável ao longo da perpetuidade e impede que o ROE seja diluído por acumulação de aplicações financeiras ociosas — um efeito de reinvestimento que não traduz deterioração operacional.
+
+O modelo evidencia, transversalmente aos quatro cenários, que **o gearing desce abaixo do intervalo-alvo (40–65%) já a partir de 2027**: a capacidade de autofinanciamento do negócio gera caixa muito acima da dívida residual. Trata-se, portanto, de uma **desalavancagem estrutural** — a empresa não consegue manter-se alavancada no alvo sem re-endividamento ativo (nova emissão) ou distribuição acrescida. Assume-se aqui a leitura conservadora e defensável de que **o gearing abaixo do alvo é uma escolha de capital (acumular folga financeira / distribuir), não uma restrição operacional**.
+
+Como sensibilidade documentada, o motor permite alternar para um **run-off contratual** da dívida em 2030–2034 (amortização efetiva das facilidades existentes até à sua extinção, com a tranche BPI a liquidar em 2032). Esta vista é útil para a leitura de **liquidez/serviço da dívida** do período terminal — confirma que as facilidades se extinguem com folga e que **nenhum *covenant* se torna vinculativo** —, mas **não** é a base da avaliação: ao levar a dívida a zero, o gearing torna-se negativo e o WACC deixa de ser estacionário, distorcendo o valor terminal. O *toggle* (`financiamento.terminal_debt_runoff`, *off* por defeito) está disponível no painel da aplicação para comparação lado a lado.
+
+---
+
 *Ficheiro de trabalho — M6 · Grupo 18 · 2026-06-01*

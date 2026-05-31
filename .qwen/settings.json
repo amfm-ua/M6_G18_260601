@@ -9,7 +9,11 @@
       "Bash(dir *)",
       "Bash(powershell *)",
       "Bash(timeout *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(echo *)",
+      "Bash(copy *)",
+      "Bash(remove-item *)",
+      "Bash(del *)"
     ]
   },
   "$version": 4

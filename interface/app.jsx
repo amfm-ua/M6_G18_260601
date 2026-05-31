@@ -34,6 +34,10 @@ function App() {
   const [scenario, setScenario] = useState("Base");
   const [hubOn, setHubOn] = useState(false);
   const [cozeduraOn, setCozeduraOn] = useState(false);
+  // Run-off contratual da dívida no período de continuidade (2030–2034).
+  // Off por defeito = alavancagem constante (premissa da avaliação terminal).
+  // On = sensibilidade de liquidez (amortiza facilidades; ver 07_plano_financiamento §6.4).
+  const [runoffOn, setRunoffOn] = useState(false);
   const [customScenarios, setCustomScenarios] = useState([]);
   const [showScenarioModal, setShowScenarioModal] = useState(false);
   // Ecogres é subsidiária — sempre consolidada
@@ -95,8 +99,9 @@ function App() {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    const runoffOverride = runoffOn ? { financiamento: { terminal_debt_runoff: true } } : null;
     Promise.all([
-      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn }),
+      API.projecao({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn, assumptions: runoffOverride }),
       // Taxa de IRC efetiva da API (fonte de verdade única, C-1). Fallback
       // silencioso para o default offline se a chamada falhar.
       API.assumptions({ cenario: scenario, hub_on: effectiveHubOn, ecogres_on: ecogresOn, cozedura_on: cozeduraOn })
@@ -112,7 +117,7 @@ function App() {
           fse: data.fse,
           pessoal: data.pessoal,
           ircTaxaEfetiva: assum.irc_taxa_efetiva ?? GRESTEL.IRC_TAXA_EFETIVA,
-          scenario: scenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn,
+          scenario: scenario, hubOn: effectiveHubOn, ecogresOn, cozeduraOn, runoffOn,
         });
         setLoading(false);
       })
@@ -122,7 +127,7 @@ function App() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [scenario, effectiveHubOn, ecogresOn, cozeduraOn]);
+  }, [scenario, effectiveHubOn, ecogresOn, cozeduraOn, runoffOn]);
 
   return (
     <div className="app">
@@ -137,6 +142,8 @@ function App() {
           hubLocked={hubLocked}
           cozeduraOn={cozeduraOn}
           setCozeduraOn={setCozeduraOn}
+          runoffOn={runoffOn}
+          setRunoffOn={setRunoffOn}
           loading={loading}
           ecogresOn={ecogresOn}
           customScenarios={customScenarios}
@@ -331,7 +338,7 @@ function fmtIsoDate(iso) {
   } catch { return "—"; }
 }
 
-function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozeduraOn, setCozeduraOn, loading, ecogresOn, customScenarios = [], onAddScenario, onDeleteScenario }) {
+function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozeduraOn, setCozeduraOn, runoffOn, setRunoffOn, loading, ecogresOn, customScenarios = [], onAddScenario, onDeleteScenario }) {
   const [exporting, setExporting] = useState(false);
   const [exportingM3, setExportingM3] = useState(false);
   const title = NAV.find(n => n.id === view)?.label || "";
@@ -406,6 +413,12 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozed
         </div>
         <Toggle label="Hub Logístico" on={hubOn} onChange={setHubOn} locked={hubLocked} />
         <Toggle label="Cozedura BT" on={cozeduraOn} onChange={setCozeduraOn} />
+        <Toggle
+          label="Run-off 30–34"
+          on={runoffOn}
+          onChange={setRunoffOn}
+          title="Run-off contratual da dívida em 2030–2034 (amortiza facilidades; tranche BPI liquida 2032). Off = alavancagem constante, premissa da avaliação terminal. Sensibilidade de liquidez — ver §6.4."
+        />
         <button className="btn-ghost" disabled style={{ opacity: 0.45, cursor: "not-allowed" }} title="Exportação não disponível" aria-label="Exportar">
           <span aria-hidden="true">⤓</span>
         </button>
@@ -414,13 +427,13 @@ function Topbar({ view, scenario, setScenario, hubOn, setHubOn, hubLocked, cozed
   );
 }
 
-function Toggle({ label, on, onChange, locked }) {
+function Toggle({ label, on, onChange, locked, title }) {
   return (
     <button
       className={"toggle " + (on ? "is-on" : "") + (locked ? " is-locked" : "")}
       onClick={locked ? undefined : () => onChange(!on)}
       style={locked ? { cursor: "default", opacity: 0.9 } : undefined}
-      title={locked ? "Hub Logístico ativo nesta vista" : undefined}
+      title={locked ? "Hub Logístico ativo nesta vista" : title}
     >
       <span className="toggle-track"><span className="toggle-thumb" /></span>
       <span className="toggle-label">{label}</span>

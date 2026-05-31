@@ -1,0 +1,101 @@
+# Vendas 2025 — spreads reais acima da inflação (de macro.yaml)
+# taxa_nominal = (1 + inflação) × (1 + spread_real) − 1
+# base_2025: spread anual  |  acrescimos_mensais: delta mensal em p.p. (opcional)
+
+crescimento_volume_vendas:
+  # Volume é grandeza física — não ligado à inflação, valor directo
+  base_2025: 0.02
+  acrescimos_mensais:
+    Mai: 0.02
+
+crescimento_pvu_vendas:
+  # Spread real de preço (pricing power): 0.8% real + 2.2% inflação ≈ 3.0% nominal
+  base_2025: 0.008
+  # acrescimos_mensais: {}
+
+qtd_produto_crescimento:
+  # Crescimento de quantidade DIFERENCIAL por produto (acumula sobre o baseline do cenário).
+  # Exemplo: base_2025: 0.05 → produto cresce 5% ACIMA do crescimento global do cenário.
+  # Total = crescimento_volume_vendas[cenário] × (1 + 0.05). Valor 0.00 = sem diferencial.
+  Pratos:
+    base_2025: 0.02
+  Tigelas:
+    base_2025: 0.02
+  Canecas:
+    base_2025: 0.02
+  Pecas_Servir:
+    base_2025: 0.03
+  Forno_Cozinha:
+    base_2025: 0.03
+
+qtd_mercadorias_crescimento:
+  # Crescimento de quantidade DIFERENCIAL por mercadoria (acumula sobre baseline do cenário).
+  # Mesma lógica de qtd_produto_crescimento.
+  Cutelaria:
+    base_2025: 0.04
+  Vidros_Cristais:
+    base_2025: 0.04
+  Texteis_Acessorios:
+    base_2025: 0.04
+
+pvu_produto_crescimento:
+  # Spread real de PVU DIFERENCIAL por produto (acumula sobre baseline do cenário).
+  # Total = pvu_global[cenário] × (1 + spread_produto). 7.6% = reposicionamento de preço forte.
+  Pratos:
+    base_2025: 0.076
+  Tigelas:
+    base_2025: 0.076
+  Canecas:
+    base_2025: 0.076
+  Pecas_Servir:
+    base_2025: 0.23
+  Forno_Cozinha:
+    base_2025: 0.23
+
+pvu_mercadorias_crescimento:
+  # Spread real de PVU de mercadorias.
+  # 1% real + 2.2% inflação ≈ 3.2% nominal
+  Cutelaria:
+    base_2025: 0.01
+  Vidros_Cristais:
+    base_2025: 0.01
+  Texteis_Acessorios:
+    base_2025: 0.01
+
+# Crescimento diferenciado por mercado geográfico (grandeza física, valor directo)
+# Acumulado multiplicativamente sobre crescimento_volume_vendas (global)
+# e qtd_produto_crescimento (por produto).
+# Exemplo: UE: 0.05 → mercado UE cresce +5% adicional ao global
+crescimento_volume_por_mercado:
+  PT:  0.00
+  UE:  0.05
+  USA: 0.00
+  ROW: 0.00
+
+# Crescimento diferenciado por canal de distribuição (grandeza física, valor directo)
+# Acumulado multiplicativamente sobre crescimento_volume_vendas (global).
+# O efeito por mercado emerge automaticamente: mercados com maior peso de
+# E_Commerce beneficiam mais se E_Commerce crescer.
+crescimento_volume_por_canal:
+  Private_Label: 0.00
+  Hotelaria:     0.00
+  Retalho:       0.00
+  E_Commerce:    0.10
+
+# Ajuste diferenciado de PVU por mercado geográfico (valor directo, taxa real)
+# Acumulado multiplicativamente sobre pvu_produto_crescimento (por produto).
+# Exemplo: USA: 0.03 → pricing power adicional de 3% no mercado USA
+crescimento_pvu_por_mercado:
+  PT:  0.00
+  UE:  0.00
+  USA: 0.00
+  ROW: 0.00
+
+# Ajuste diferenciado de PVU por canal de distribuição (valor directo, taxa real)
+# Acumulado multiplicativamente. Mercados com maior peso de E_Commerce beneficiam
+# mais se E_Commerce tiver pricing power superior.
+crescimento_pvu_por_canal:
+  Private_Label: 0.00
+  Hotelaria:     0.00
+  Retalho:       0.00
+  E_Commerce:    0.00

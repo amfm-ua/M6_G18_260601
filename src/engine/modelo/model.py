@@ -27,6 +27,12 @@ try:
 except ImportError:
     HAS_KPIS = False
 
+try:
+    from . import covenants as covenants_mod
+    HAS_COVENANTS = True
+except ImportError:
+    HAS_COVENANTS = False
+
 
 def run_model(
     cenario: str = "Base",
@@ -131,6 +137,9 @@ def run_model(
             dfs["dfc"],
             a,
         )
+
+    if HAS_KPIS and HAS_COVENANTS:
+        dfs["covenants"] = covenants_mod.avaliar_covenants(dfs["kpis"], a)
 
     dfs["vendas_produto_anual"] = df_prod
     dfs["vendas_mercadoria_anual"] = df_merc

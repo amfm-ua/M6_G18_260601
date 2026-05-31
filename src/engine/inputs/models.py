@@ -525,6 +525,11 @@ class Schedules:
         return fin
 
     @property
+    def financiamento_runoff(self) -> dict:
+        """Run-off contratual 2030-2034 por instrumento e agregados."""
+        return self.raw.get("financiamento_runoff_2030_2034", {})
+
+    @property
     def eoep(self):
         return self.raw["eoep_saldos"]
 

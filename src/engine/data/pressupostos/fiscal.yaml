@@ -1,7 +1,22 @@
-# Parâmetros fiscais parametrizados para fácil actualização OE5
-# Todos os valores hardcoded em impostos.py, eoep.py, tesouraria.py
-# devem migrar para este ficheiro.
+# ⚠️ ATENÇÃO — CONFIGURAÇÃO MORTAA (NÃO CONSUMIDA PELO MOTOR)
+# ══════════════════════════════════════════════════════════════════════════════
+# Este ficheiro NÃO é consumido pelo motor de cálculo financeiro (GrestelPy).
+# A fonte de verdade dos pressupostos fiscais do engine é o bloco "impostos:"
+# em src/engine/data/pressupostos/globais.yaml.
+#
+# EDITAR ESTE FICHEIRO NÃO ALTERA AS DEMONSTRAÇÕES FINANCEIRAS PROJETADAS.
+#
+# Este ficheiro serve exclusivamente:
+#   • Mapeamento / extração de dados para a folha de cálculo OE5.
+#   • Referência documental estática (leitura apenas).
+#
+# Qualquer alteração de taxas ou parâmetros fiscais que deva afetar o motor
+# DEVE ser feita em globais.yaml (bloco "impostos:").
+# ══════════════════════════════════════════════════════════════════════════════
 
+# ── Taxas de IRC por ano ──────────────────────────────────────────────────────
+# Fonte de verdade: globais.yaml → impostos.IRC_taxa_geral_por_ano
+# Nota: 2024 usa 21% (taxa vigente); 2025+ usa 20% (OE2024 Lei 28/2023).
 irc:
   taxa_geral_por_ano:
     2024: 0.21
@@ -17,6 +32,7 @@ irc:
     2027: 0.16
     2028: 0.16
     2029: 0.16
+  # Não aplicável à Grestel (grande empresa, 734 trab. — art. 87.º n.º 2 CIRC)
   aplicar_taxa_reduzida: false
   limiar_taxa_reduzida: 50000
   limiar_pme_vn: 500000

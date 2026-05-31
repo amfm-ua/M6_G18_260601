@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir *)"
+      "Bash(mkdir *)",
+      "Bash(findstr *)",
+      "Bash(set *)",
+      "Bash(tasklist *)",
+      "Bash(wmic *)",
+      "Bash(dir *)",
+      "Bash(powershell *)",
+      "Bash(timeout *)"
     ]
   },
   "$version": 4

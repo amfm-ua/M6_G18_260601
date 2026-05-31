@@ -251,6 +251,31 @@ def test_nd_ebitda_bate_com_divida_sobre_ebitda(kpis_df):
 
 
 # ============================================================
+# 4b. GEARING
+# ============================================================
+
+def test_gearing_coluna_presente(kpis_df):
+    """Coluna gearing existe nos KPIs."""
+    assert "gearing" in kpis_df.columns, "Coluna 'gearing' em falta nos KPIs"
+
+
+def test_gearing_formula_correta(base_data, kpis_df):
+    """gearing = divida_liquida / (divida_liquida + cp) para cada ano."""
+    tolerancia = 1e-6
+    for _, row in kpis_df.iterrows():
+        dl = float(row["divida_liquida"])
+        cp_val = float(row["cp"])
+        capital_total = dl + cp_val
+        if capital_total <= 0:
+            continue
+        esperado = dl / capital_total
+        actual = float(row["gearing"])
+        assert abs(actual - esperado) < tolerancia, (
+            f"Ano {row['ano']}: gearing={actual} mas DL/(DL+CP)={esperado}"
+        )
+
+
+# ============================================================
 # 5. ALIASES DEPRECATED (existem mas espelham os oficiais)
 # ============================================================
 

@@ -1,7 +1,8 @@
 # Horizonte de 10 anos — Extensão do motor consolidado a 2034
 
-> Atualizado: 2026-05-28 · Módulo: `src/engine/demonstracoes/extensao_maturidade.py`
+> Atualizado: 2026-05-31 · Módulo: `src/engine/demonstracoes/extensao_maturidade.py`
 > Flag: `horizonte_maturidade` (opt-in) em `run_model()` / `build_statements()`
+> Continuidade: estrutura de capital constante + cash sweep (ver 3.1)
 
 ## 1. Porquê 10 anos (2025–2034)
 
@@ -57,10 +58,41 @@ em qualquer ano de extensão, seja qual for o detalhe da DR/equity.
 | Depreciação | mantida ao nível de 2029 | activo fixo em regime estável |
 | CAPEX | **= Amortizações** → AFT líquido constante | investimento só de substituição/manutenção |
 | Dívida | mantida ao nível de 2029 | manter alavancagem; juros constantes |
-| Payout de dividendos | mantido (`payout_ratio`, `reserva_legal_pct` do motor) | política de distribuição inalterada |
+| Payout de dividendos | payout dinâmico do motor **+ cash sweep residual** | estrutura de capital constante (ver 3.1) |
+| Aplicações financeiras CP | **fixas no nível de 2029** (`aplic_target`) | não acumular excedente ocioso |
 | IRC | taxa **efectiva de 2029** aplicada ao RAI | SIFIDE/RFAI já consumidos até 2029 (carry-forward esgotado, `sifide_carryforward[2029]=0`) |
 
 O parâmetro `g` é configurável (`g_maturidade` em `build_statements`; default 2 %).
+
+### 3.1 Cash sweep — política de dividendo residual na continuidade
+
+**Problema (retenção total).** Com dívida fixa e retenção integral do resultado, o
+excedente de tesouraria acumulava-se ano após ano em **aplicações financeiras CP**
+(€4,8 M em 2029 → €21,6 M em 2034 no cenário Base). A base de capital próprio
+inflava com activos financeiros de baixo rendimento e o **ROE diluía-se
+artificialmente** (21,4 % → 15,2 %), tal como a liquidez geral (1,95× → 2,84×). Não
+é uma deterioração operacional — é um artefacto do pressuposto de reinvestimento.
+
+**Tratamento adoptado — constant leverage + cash sweep.** Mantém-se a dívida no
+nível de 2029 (alavancagem fixa → **WACC estável**, requisito de um valor terminal
+de Gordon) e **distribui-se o FCFE que de outro modo ficaria ocioso** como dividendo
+residual, fixando as aplicações financeiras no nível de 2029. É a hipótese implícita
+de uma perpetuidade: a empresa devolve aos accionistas o que não consegue
+reinvestir produtivamente.
+
+**Resultado.** ROE e liquidez geral mantêm-se ao nível de 2029 (ROE 21,4 % → 23,3 %;
+liquidez ≈ 1,95×), reflectindo a rentabilidade operacional e não a acumulação de
+caixa. O valor terminal consolidado quase não se altera (o caixa ocioso tinha VAL
+≈ nulo); o que melhora é a **coerência dos rácios** e a defensabilidade.
+
+**Implementação (fechada, sem iteração).** Como o `surplus` do *treasury plug* é
+linear no dividendo (−€1 por €1) e a dotação da reserva legal se anula no capital
+próprio, o sweep resolve-se em forma fechada:
+`div_sweep = max(0, surplus0 − div_base − caixa_max − aplic_target)`. A reconciliação
+DFC↔Balanço e o `controlo ≈ 0` mantêm-se por construção.
+
+**Desligável.** `distribuicao.terminal_cash_sweep: false` recupera o comportamento
+antigo (retenção total) — usado para análise de sensibilidade e regressão.
 
 ## 4. Going concern vs. liquidação do projeto — NOTA PARA A DOCENTE
 

@@ -42,7 +42,8 @@ def build_dr(
       8. Calcula clientes: saldos a receber (para imparidades)
       9. Calcula outros rendimentos: equivalência patrimonial, cedência pessoal, subsídios
      10. Calcula outros gastos: gastos não operacionais
-     11. Calcula impostos (IRC): taxa progressiva + derramas
+     11. Calcula impostos (IRC): MEP (anulado) → deduções base (ICE, maj.energia)
+          → coleta (IRC+derramas) → deduções coleta (SIFIDE, RFAI) → trib.autónoma
 
     SAÍDA:
       DataFrame com 40+ colunas:
@@ -120,6 +121,8 @@ def build_dr(
     # Juros e encargos de dívida: capital emprestado ao banco × taxa de juro
     # Decresce com amortizações do empréstimo
     df_fin = financiamento.financiamento_anual(sched, a)
+    df_selo = financiamento.imposto_selo_anual(df_fin, a)
+    selo_por_ano: dict[int, float] = dict(zip(df_selo["ano"].astype(int), df_selo["selo_total"]))
 
     # ===== ETAPA 6: CÁLCULO DE CMVMC =====
     # CMVMC: Custo de Mercadorias Vendidas e Matérias-Primas Consumidas
@@ -236,6 +239,8 @@ def build_dr(
             "depreciacoes": -r24["depreciacoes"],
             "ebit": r24["ebit"],
             "juros": -r24["juros"],
+            # 2024: selo já embebido nos gastos financeiros auditados (R&C); coluna informativa
+            "imposto_selo": selo_por_ano.get(2024, 0.0),
             "rend_financeiros": r24["rend_financeiros"],
             "rai": r24["rai"],
             "irc": -r24["irc"],
@@ -268,7 +273,8 @@ def build_dr(
         d = float(df_inv[df_inv.ano == y]["total_dep_amort"].iloc[0])
         j = float(df_fin[df_fin.ano == y]["juros_total"].iloc[0])
         j_linha = juros_linha_cp.get(y, 0.0) if juros_linha_cp else 0.0
-        j = j + j_linha
+        j_selo = selo_por_ano.get(y, 0.0)
+        j = j + j_linha + j_selo
 
         inv_ef = float(df_inv_st[df_inv_st.ano == y]["inventarios"].iloc[0])
         inv_ei = float(df_inv_st[df_inv_st.ano == y - 1]["inventarios"].iloc[0])
@@ -363,6 +369,7 @@ def build_dr(
                 "ebit": ebit,
                 "juros": -j,
                 "juros_linha_cp": -j_linha,
+                "imposto_selo": j_selo,
                 "rend_financeiros": rend_fin,
                 "rai": rai,
                 "hub_pessoal_reducao": hub_pessoal_red,
@@ -384,7 +391,17 @@ def build_dr(
             }
         )
 
-    irc, sifide_cf = _irc(rai_dict, a, base, hub_rfai_map=hub_rfai_map)
+    # Mapa MEP (Equivalência Patrimonial) — Achado A: anulado da base tributável.
+    # Fonte canónica: sched.investimento["rend_equiv_patrimonial"].
+    # Esta mesma série é a que entra no RAI via outros_rendimentos;
+    # usar fonte idêntica garante reconciliação RAI ↔ dedução.
+    mep_map = sched.investimento["rend_equiv_patrimonial"]
+
+    irc, sifide_cf = _irc(
+        rai_dict, a, base,
+        mep_map=mep_map,
+        hub_rfai_map=hub_rfai_map,
+    )
 
     for r in rows:
         ano = r["ano"]

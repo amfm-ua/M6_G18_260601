@@ -62,7 +62,14 @@ impostos:
   Tributacao_Autonoma_valor_2024: 22302.04
   Tributacao_Autonoma_crescimento: 0.03
 
-  Majoracao_Energia_pct: 0.2
+  Majoracao_Energia_pct: 0.2           # display/UI apenas — taxa; cálculo IRC usa Majoracao_Energia_aplicar_projecao
+  # ── Majoração energia 20% (Achado C / art. 92.º EBF) ────────────────────────
+  # Medida EXTRAORDINÁRIA (apoio custos energéticos). Vigência 2025+ incerta.
+  # Default DESLIGADO: o motor usa a taxa efetiva real calculada (SIFIDE+ICE+MEP).
+  # Parametrizada por VALOR (não energia×20%, que daria ~268k ≠ 117.283€ auditados).
+  Majoracao_Energia_aplicar_projecao: false
+  Majoracao_Energia_valor_2024: 117283.0
+  Majoracao_Energia_crescimento: 0.03
 
 caixa:
   # Limites expressos como % do VN anual projetado (teoria keynesiana do motivo transação:

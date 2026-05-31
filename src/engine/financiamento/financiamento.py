@@ -138,6 +138,20 @@ def financiamento_anual(
     """Tabela anual de financiamento: juros, capital em dívida e amortizações."""
     fin = sched.financiamento
 
+    # Toggle: run-off contratual 2030-2034 (default OFF = dívida constante)
+    runoff_on = bool(
+        (a.raw.get("financiamento") or {}).get("terminal_debt_runoff", False)
+    ) if a is not None else False
+    runoff_data = sched.financiamento_runoff if runoff_on else {}
+
+    # Choque de taxa variável (Euribor): ajuste em pontos base sobre o saldo de dívida variável
+    risco = (a.raw.get("risco_taxa") or {}) if a is not None else {}
+    euribor_choque_bps = float(risco.get("euribor_choque_bps", 0))
+    aplica_variavel = bool(risco.get("aplica_a_taxa_variavel", True))
+    pct_variavel = float(risco.get("pct_divida_variavel", 1.0))
+    # Incremento de juros por euro de dívida variável (ex: 200bps = 0.02)
+    choque_rate = (euribor_choque_bps / 10_000.0) if aplica_variavel else 0.0
+
     # Fallback antigo apenas se schedules.yaml não tiver juros_total[2024].
     juros_dr_2024_fallback = 528_161.02
 
@@ -146,40 +160,23 @@ def financiamento_anual(
     rows = []
 
     for y in ALL_YEARS:
-        juros = _get_fin_value(
-            fin,
+        # Run-off override para anos 2030+ quando toggle está ativo
+        use_runoff = runoff_on and y >= 2030 and runoff_data
+
+        def _get(section: str, default: float = 0.0) -> float:
+            if use_runoff and section in runoff_data and isinstance(runoff_data[section], dict):
+                return float(runoff_data[section].get(y, default))
+            return _get_fin_value(fin, section, y, default=default)
+
+        juros = _get(
             "juros_total",
-            y,
             default=juros_dr_2024_fallback if y == 2024 else 0.0,
         )
 
-        cap_fim = _get_fin_value(
-            fin,
-            "capital_divida_total_fim_ano",
-            y,
-            default=0.0,
-        )
-
-        amort = _get_fin_value(
-            fin,
-            "amortizacoes_capital",
-            y,
-            default=0.0,
-        )
-
-        emp_nc = _get_fin_value(
-            fin,
-            "emprestimos_NC",
-            y,
-            default=0.0,
-        )
-
-        emp_c = _get_fin_value(
-            fin,
-            "emprestimos_C",
-            y,
-            default=0.0,
-        )
+        cap_fim = _get("capital_divida_total_fim_ano")
+        amort = _get("amortizacoes_capital")
+        emp_nc = _get("emprestimos_NC")
+        emp_c = _get("emprestimos_C")
 
         hub_juros = 0.0
         hub_cap_fim = 0.0
@@ -205,12 +202,16 @@ def financiamento_anual(
             hub_cap_fim = hub_saldo
             hub_incluido = True
 
+        # Choque Euribor aplicado sobre o total de capital em dívida (base + Hub)
+        juros_choque = cap_fim * pct_variavel * choque_rate
+
         rows.append(
             {
                 "ano": y,
-                "juros_total": juros + hub_juros,
+                "juros_total": juros + hub_juros + juros_choque,
                 "juros_base": juros,
                 "juros_hub": hub_juros,
+                "juros_choque_euribor": juros_choque,
                 "capital_divida_total_fim": cap_fim,
                 "amortizacoes_capital": amort,
                 "emprestimos_NC": emp_nc,
@@ -219,5 +220,44 @@ def financiamento_anual(
                 "hub_incluido": hub_incluido,
             }
         )
+
+    return pd.DataFrame(rows)
+
+
+def imposto_selo_anual(df_fin: pd.DataFrame, a: Assumptions | None = None) -> pd.DataFrame:
+    """Imposto do Selo sobre financiamento por ano.
+
+    Verba 17.3.1: 4% sobre juros pagos (CONFIRMADO R&C 2024).
+    Verba 17.1: sobre utilização de crédito (estimativa, toggle separado).
+
+    Args:
+        df_fin: output de financiamento_anual() com coluna 'juros_total'.
+        a: Assumptions — lê bloco 'imposto_selo' de globais.yaml.
+
+    Returns:
+        DataFrame com colunas: ano, selo_juros, selo_credito, selo_total.
+    """
+    cfg = (a.raw.get("imposto_selo") or {}) if a is not None else {}
+    taxa_juros = float(cfg.get("taxa_juros", 0.04))
+    aplicar_juros = bool(cfg.get("aplicar_juros", True))
+    aplicar_utilizacao = bool(cfg.get("aplicar_utilizacao", False))
+    taxa_longo = float(cfg.get("taxa_utilizacao_credito_longo", 0.006))
+
+    rows = []
+    for _, r in df_fin.iterrows():
+        juros = abs(float(r.get("juros_total", 0.0)))
+        cap_fim = abs(float(r.get("capital_divida_total_fim", 0.0)))
+
+        selo_juros = taxa_juros * juros if aplicar_juros else 0.0
+
+        # Verba 17.1: estimativa sobre saldo de dívida de longo prazo
+        selo_credito = taxa_longo * cap_fim if aplicar_utilizacao else 0.0
+
+        rows.append({
+            "ano": int(r["ano"]),
+            "selo_juros": selo_juros,
+            "selo_credito": selo_credito,
+            "selo_total": selo_juros + selo_credito,
+        })
 
     return pd.DataFrame(rows)

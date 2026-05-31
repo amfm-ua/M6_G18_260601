@@ -97,7 +97,8 @@ GrestelPy_G18/
         │   │   └── mercadorias.yaml      ← sales_mix, pvu_base, sazonalidade 2024
         │   ├── pressupostos/
         │   │   ├── globais.yaml          ← Prazos (PMR 45d / PMP 55d 2025+), caixa, ESG
-        │   │   ├── fiscal.yaml           ← Taxas IRC / IVA / SS / TSU
+        │   │   ├── fiscal.yaml           ← ⚠️ Ref. documental OE5 — NÃO consumido pelo motor
+        │   │   │                     (fonte: globais.yaml → impostos:)
         │   │   ├── sazonalidade.yaml     ← Perfis mensais por mercado
         │   │   ├── investimento.yaml     ← CAPEX BAU Grestel, taxas de depreciação
         │   │   ├── 2025/                 ← macro · vendas · custos · mix
@@ -142,7 +143,7 @@ GrestelPy_G18/
         │   ├── nfm.py                    ← NFM anual
         │   ├── dr/
         │   │   ├── build.py              ← build_dr (anual 2024-2029)
-        │   │   ├── impostos.py           ← _irc(): ICE → coleta → SIFIDE → RFAI → Trib.Aut.
+        │   │   ├── impostos.py           ← _irc(): MEP→ ICE→ coleta→ SIFIDE→ RFAI→ Trib.Aut. (OE6)
         │   │   ├── loaders.py
         │   │   └── rubricas.py
         │   └── rolling_forecast_mensal/  ← Balanço+DFC+NFM mensais integrados

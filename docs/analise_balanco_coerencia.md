@@ -95,6 +95,25 @@ Ver `docs/aplicacoes_financeiras_cp.md` para análise completa do impacto.
 ### Interpretação
 Com a C4, o excedente de tesouraria é reconhecido como activo financeiro de curto prazo e gera rendimentos explícitos na DR — congruente com a política de gestão de liquidez enunciada no R&C da Grestel.
 
+### Actualização C5 (2026-05-31) — cash sweep na continuidade (2030–2034)
+
+A política C4 é adequada para a janela detalhada (2024–2029). No período de
+**continuidade/maturidade (2030–2034)**, porém, a retenção integral fazia o saldo de
+aplicações financeiras CP crescer indefinidamente (€4,8 M → €21,6 M em 2034 no Base),
+inflando o capital próprio e **diluindo artificialmente o ROE** (21,4 % → 15,2 %) e a
+liquidez geral (1,95× → 2,84×).
+
+Implementou-se um **cash sweep** (`distribuicao.terminal_cash_sweep`, default `true`)
+em `extensao_maturidade.py`: mantém-se a dívida no nível de 2029 (alavancagem
+constante → WACC estável) e distribui-se como dividendo residual o FCFE que de outro
+modo ficaria ocioso, **fixando as aplicações financeiras no nível de 2029**. Resultado:
+ROE 21,4 % → 23,3 % e liquidez ≈ 1,95× estáveis, coerentes com um valor terminal de
+perpetuidade (Gordon). Reconciliação DFC↔Balanço e `controlo ≈ 0` preservados; suite
+de 120 testes verde. Ver [horizonte_10anos_extensao_motor.md §3.1](horizonte_10anos_extensao_motor.md).
+
+> Nota: esta correcção aplica-se **apenas a 2030–2034**. A acumulação de caixa em
+> 2024–2029 (C4) mantém-se como gestão de liquidez deliberada da janela detalhada.
+
 ---
 
 ## 4. Outros Passivos Correntes Elevados — Composição Operacional Esperada

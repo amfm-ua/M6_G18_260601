@@ -213,6 +213,10 @@ def build_kpis(
         divida_financeira = emprestimos_nc + emprestimos_c
         divida_liquida = divida_financeira - caixa
 
+        # gearing < 0 significa posição de caixa líquida (caixa > dívida financeira)
+        capital_total = divida_liquida + cp
+        gearing = divida_liquida / capital_total if capital_total > 0 else 0.0
+
         nd_ebitda = divida_liquida / ebitda if ebitda else 0.0
         debt_ebitda = nd_ebitda
 
@@ -298,6 +302,7 @@ def build_kpis(
                 "emprestimos_c": emprestimos_c,
                 "caixa": caixa,
                 "divida_liquida": divida_liquida,
+                "gearing": gearing,
                 "total_ativo": ativo,
                 "cp": cp,
                 "roa": roa,

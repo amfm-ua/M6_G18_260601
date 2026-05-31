@@ -263,7 +263,7 @@ GET /api/config/fse-rubricas  → rubricas FSE e chaves YAML
 | Ficheiro | Conteúdo | Editável |
 |---|---|---|
 | `pressupostos/globais.yaml` | Prazos (PMR 45d / **PMP 55d** 2025+), caixa mín/máx, ESG. PMP histórico 2024: 63d (saldo auditado); 55d = objetivo renegociação fornecedores (Diretiva 2011/7/UE). | ✓ |
-| `pressupostos/fiscal.yaml` | Taxas IRC / IVA / SS / TSU | ✓ |
+| `pressupostos/fiscal.yaml` | ⚠️ Ref. documental OE5 — NÃO consumido pelo motor. Fontes: globais.yaml (impostos: para o engine) e base.yaml (dr_2024_real para histórico) | ✗ |
 | `pressupostos/sazonalidade.yaml` | Perfis mensais por mercado | ✓ |
 | `pressupostos/2025/macro.yaml` | Inflação mensal e EUR/USD mensal 2025 | ✓ |
 | `pressupostos/2025/vendas.yaml` | Crescimento volume e PVU por produto 2025 | ✓ |

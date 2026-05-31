@@ -184,6 +184,48 @@ financiamento:
     2027: 0
     2028: 0
     2029: 0
+financiamento_runoff_2030_2034:
+  # Run-off contratual do BPI (único instrumento com saldo em 2029).
+  # Taxa implícita BPI: ~2.95% (derivada do histórico 2028-2029).
+  # Outros instrumentos (Santander, CGD, Abanca, IAPMEI, Locacoes): já liquidados em 2029.
+  # O Hub (se ativo) amortiza separadamente via hub_financing().
+  # Ativado por globais.yaml → financiamento.terminal_debt_runoff: true
+  capital_divida_total_fim_ano:
+    2030: 2375000.24
+    2031: 1037500.28
+    2032: 0.0
+    2033: 0.0
+    2034: 0.0
+  amortizacoes_capital:
+    2030: 1337499.96
+    2031: 1337499.96
+    2032: 1037500.28
+    2033: 0.0
+    2034: 0.0
+  emprestimos_NC:
+    2030: 1037500.28
+    2031: 0.0
+    2032: 0.0
+    2033: 0.0
+    2034: 0.0
+  emprestimos_C:
+    2030: 1337499.96
+    2031: 1037500.28
+    2032: 0.0
+    2033: 0.0
+    2034: 0.0
+  juros_total:
+    2030: 109504.05
+    2031: 70053.10
+    2032: 30602.15
+    2033: 0.0
+    2034: 0.0
+  BPI_capital_fim_ano:
+    2030: 2375000.24
+    2031: 1037500.28
+    2032: 0.0
+    2033: 0.0
+    2034: 0.0
 plurianual_factors_AB:
   AB66: PROJEÇÃO PLURIANUAL (2026-2029)
   AB67: 0.05

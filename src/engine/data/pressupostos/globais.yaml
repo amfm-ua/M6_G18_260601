@@ -62,7 +62,14 @@ impostos:
   Tributacao_Autonoma_valor_2024: 22302.04
   Tributacao_Autonoma_crescimento: 0.03
 
-  Majoracao_Energia_pct: 0.2
+  Majoracao_Energia_pct: 0.2           # display/UI apenas — taxa; cálculo IRC usa Majoracao_Energia_aplicar_projecao
+  # ── Majoração energia 20% (Achado C / art. 92.º EBF) ────────────────────────
+  # Medida EXTRAORDINÁRIA (apoio custos energéticos). Vigência 2025+ incerta.
+  # Default DESLIGADO: o motor usa a taxa efetiva real calculada (SIFIDE+ICE+MEP).
+  # Parametrizada por VALOR (não energia×20%, que daria ~268k ≠ 117.283€ auditados).
+  Majoracao_Energia_aplicar_projecao: false
+  Majoracao_Energia_valor_2024: 117283.0
+  Majoracao_Energia_crescimento: 0.03
 
 caixa:
   # Limites expressos como % do VN anual projetado (teoria keynesiana do motivo transação:
@@ -96,6 +103,7 @@ distribuicao_resultados:
   payout_ratio: 0.20
   ano_inicio_distribuicao: 2026  # RL_2024 totalmente retido (sem dividendo em 2025 — capital afeto ao investimento hub)
   reserva_legal_pct: 0.05
+  terminal_cash_sweep: true      # continuidade 2030-2034: distribui excedente ocioso como dividendo residual (estrutura de capital constante); false = retenção total
 
 # ── Política Dinâmica de Dividendos ──────────────────────────────────────────
 # Payout dinámico: ajusta-se ao estado financeiro para manter o equilíbrio
@@ -151,7 +159,7 @@ rendimentos_financeiros_crescimento: 0.025
 # Nota: 2025 é tratado como exercício completo de 12 meses para efeitos dos mapas financeiros.
 
 prazos:
-  PMR_dias: 45
+  PMR_dias: 90
   # PMP 2024 histórico: 63 dias (saldo auditado R&C 2024; usado via base.balanco diretamente).
   # Objetivo estratégico 2025+: renegociar PMP com fornecedores para ≤55 dias,
   # cumprindo a Diretiva 2011/7/UE (B2B ≤60 dias) com 5 dias de margem.
@@ -318,6 +326,48 @@ cambio_usd:
   pct_vn_usd: 0.21
 
 triggers: {}
+
+# ── Imposto do Selo sobre Financiamento ──────────────────────────────────────
+# Verba 17.3.1 CIRS: selo sobre juros de financiamento (gasto do período).
+# Ancoragem R&C 2024: 1.719,14 € / 42.978,56 € = 4,00%.
+# Verba 17.1 CIRS: selo sobre utilização de crédito (por prazo).
+# NÃO consta dos R&C → estimativa, toggle separado.
+imposto_selo:
+  taxa_juros: 0.04                      # Verba 17.3.1 — CONFIRMADO R&C 2024
+  aplicar_juros: true                   # toggle principal
+  # Utilização de crédito (Verba 17.1): estimativa (não auditado nos R&C)
+  taxa_utilizacao_credito_longo: 0.006  # ≥5 anos (padrão legal)
+  taxa_utilizacao_credito_curto: 0.0004 # 0,04%/mês (linha rotativa CP)
+  aplicar_utilizacao: false             # default OFF — não suportado por R&C
+
+# ── Política Financeira: Covenants e Gearing ─────────────────────────────────
+covenants:
+  # --- Covenants bancários contratuais (R&C 2024) → entram em covenants_todos_ok ---
+  nd_ebitda_max: 3.5                  # ND/EBITDA ≤ 3,5× desde 2023
+  autonomia_financeira_min: 0.30      # Autonomia Financeira Ajustada ≥ 30%, desde 2024
+  # --- Política / estratégia de gestão → flags, NÃO breach contratual ---
+  gearing_min: 0.40                   # piso estratégico (desalavancagem excessiva se abaixo)
+  gearing_max: 0.65                   # teto estratégico
+  autonomia_financeira_meta: 0.35     # buffer interno de gestão (soft, não contratual)
+  # --- Métricas informativas (calcular, NÃO vinculativas) ---
+  dscr_min: null                      # Grestel não tem DSCR contratual
+  cobertura_juros_min: 2.0            # referência analítica
+
+# ── Risco de Taxa de Juro (Euribor) ──────────────────────────────────────────
+risco_taxa:
+  euribor_choque_bps: 0             # choque em pontos base (ex: 200 = +2pp)
+  aplica_a_taxa_variavel: true      # se false, sem efeito mesmo com choque != 0
+  pct_divida_variavel: 1.0          # fracção da dívida base exposta a taxa variável
+  # Nota: sizing dinâmico ao gearing-alvo requer solver iterativo — trabalho futuro.
+  # Usar covenants.headroom_divida() para estimar o headroom face ao teto estratégico.
+
+# ── Parâmetros de Financiamento ──────────────────────────────────────────────
+financiamento:
+  # Run-off contratual 2030-2034 (default OFF: dívida constante = constant leverage).
+  # Com OFF: maturidade usa dívida de 2029 → WACC estável → Gordon limpo.
+  # Com ON: BPI amortiza até 2032 → desalavancagem progressiva → ver impacto no gearing.
+  # ⚠ Combinar com terminal_cash_sweep pode empurrar gearing abaixo de 40%.
+  terminal_debt_runoff: false
 
 # ── Novo Financiamento Core ───────────────────────────────────────────────────
 # Encaixe de novo empréstimo bancário (fora do hub) com mês e montante editáveis.

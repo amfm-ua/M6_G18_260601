@@ -25,7 +25,12 @@ estado estacionário a partir da última linha detalhada (2029):
   • CAPEX = Amortizações → activo fixo líquido (AFT) constante; depreciação
     mantida ao nível de 2029.
   • Dívida mantida ao nível de 2029 (manter alavancagem) → juros constantes.
-  • Payout mantido (mesmo `payout_ratio` e `reserva_legal_pct` do motor).
+  • Payout dinâmico do motor ACRESCIDO de um cash sweep residual: o excedente que
+    de outro modo se acumularia em aplicações financeiras CP é distribuído como
+    dividendo, fixando essas aplicações no nível de 2029. Garante estrutura de
+    capital constante (WACC estável) e ROE economicamente significativo, coerente
+    com um valor terminal de perpetuidade (Gordon). Desligável via
+    `distribuicao.terminal_cash_sweep: false`.
   • IRC à taxa efectiva de 2029 (SIFIDE/RFAI já consumidos até 2029).
 
 GARANTIA DE FECHO DO BALANÇO
@@ -53,6 +58,7 @@ import pandas as pd
 from ..inputs import Assumptions, Base2024, Schedules
 from ..operacional.clientes import iva_efetivo_vendas
 from .dfc import dynamic_payout
+from ..financiamento.financiamento import financiamento_anual as _financiamento_anual
 
 # Inflação anual usada no estado estacionário (parametrizável).
 G_MATURIDADE_DEFAULT = 0.02
@@ -63,6 +69,7 @@ _DR_HOLD = {
     "juros",             # dívida constante (manter alavancagem)
     "imparidades",       # provisão estável → IDA constante (coerência DFC)
     "juros_linha_cp",
+    "imposto_selo",      # proporcional aos juros → constante com dívida constante
     "sifide_carryforward",
     "hub_gastos_preop",
 }
@@ -134,6 +141,14 @@ def estender_maturidade(
     caixa_max_pct = float(a.caixa.get("maxima_pct_vn", 0.086))
     pol_payout = a.raw.get("payout_policy", {})
 
+    # Cash sweep no período de continuidade (valor terminal de perpetuidade):
+    # o excedente que de outro modo ficaria ocioso em aplicações financeiras é
+    # distribuído como dividendo residual, mantendo a estrutura de capital constante
+    # (dívida ao nível de 2029) e o ROE economicamente significativo. Ligado por
+    # defeito; pode ser desligado em assumptions para recuperar o comportamento
+    # antigo (retenção total). Ver docs/horizonte_10anos_extensao_motor.md.
+    terminal_cash_sweep = bool(a.distribuicao.get("terminal_cash_sweep", True))
+
     iva_vendas = iva_efetivo_vendas(a)
     iva_cmvmc = float(a.impostos.get("IVA_CMVMC", 0.23))
     iva_fse = float(a.impostos.get("IVA_FSE", 0.15))
@@ -151,9 +166,19 @@ def estender_maturidade(
     rl_prev = float(dr_b["rl"])
     aplic_prev = float(bal_b["aplicacoes_fin_cp"])
 
+    # Âncora do cash sweep: nível de aplicações financeiras CP de 2029, mantido
+    # constante na continuidade (não acumula novo excedente ocioso).
+    aplic_target = float(bal_b["aplicacoes_fin_cp"])
+
     # Teto da reserva legal (CSC art. 295.º): a dotação cessa aos 20% do capital
     # social — mesma regra de balanco.py, aplicada ao saldo acumulado.
     teto_reserva_legal = 0.20 * float(bal_b["capital_social"])
+
+    # Run-off contratual 2030-2034 (toggle: financiamento.terminal_debt_runoff).
+    runoff_on = bool((a.raw.get("financiamento") or {}).get("terminal_debt_runoff", False))
+    if runoff_on:
+        df_fin_ext = _financiamento_anual(sched, a)
+        df_fin_ext = df_fin_ext.set_index("ano")
 
     for y in anos_ext:
         scale = (1.0 + g) ** (y - ano_base_ext)
@@ -182,6 +207,21 @@ def estender_maturidade(
             else:
                 dr_row[col] = val * scale
 
+        # Run-off: atualizar juros e imposto_selo para o ano y
+        if runoff_on and y in df_fin_ext.index:
+            fin_y = df_fin_ext.loc[y]
+            # juros = -(juros_base_runoff + imposto_selo). O imposto_selo já está
+            # computado por imposto_selo_anual dentro de financiamento_anual.
+            # Aqui usamos juros_total que inclui o selo (via build_dr).
+            # Para DR: juros negativo; runoff reduz a base → menos juros.
+            j_runoff = float(fin_y["juros_total"])
+            # Recompor o selo sobre os novos juros
+            taxa_selo = float((a.raw.get("imposto_selo") or {}).get("taxa_juros", 0.04))
+            aplicar_selo = bool((a.raw.get("imposto_selo") or {}).get("aplicar_juros", True))
+            j_selo_runoff = taxa_selo * j_runoff if aplicar_selo else 0.0
+            dr_row["juros"] = -(j_runoff + j_selo_runoff)
+            dr_row["imposto_selo"] = j_selo_runoff
+
         ebitda = sum(dr_row[c] for c in _DR_EBITDA_COMPONENTES)
         ebit = ebitda + dr_row["depreciacoes"]          # depreciacoes negativa
         rai = ebit + dr_row["juros"] + dr_row["rend_financeiros"]  # juros negativa
@@ -195,41 +235,23 @@ def estender_maturidade(
         dr_rows.append(dr_row)
 
         # ---------- Balanço ----------
-        # Equity rollforward (igual a balanco.py): a reserva legal (res) sai dos
-        # resultados transitados e é creditada em reservas_legais (transferência
-        # interna ao capital próprio, CSC art. 295.º) — sem isto a DFC não reconcilia.
-        if rl > 0 and y >= inicio_div:
-            div = rl_prev * payout_y
-            res = rl_prev * reserva_legal
-            res = max(0.0, min(res, teto_reserva_legal - reservas_leg_prev))
-        else:
-            div = res = 0.0
-        rt_y = rt_prev + rl_prev - div - res
-        reservas_leg_y = reservas_leg_prev + res
-
+        # Linhas mantidas/escaladas (independentes da política de dividendos).
         bal_row: dict = {"ano": float(y)}
         for col in _BAL_HOLD_ANC | _BAL_HOLD_PASSIVO | _BAL_EQUITY_CONST:
             bal_row[col] = float(bal_b[col])
         for col in _BAL_GROW:
             bal_row[col] = float(bal_b[col]) * scale
-        bal_row["reservas_legais"] = reservas_leg_y
-        bal_row["resultados_transitados"] = rt_y
-        bal_row["rl"] = rl
+
+        # Run-off: substituir emprestimos_nc/c pelos saldos reais de run-off
+        if runoff_on and y in df_fin_ext.index:
+            fin_y = df_fin_ext.loc[y]
+            bal_row["emprestimos_nc"] = float(fin_y["emprestimos_NC"])
+            bal_row["emprestimos_c"] = float(fin_y["emprestimos_C"])
 
         total_anc = (
             bal_row["aft_liquido"]
             + bal_row["goodwill_intang_subs_af"]
             + bal_row["impostos_dif_ativos"]
-        )
-        cp_total_pre_caixa = (
-            bal_row["capital_social"]
-            + bal_row["premios_emissao"]
-            + bal_row["outros_ic_proprio"]
-            + bal_row["reservas_legais"]
-            + bal_row["ajust_af"]
-            + rt_y
-            + bal_row["outras_var_cp"]
-            + rl
         )
         passivo_pre = (
             bal_row["emprestimos_nc"]
@@ -248,10 +270,60 @@ def estender_maturidade(
             + bal_row["hub_nfm"]
         )
 
-        surplus = cp_total_pre_caixa + passivo_pre - total_anc - ac_sem_caixa
+        # Capital próprio pré-caixa = parte fixa (independente do dividendo) + reservas
+        # legais + resultados transitados. A reserva legal (res) é uma transferência
+        # interna RT→reservas (CSC art. 295.º): anula-se em cp_total, logo NÃO afecta o
+        # surplus. Apenas o dividendo (div) reduz o surplus, €1 a €1. Daí:
+        #   surplus(div) = surplus0 − div   (surplus0 = surplus com dividendo nulo)
+        const_equity = (
+            bal_row["capital_social"]
+            + bal_row["premios_emissao"]
+            + bal_row["outros_ic_proprio"]
+            + bal_row["ajust_af"]
+            + bal_row["outras_var_cp"]
+            + rl
+        )
+        surplus0 = (
+            const_equity + reservas_leg_prev + rt_prev + rl_prev
+            + passivo_pre - total_anc - ac_sem_caixa
+        )
+
         vn_y = dr_row["vn"]
         caixa_min = vn_y * caixa_min_pct
         caixa_max = vn_y * caixa_max_pct
+
+        # ── Dividendo: payout dinâmico + cash sweep do excedente de tesouraria ──
+        # Valor terminal de perpetuidade (Gordon) com estrutura de capital constante.
+        # A reserva legal (res) sai dos resultados transitados e é creditada em
+        # reservas_legais (transferência interna, CSC art. 295.º) — necessária para a
+        # DFC reconciliar. O dividendo é o payout dinâmico ACRESCIDO de um sweep
+        # residual: distribui-se o excedente que de outro modo ficaria ocioso em
+        # aplicações financeiras, fixando-as no nível de 2029 (aplic_target). Isto
+        # mantém a alavancagem (dívida ao nível de 2029) e impede a diluição artificial
+        # do ROE por acumulação de activos financeiros de baixo rendimento.
+        if rl > 0 and y >= inicio_div:
+            res = rl_prev * reserva_legal
+            res = max(0.0, min(res, teto_reserva_legal - reservas_leg_prev))
+            div_base = rl_prev * payout_y
+            div_sweep = (
+                max(0.0, surplus0 - div_base - caixa_max - aplic_target)
+                if terminal_cash_sweep
+                else 0.0
+            )
+            div = div_base + div_sweep
+        else:
+            div = res = 0.0
+
+        rt_y = rt_prev + rl_prev - div - res
+        reservas_leg_y = reservas_leg_prev + res
+        bal_row["reservas_legais"] = reservas_leg_y
+        bal_row["resultados_transitados"] = rt_y
+        bal_row["rl"] = rl
+
+        cp_total_pre_caixa = const_equity + reservas_leg_y + rt_y
+        # surplus0 − div, por construção igual a
+        #   cp_total_pre_caixa + passivo_pre − total_anc − ac_sem_caixa.
+        surplus = surplus0 - div
         caixa = min(caixa_max, max(caixa_min, surplus))
         aplic_cp = max(0.0, surplus - caixa_max)
         linha_cp = max(0.0, caixa_min - surplus)
@@ -315,8 +387,12 @@ def estender_maturidade(
         d_aplic_cp = float(bal_prev["aplicacoes_fin_cp"]) - bal_row["aplicacoes_fin_cp"]
         fluxo_inv = -inv_aft - inv_int + div_recebidos + rend_fin + d_aplic_cp
 
-        # Dívida constante → amortizações/novos empréstimos nulos.
-        amort_total = 0.0
+        # Run-off: amortizações reais de run-off; caso contrário dívida constante.
+        if runoff_on and y in df_fin_ext.index:
+            fin_y = df_fin_ext.loc[y]
+            amort_total = float(fin_y["amortizacoes_capital"])
+        else:
+            amort_total = 0.0
         d_emp_total = (
             bal_row["emprestimos_nc"] + bal_row["emprestimos_c"]
             - float(bal_prev["emprestimos_nc"]) - float(bal_prev["emprestimos_c"])
